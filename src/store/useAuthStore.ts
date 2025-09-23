@@ -17,7 +17,7 @@ interface Role {
 }
 
 
-interface User {
+export interface User {
   fullName?: string;
   username: string;
   email?: string;
@@ -30,7 +30,7 @@ interface AuthState {
   token: string | null;
   isChecking: boolean;
   isAuthenticated: boolean;
-  login: (username: string, password: string) => Promise<void>;
+  login: (username: string, password: string, typeLogin: 'password' | 'ldap') => Promise<void>;
   logout: () => void;
   checkAuth: () => Promise<boolean>;
   // internal lock (not exposed)
@@ -44,15 +44,20 @@ export const useAuthStore = create<AuthState>((set, get) => ({
   isAuthenticated: false,
   _checkLock: false,
 
-  login: async (username, password) => {
-    const res = await api.post('/auth/login', { username, password },
-      {
-        headers: {
-          'Content-Type': 'application/json',
+  login: async (username, password, typeLogin) => {
+
+    const url = typeLogin === 'ldap' ? '/auth/ldap-login' : '/auth/login';
+
+    const res = await api.post(url, { username, password },
+    {
+      headers: {
+        'Content-Type': 'application/json',
         },
       }
-    ) as { data: LoginResponse };
+    ) as { data: LoginResponse };   
+   
 
+   
     const token = res.data.token;
     console.debug('[auth] login response:', res.data);
     api.defaults.headers.common['Authorization'] = `Bearer ${token}`;

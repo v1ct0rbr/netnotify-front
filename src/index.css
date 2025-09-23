@@ -34,6 +34,24 @@ h1 {
   line-height: 1.1;
 }
 
+/* Quill editor specific styles: ensure headings inside editor render and inherit theme */
+.ql-container {
+  background: transparent; /* match app background */
+}
+.ql-editor {
+  color: inherit; /* inherit color from app (light/dark) */
+  min-height: 150px;
+}
+.ql-editor h1,
+.ql-editor h2,
+.ql-editor h3 {
+  margin: 0.67em 0;
+  color: inherit;
+}
+.ql-editor h1 { font-size: 2em; }
+.ql-editor h2 { font-size: 1.5em; }
+.ql-editor h3 { font-size: 1.25em; }
+
 button {
   border-radius: 8px;
   border: 1px solid transparent;

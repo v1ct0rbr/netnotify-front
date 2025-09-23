@@ -1,13 +1,17 @@
 // src/layouts/MainPageLayout.tsx
 
 
-import { cn } from "@/lib/utils";
+import { AppSidebar } from "@/components/app-sidebar";
+import { Loader } from "@/components/ui/loader";
+import {
+    SidebarProvider,
+    SidebarTrigger
+} from '@/components/ui/sidebar';
 import { useAuthStore } from "@/store/useAuthStore";
+import Cookies from 'js-cookie';
+import { PanelLeftIcon } from "lucide-react";
 import React from "react";
 import { Outlet, useNavigate } from "react-router-dom";
-import { Loader } from "@/components/ui/loader";
-import Cookies from 'js-cookie';
-import { Menu, Sun, Moon, Home, LogOut } from 'lucide-react';
 
 type MainProps = React.HTMLAttributes<HTMLElement> & {
     ref?: React.Ref<HTMLElement>
@@ -68,58 +72,18 @@ export default function MainPageLayout({ className, ...props }: MainProps) {
     const logout = useAuthStore.getState().logout;
 
     return (
-        <div className="min-h-screen bg-gray-50 dark:bg-slate-900 text-slate-900 dark:text-slate-50">
-            <header className="w-full bg-white dark:bg-slate-900 border-b border-slate-200 dark:border-slate-700 shadow-sm">
-                <div className="max-w-7xl mx-auto px-4 py-3 flex items-center justify-between gap-4">
-                    <div className="flex items-center gap-3">
-                        <button className="p-2 rounded-md bg-slate-800 text-white dark:bg-slate-100 dark:text-slate-200 hover:bg-slate-700 dark:hover:bg-slate-200 transition-colors duration-150 ease-in-out" aria-label="Toggle sidebar">
-                            <Menu className="w-5 h-5 transition-colors duration-150 ease-in-out" />
-                        </button>
-                        <div>
-                            <h1 className="text-lg font-semibold text-slate-900 dark:text-slate-50">NetNotify</h1>
-                            <span className="text-xs text-slate-500 dark:text-slate-300">Painel Administrativo</span>
-                        </div>
-                    </div>
+     
 
-                    <div className="flex items-center gap-4">
-                        <button
-                            onClick={() => setIsDark(prev => !prev)}
-                            className="p-2 rounded-md bg-slate-800 text-white dark:bg-slate-100 dark:text-slate-200 hover:bg-slate-700 dark:hover:bg-slate-200 transition-colors duration-150 ease-in-out"
-                            aria-label="Toggle theme"
-                        >
-                            {isDark ? <Moon className="w-5 h-5 transition-colors duration-150 ease-in-out" /> : <Sun className="w-5 h-5 transition-colors duration-150 ease-in-out" />}
-                        </button>
-                        <div className="text-right">
-                            <div className="text-sm font-medium text-slate-900 dark:text-slate-50">{user?.fullName ?? user?.username ?? 'Usuário'}</div>
-                            <div className="text-xs text-slate-600 dark:text-slate-300">{user?.email ?? ''}</div>
-                        </div>
-                        <button onClick={() => { logout(); navigate('/auth/login'); }} className="px-3 py-2 rounded-md bg-red-600 text-white hover:bg-red-700">Logout</button>
-                    </div>
-                </div>
-            </header>
+         <SidebarProvider>
+            <AppSidebar userInfo={user} logout={logout} />
+              <main className="w-full flex flex-1">
+                <SidebarTrigger className="hover:bg-none focus:bg-none focus:ring-0" />                
 
-            <div className="max-w-7xl mx-auto px-4 py-6 grid grid-cols-1 md:grid-cols-[220px_1fr] gap-6">
-                <aside className="hidden md:block bg-white dark:bg-slate-900 rounded-md border border-slate-200 dark:border-slate-800 p-3 h-fit shadow-sm">
-                    <nav className="flex flex-col gap-2">
-                        <button onClick={() => navigate('/')} className="text-sm p-2 rounded bg-slate-800 text-white dark:bg-slate-100 dark:text-slate-200 hover:bg-slate-700 dark:hover:bg-slate-200 flex items-center gap-2 transition-colors duration-150 ease-in-out">
-                            <Home className="w-4 h-4 transition-colors duration-150 ease-in-out" />
-                            Home
-                        </button>
-                        <button onClick={() => { logout(); navigate('/auth/login'); }} className="text-sm p-2 rounded bg-slate-800 text-white dark:bg-slate-100 dark:text-slate-200 hover:bg-slate-700 dark:hover:bg-slate-200 flex items-center gap-2 transition-colors duration-150 ease-in-out">
-                            <LogOut className="w-4 h-4 transition-colors duration-150 ease-in-out" />
-                            Logout
-                        </button>
-                    </nav>
-                </aside>
-
-                <main className={cn('rounded-md bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 p-6 shadow-sm', className)} {...props}>
-                    <Outlet />
-                </main>
-            </div>
-        </div>
-    );
-}
-//     };
+                <Outlet />
+              </main>
+            </SidebarProvider>
+          );
+      } 
 //     // Listen for popstate events (back/forward navigation)
 //     window.addEventListener("popstate", handleLocationChange);
 //     // Set initial path

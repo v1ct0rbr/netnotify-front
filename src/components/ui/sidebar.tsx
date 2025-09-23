@@ -3,7 +3,9 @@
 import * as React from "react"
 import { Slot } from "@radix-ui/react-slot"
 import { cva } from "class-variance-authority"
-import type { VariantProps } from "class-variance-authority"
+// Local type alias to avoid importing VariantProps at runtime (Vite may try to
+// require it). This keeps types local and prevents runtime import errors.
+type VariantProps<T> = Record<string, any>
 import { PanelLeftIcon } from "lucide-react"
 
 import { useIsMobile } from "@/hooks/use-mobile"
@@ -265,7 +267,7 @@ function SidebarTrigger({
     <Button
       data-sidebar="trigger"
       data-slot="sidebar-trigger"
-      variant="ghost"
+      
       size="icon"
       className={cn("size-7", className)}
       onClick={(event) => {

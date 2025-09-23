@@ -77,15 +77,107 @@ export const JoditWrapper: React.FC<Props> = ({ value, onChange, config }) => {
     quillRef.current = new Quill(editorContainer, {
       theme: (config && config.theme) || 'snow',
       modules: {
-        toolbar: toolbarContainer ? { container: toolbarContainer, handlers: { image: imageHandler } } : { container: toolbarOptions, handlers: { image: imageHandler } },
+        // include header and align handlers in handlers so toolbar-based selects are wired
+        toolbar: toolbarContainer
+          ? { container: toolbarContainer, handlers: { image: imageHandler, header: (value: any) => { try { if (quillRef.current) quillRef.current.format('header', value === '' ? false : Number(value)); } catch(e){} }, align: (value: any) => { try { if (quillRef.current) quillRef.current.format('align', value === '' ? false : value); } catch(e){} } } }
+          : { container: toolbarOptions, handlers: { image: imageHandler, header: (value: any) => { try { if (quillRef.current) quillRef.current.format('header', value === '' ? false : Number(value)); } catch(e){} }, align: (value: any) => { try { if (quillRef.current) quillRef.current.format('align', value === '' ? false : value); } catch(e){} } } },
         ...(config && config.modules),
       },
+      // explicitly allow header format + common formats to avoid accidental format restrictions
+      formats: [
+        'header',
+        'bold',
+        'italic',
+        'underline',
+        'link',
+        'image',
+        'list',
+        'align'
+      ],
       ...config,
     });
+
+    // expose quill instance for quick manual debugging in browser console
+    try {
+      (window as any).__quillInstance = quillRef.current;
+      console.debug('[JoditWrapper] quill instance exposed to window.__quillInstance');
+    } catch (e) {}
 
     // set initial content
     try {
       quillRef.current.root.innerHTML = value || '';
+    } catch (e) {
+      // ignore
+    }
+
+    // also attach via toolbar module API as a robust fallback
+    try {
+      const toolbarModule = quillRef.current.getModule && quillRef.current.getModule('toolbar');
+      if (toolbarModule && typeof toolbarModule.addHandler === 'function') {
+        toolbarModule.addHandler('header', (value: any) => {
+          try {
+            console.debug('[JoditWrapper] toolbar header handler value=', value);
+            if (!quillRef.current) return;
+            const sel = quillRef.current.getSelection(true);
+            console.debug('[JoditWrapper] selection before header format=', sel);
+            quillRef.current.format('header', value === '' ? false : Number(value));
+            if (sel) quillRef.current.setSelection(sel.index, sel.length);
+            console.debug('[JoditWrapper] html after header format=', quillRef.current.root.innerHTML);
+          } catch (err) {
+            console.error('[JoditWrapper] header handler error', err);
+          }
+        });
+        toolbarModule.addHandler('align', (value: any) => {
+          try {
+            console.debug('[JoditWrapper] toolbar align handler value=', value);
+            if (!quillRef.current) return;
+            const sel = quillRef.current.getSelection(true);
+            console.debug('[JoditWrapper] selection before align format=', sel);
+            quillRef.current.format('align', value === '' ? false : value);
+            if (sel) quillRef.current.setSelection(sel.index, sel.length);
+            console.debug('[JoditWrapper] html after align format=', quillRef.current.root.innerHTML);
+          } catch (err) {
+            console.error('[JoditWrapper] align handler error', err);
+          }
+        });
+      }
+    } catch (e) {
+      // ignore
+    }
+
+    // If the toolbar is provided as a DOM node sometimes Quill doesn't wire
+    // up the header select correctly in some environments. Add a fallback
+    // listener that forces the header format when the select changes.
+    try {
+      if (toolbarContainer && quillRef.current) {
+        const headerSelect = toolbarContainer.querySelector('.ql-header') as HTMLSelectElement | null;
+  const headerHandler = () => {
+          try {
+            if (!quillRef.current) return;
+            const sel = quillRef.current.getSelection(true);
+            // get selected value; empty string -> remove header
+            const value = (headerSelect && headerSelect.value) || '';
+            // ensure we have a range to apply format to
+            if (sel) {
+              quillRef.current.format('header', value === '' ? false : Number(value));
+              // keep selection after formatting
+              quillRef.current.setSelection(sel.index, sel.length);
+            }
+          } catch (err) {
+            // ignore
+          }
+        };
+        if (headerSelect) headerSelect.addEventListener('change', headerHandler);
+
+        // cleanup: remove listener on destroy
+        const origDestroy = () => {
+          try {
+            if (headerSelect) headerSelect.removeEventListener('change', headerHandler);
+          } catch (e) {}
+        };
+        // attach to quillRef so cleanup code below can call it
+        (quillRef.current as any).__headerCleanup = origDestroy;
+      }
     } catch (e) {
       // ignore
     }
@@ -112,6 +204,11 @@ export const JoditWrapper: React.FC<Props> = ({ value, onChange, config }) => {
         if (containerRef.current) containerRef.current.innerHTML = '';
         // clear toolbar DOM
         if (toolbarRef.current) toolbarRef.current.innerHTML = '';
+        // call header cleanup if registered
+        try {
+          const cleanup = (quillRef.current as any) && (quillRef.current as any).__headerCleanup;
+          if (typeof cleanup === 'function') cleanup();
+        } catch (e) {}
       } catch (e) {
         // ignore
       }
