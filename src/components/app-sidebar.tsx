@@ -1,4 +1,5 @@
-import { Calendar, Home, Inbox, Search, Settings } from "lucide-react";
+import { Calendar, Home, Inbox, LogOut, Search, Settings } from "lucide-react";
+import { Button } from "@/components/ui/button";
 
 import {
   Sidebar,
@@ -19,29 +20,10 @@ import { toast } from "sonner";
 const items = [
   {
     title: "Home",
-    url: "#",
+    url: "/home",
     icon: Home,
   },
-  {
-    title: "Inbox",
-    url: "#",
-    icon: Inbox,
-  },
-  {
-    title: "Calendar",
-    url: "#",
-    icon: Calendar,
-  },
-  {
-    title: "Search",
-    url: "#",
-    icon: Search,
-  },
-  {
-    title: "Settings",
-    url: "#",
-    icon: Settings,
-  },
+ 
 ]
 
 interface AppSidebarProps {
@@ -63,9 +45,9 @@ export function AppSidebar( { userInfo, logout }: AppSidebarProps) {
               {items.map((item) => (
                 <SidebarMenuItem key={item.title}>
                   <SidebarMenuButton asChild>
-                    <a href={item.url}>
-                      <item.icon />
-                      <span>{item.title}</span>
+                    <a href={item.url} className="flex items-center gap-3 text-sidebar-foreground hover:text-sidebar-primary dark:hover:text-sidebar-primary">
+                      <item.icon className="w-4 h-4 text-inherit" />
+                      <span className="text-sm font-medium">{item.title}</span>
                     </a>
                   </SidebarMenuButton>
                 </SidebarMenuItem>
@@ -83,17 +65,20 @@ export function AppSidebar( { userInfo, logout }: AppSidebarProps) {
               <div className="text-xs text-muted-foreground">{userInfo?.email}</div>
             </div>
           </div>
-          <button
-            className="ml-4 text-xs text-red-600 hover:underline"
-            onClick={() => {
-              // Adicione aqui a lógica de logout
-              if (!userInfo) return;
-              if (logout) logout();
-              toast.success('Logout realizado com sucesso!');
-            }}
-          >
-            Sair
-          </button>
+          <div className="ml-4">
+            <Button
+              size="sm"
+              className="btn-primary"
+              onClick={() => {
+                if (!userInfo) return;
+                if (logout) logout();
+                toast.success("Logout realizado com sucesso!");
+              }}
+            >
+              <LogOut className="mr-2" />
+              Sair
+            </Button>
+          </div>
         </div>
       </SidebarFooter>
     </Sidebar>

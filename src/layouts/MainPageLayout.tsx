@@ -5,19 +5,15 @@ import { AppSidebar } from "@/components/app-sidebar";
 import { Loader } from "@/components/ui/loader";
 import {
     SidebarProvider,
-    SidebarTrigger
+    
 } from '@/components/ui/sidebar';
 import { useAuthStore } from "@/store/useAuthStore";
 import Cookies from 'js-cookie';
-import { PanelLeftIcon } from "lucide-react";
+ 
 import React from "react";
 import { Outlet, useNavigate } from "react-router-dom";
 
-type MainProps = React.HTMLAttributes<HTMLElement> & {
-    ref?: React.Ref<HTMLElement>
-}
-
-export default function MainPageLayout({ className, ...props }: MainProps) {
+export default function MainPageLayout(): React.ReactElement {
 
     const user = useAuthStore((s) => s.user);
     const isChecking = useAuthStore((s) => s.isChecking);
@@ -26,7 +22,7 @@ export default function MainPageLayout({ className, ...props }: MainProps) {
     const checkAuth = React.useRef(useAuthStore.getState().checkAuth);
     const navigate = useNavigate();
 
-    const [isDark, setIsDark] = React.useState<boolean>(() => {
+    const [isDark] = React.useState<boolean>(() => {
         try {
             const stored = localStorage.getItem('theme');
             if (stored) return stored === 'dark';
@@ -72,25 +68,18 @@ export default function MainPageLayout({ className, ...props }: MainProps) {
     const logout = useAuthStore.getState().logout;
 
     return (
-     
 
-         <SidebarProvider>
+
+        <SidebarProvider>
             <AppSidebar userInfo={user} logout={logout} />
-              <main className="w-full flex flex-1">
-                <SidebarTrigger className="hover:bg-none focus:bg-none focus:ring-0" />                
+            <main className="w-full flex flex-1">
 
+                
+                {/* Header will contain the SidebarTrigger and ModeToggle */}
                 <Outlet />
-              </main>
-            </SidebarProvider>
-          );
-      } 
-//     // Listen for popstate events (back/forward navigation)
-//     window.addEventListener("popstate", handleLocationChange);
-//     // Set initial path
-//     handleLocationChange();
-//     // Cleanup listener on unmount
-//     return () => {
-//         window.removeEventListener("popstate", handleLocationChange);
-//     };
-// }, []);
+            </main>
+        </SidebarProvider>
+    );
+}
+//  
 

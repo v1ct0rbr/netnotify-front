@@ -12,27 +12,39 @@ interface StyledSelectProps extends React.SelectHTMLAttributes<HTMLSelectElement
 }
 
 export const StyledSelect = React.forwardRef<HTMLSelectElement, StyledSelectProps>(
-  ({ options, className, ...props }, ref) => {
+    ({ options, className, ...props }, ref) => {
     return (
-      <div className={cn("relative", className)}>
+      <div className={cn("relative styled-select", className)}>
         <select
           ref={ref}
+          // use semantic theme variables for bg and color so select is readable in dark mode
+          style={{
+            backgroundColor: 'var(--input)',
+            color: 'var(--foreground)'
+          }}
           className={cn(
-            "w-full border rounded-md px-3 py-2 bg-white shadow-sm focus:outline-none focus:ring-2 focus:ring-primary text-sm appearance-none",
+            "w-full border rounded-md px-3 py-2 shadow-sm focus:outline-none focus:ring-2 focus:ring-primary text-sm appearance-none",
             className
           )}
           {...props}
         >
-          <option value="" disabled hidden>
-            Selecione o método
+          <option value="" disabled hidden style={{ backgroundColor: 'var(--popover)', color: 'var(--popover-foreground)' }}>
+            Selecione
           </option>
           {options.map(option => (
-            <option key={option.value} value={option.value}>
+            <option
+              key={option.value}
+              value={option.value}
+              style={{ backgroundColor: 'var(--popover)', color: 'var(--popover-foreground)' }}
+            >
               {option.label}
             </option>
           ))}
         </select>
-        <span className="pointer-events-none absolute inset-y-0 right-0 flex items-center pr-3 text-gray-400">
+        <span
+          className="pointer-events-none absolute inset-y-0 right-0 flex items-center pr-3"
+          style={{ color: 'var(--muted-text)' }}
+        >
           <svg
             aria-hidden="true"
             width="16"

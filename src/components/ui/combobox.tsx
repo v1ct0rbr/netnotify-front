@@ -66,7 +66,7 @@ export const Combobox: React.FC<ComboboxProps> = React.forwardRef<HTMLButtonElem
                 name={name}
                 ref={ref}
                 className={cn(
-                    "flex items-center w-full border rounded-md shadow-sm bg-white px-3 py-2 text-left cursor-pointer focus:outline-none focus:ring-2 focus:ring-primary",
+                    "flex items-center w-full border rounded-md shadow-sm px-3 py-2 text-left cursor-pointer focus:outline-none focus:ring-2 focus:ring-primary",
                     open ? "ring-2 ring-primary" : ""
                 )}
                 onClick={() => setOpen(o => !o)}
@@ -75,15 +75,15 @@ export const Combobox: React.FC<ComboboxProps> = React.forwardRef<HTMLButtonElem
                 onBlur={onBlur}
                 {...props}
             >
-                <span className={selected ? "" : "text-gray-400"}>
+                <span style={{ color: selected ? 'var(--foreground)' : 'var(--muted-text)' }}>
                     {selected ? selected.label : placeholder || "Selecione"}
                 </span>
-                <ChevronDown className="ml-auto h-4 w-4 text-gray-400" />
+                <ChevronDown className="ml-auto h-4 w-4" style={{ color: 'var(--muted-text)' }} />
             </button>
             {open && (
-                <CommandList className="absolute z-10 w-full mt-1 bg-white border rounded-md shadow-lg max-h-60 overflow-auto">
+                <CommandList className="absolute z-10 w-full mt-1 border rounded-md shadow-lg max-h-60 overflow-auto" style={{ backgroundColor: 'var(--popover)', color: 'var(--popover-foreground)' }}>
                     {options.length === 0 ? (
-                        <CommandEmpty className="py-2 px-4 text-gray-500">Nenhuma opção encontrada</CommandEmpty>
+                        <CommandEmpty className="py-2 px-4" style={{ color: 'var(--muted-text)' }}>Nenhuma opção encontrada</CommandEmpty>
                     ) : (
                         options.map((option, idx) => (
                             <CommandItem

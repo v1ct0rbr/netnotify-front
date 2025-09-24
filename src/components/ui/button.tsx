@@ -9,16 +9,17 @@ const buttonVariants = cva(
   {
     variants: {
       variant: {
-        default: "bg-primary text-primary-foreground hover:bg-primary/90",
-        destructive:
-          "bg-destructive text-white hover:bg-destructive/90 focus-visible:ring-destructive/20 dark:focus-visible:ring-destructive/40 dark:bg-destructive/60",
-        outline:
-          "border bg-background shadow-xs hover:bg-accent hover:text-accent-foreground dark:bg-input/30 dark:border-input dark:hover:bg-input/50",
-        secondary:
-          "bg-secondary text-secondary-foreground hover:bg-secondary/80",
-        ghost:
-          "hover:bg-accent hover:text-accent-foreground dark:hover:bg-accent/50",
-        link: "text-primary underline-offset-4 hover:underline",
+          default:
+            "bg-[var(--btn-bg)] text-[var(--btn-text)] border-[1px] border-[var(--btn-border)] hover:opacity-95",
+          destructive:
+            "bg-[var(--destructive)] text-[var(--btn-text)] hover:opacity-95 focus-visible:ring-destructive/20 dark:focus-visible:ring-destructive/40",
+          outline:
+            "border border-[var(--btn-border)] bg-[var(--background)] shadow-xs hover:bg-[var(--popover)] hover:text-[var(--popover-foreground)] dark:bg-[var(--input)] dark:border-[var(--input)] dark:hover:bg-[var(--ring)]",
+          secondary:
+            "bg-[var(--secondary)] text-[var(--secondary-foreground)] hover:opacity-90",
+          ghost:
+            "bg-transparent hover:bg-[var(--popover)] hover:text-[var(--popover-foreground)] dark:hover:bg-[var(--popover)]",
+          link: "text-[var(--primary)] underline-offset-4 hover:underline",
       },
       size: {
         default: "h-9 px-4 py-2 has-[>svg]:px-3",

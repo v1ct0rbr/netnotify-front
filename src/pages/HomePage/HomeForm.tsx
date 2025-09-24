@@ -45,7 +45,7 @@ export const HomeForm: React.FC = () => {
   return (
     <form onSubmit={handleSubmit(onSubmit)} className="space-y-4">
       <div>
-        <label className="block text-sm font-medium text-slate-900 dark:text-slate-200 mb-1">Content</label>
+  <label className="block text-sm font-medium mb-1">Content</label>
         <Controller
           control={control}
           name="content"
@@ -57,7 +57,7 @@ export const HomeForm: React.FC = () => {
 
 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
   <div>
-    <label className="block text-sm font-medium mb-1 text-slate-900 dark:text-slate-200">Level</label>
+  <label className="block text-sm font-medium mb-1">Level</label>
     <Controller
       control={control}
       name="level"
@@ -72,7 +72,7 @@ export const HomeForm: React.FC = () => {
   </div>
 
   <div>
-    <label className="block text-sm font-medium mb-1 text-slate-900 dark:text-slate-200 ">Type</label>
+  <label className="block text-sm font-medium mb-1">Type</label>
     <Controller
       control={control}
       name="type"
@@ -87,7 +87,7 @@ export const HomeForm: React.FC = () => {
   </div>
 </div>
 
-      <Button className='text-slate-200 dark:text-slate-50 dark:bg-slate-200' type="submit">Enviar</Button>
+  <Button className='btn-primary' type="submit">Enviar</Button>
     </form>
   );
 }

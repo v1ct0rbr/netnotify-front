@@ -1,7 +1,7 @@
 @import "tailwindcss";
 @import "tw-animate-css";
 
-@custom-variant dark (&:is(.dark *));
+@custom-variant dark (&:where(.dark, .dark *));
 
 @layer base {
   :root {
@@ -21,8 +21,7 @@
     --sidebar-primary: oklch(0.488 0.243 264.376);
     --sidebar-primary-foreground: oklch(0.985 0 0);
     --sidebar-accent: oklch(0.269 0 0);
-    --sidebar-accent-foreground: oklch(0.985 0 0);
-    --sidebar-border: oklch(1 0 0 / 10%);
+    --sidebar-accent-foreground: oklch(0.985 0 0);    --sidebar-border: oklch(1 0 0 / 10%);
     --sidebar-ring: oklch(0.439 0 0);
   }
 }
@@ -111,17 +110,26 @@
 :root {
   --radius: 0.625rem;
   --background: oklch(1 0 0);
-  --foreground: oklch(0.145 0 0);
+  /* solid backgrounds only (no gradients) */
+  --accent: oklch(0.205 0 0);
+  /* semantic button/text tones for light theme */
+  --btn-bg: #0f1724; /* dark button in light mode */
+  --btn-text: #ffffff;
+  --btn-border: rgba(15,23,36,0.06);
+  --muted-text: rgba(33,53,71,0.6);
+  /* readable page text in light mode */
+  --foreground: #0f1724; /* slate-900 equivalent */
   --card: oklch(1 0 0);
   --card-foreground: oklch(0.145 0 0);
   --popover: oklch(1 0 0);
   --popover-foreground: oklch(0.145 0 0);
-  --primary: oklch(0.205 0 0);
-  --primary-foreground: oklch(0.985 0 0);
+  /* primary action color for light mode */
+  --primary: #2563eb; /* blue-600 */
+  --primary-foreground: #ffffff;
   --secondary: oklch(0.97 0 0);
   --secondary-foreground: oklch(0.205 0 0);
-  --muted: oklch(0.97 0 0);
-  --muted-foreground: oklch(0.556 0 0);
+  --muted: #f1f5f9;
+  --muted-foreground: #64748b; /* zinc-500 equivalent */
   --accent: oklch(0.97 0 0);
   --accent-foreground: oklch(0.205 0 0);
   --destructive: oklch(0.577 0.245 27.325);
@@ -145,17 +153,26 @@
 
 .dark {
   --background: oklch(0.145 0 0);
-  --foreground: oklch(0.985 0 0);
+  /* solid accent for dark theme */
+  --accent: oklch(0.488 0.243 264.376);
+  /* semantic button/text tones for dark theme (light buttons + dark text) */
+  --btn-bg: #f1f5f9; /* light button in dark mode */
+  --btn-text: #0f1724;
+  --btn-border: rgba(255,255,255,0.06);
+  --muted-text: rgba(255,255,255,0.7);
+  /* readable page text in dark mode */
+  --foreground: #e6eef8; /* very light */
   --card: oklch(0.205 0 0);
   --card-foreground: oklch(0.985 0 0);
   --popover: oklch(0.205 0 0);
   --popover-foreground: oklch(0.985 0 0);
-  --primary: oklch(0.922 0 0);
-  --primary-foreground: oklch(0.205 0 0);
+  /* primary action color for dark mode (lighter so it stands out on dark bg) */
+  --primary: #60a5fa; /* blue-400 */
+  --primary-foreground: #0f1724; /* dark text on light primary */
   --secondary: oklch(0.269 0 0);
   --secondary-foreground: oklch(0.985 0 0);
-  --muted: oklch(0.269 0 0);
-  --muted-foreground: oklch(0.708 0 0);
+  --muted: #0b1220;
+  --muted-foreground: #94a3b8; /* lighter muted in dark */
   --accent: oklch(0.269 0 0);
   --accent-foreground: oklch(0.985 0 0);
   --destructive: oklch(0.704 0.191 22.216);
@@ -182,6 +199,42 @@
     @apply border-border outline-ring/50;
   }
   body {
-    @apply bg-background text-foreground;
+    @apply text-foreground;
+    background-color: var(--background);
+    transition: background-color 300ms ease, color 200ms ease;
+  }
+
+  /* Card styles for elevated panels */
+  .card {
+    @apply rounded-xl p-6 bg-card text-card-foreground border border-border shadow-md;
+    transition: background-color 300ms ease, box-shadow 250ms ease, transform 150ms ease;
+  }
+
+  /* Primary button with accent gradient and gentle lift on hover */
+  .btn-primary {
+    @apply inline-flex items-center gap-2 px-4 py-2 rounded-lg font-semibold;
+    background-color: var(--primary);
+    color: var(--primary-foreground);
+    box-shadow: 0 8px 20px rgba(16,24,40,0.06);
+    border: 1px solid rgba(0,0,0,0.06);
+    transition: transform .12s ease, box-shadow .12s ease, opacity .12s ease;
+  }
+  .btn-primary:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 10px 26px rgba(16,24,40,0.08);
+  }
+
+  /* Muted element style */
+  .muted {
+    @apply text-muted-foreground;
+    opacity: 0.9;
+  }
+
+  /* semantic text utilities mapped to theme tokens */
+  .text-body {
+    color: var(--foreground) !important;
+  }
+  .text-primary {
+    color: var(--primary) !important;
   }
 }

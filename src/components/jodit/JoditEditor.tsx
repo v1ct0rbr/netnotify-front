@@ -226,7 +226,7 @@ export const JoditWrapper: React.FC<Props> = ({ value, onChange, config }) => {
     <div>
       <div ref={toolbarRef} className="ql-toolbar" aria-label="Editor toolbar">
         <span className="ql-formats">
-          <select className="ql-header text-slate-900 dark:text-slate-200" defaultValue="">
+          <select className="ql-header text-zinc-900 dark:text-zinc-200" defaultValue="">
             <option value="1">H1</option>
             <option value="2">H2</option>
             <option value="3">H3</option>

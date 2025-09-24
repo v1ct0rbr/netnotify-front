@@ -116,6 +116,8 @@ function SidebarProvider({
   // This makes it easier to style the sidebar with Tailwind classes.
   const state = open ? "expanded" : "collapsed"
 
+  
+
   const contextValue = React.useMemo<SidebarContextProps>(
     () => ({
       state,
@@ -153,6 +155,7 @@ function SidebarProvider({
     </SidebarContext.Provider>
   )
 }
+
 
 function Sidebar({
   side = "left",
@@ -263,11 +266,10 @@ function SidebarTrigger({
 }: React.ComponentProps<typeof Button>) {
   const { toggleSidebar } = useSidebar()
 
-  return (
+  const triggerButton = (
     <Button
       data-sidebar="trigger"
       data-slot="sidebar-trigger"
-      
       size="icon"
       className={cn("size-7", className)}
       onClick={(event) => {
@@ -280,19 +282,23 @@ function SidebarTrigger({
       <span className="sr-only">Toggle Sidebar</span>
     </Button>
   )
+
+  return triggerButton
 }
 
 function SidebarRail({ className, ...props }: React.ComponentProps<"button">) {
   const { toggleSidebar } = useSidebar()
 
   return (
-    <button
+    <Button
       data-sidebar="rail"
       data-slot="sidebar-rail"
       aria-label="Toggle Sidebar"
       tabIndex={-1}
       onClick={toggleSidebar}
       title="Toggle Sidebar"
+      variant="ghost"
+      size="icon"
       className={cn(
         "hover:after:bg-sidebar-border absolute inset-y-0 z-20 hidden w-4 -translate-x-1/2 transition-all ease-linear group-data-[side=left]:-right-4 group-data-[side=right]:left-0 after:absolute after:inset-y-0 after:left-1/2 after:w-[2px] sm:flex",
         "in-data-[side=left]:cursor-w-resize in-data-[side=right]:cursor-e-resize",

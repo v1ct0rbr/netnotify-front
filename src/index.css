@@ -15,11 +15,11 @@
 
 a {
   font-weight: 500;
-  color: #646cff;
+  color: var(--primary);
   text-decoration: inherit;
 }
 a:hover {
-  color: #535bf2;
+  color: var(--primary);
 }
 
 body {
@@ -27,6 +27,7 @@ body {
   min-width: 320px;
   min-height: 100vh;
   line-height: inherit;
+  color: var(--foreground);
 }
 
 h1 {
@@ -59,16 +60,35 @@ button {
   font-size: 1em;
   font-weight: 500;
   font-family: inherit;
-  background-color: #1a1a1a;
+  background-color: var(--btn-bg);
   cursor: pointer;
-  transition: border-color 0.25s;
+  transition: border-color 0.25s, background-color 200ms ease, color 200ms ease, transform 125ms ease;
 }
 button:hover {
   border-color: #646cff;
+  transform: translateY(-2px);
 }
 button:focus,
 button:focus-visible {
   outline: 4px auto -webkit-focus-ring-color;
+}
+
+/* Styled select adjustments: ensure native option contrast follows theme tokens where supported */
+.styled-select select,
+.styled-select select:focus {
+  background-color: var(--input);
+  color: var(--foreground);
+}
+
+/* When browsers support styling option elements, apply app tokens (some UAs ignore option styling) */
+.styled-select option {
+  background-color: var(--popover);
+  color: var(--popover-foreground);
+}
+
+/* Improve the arrow color by inheriting muted token */
+.styled-select svg {
+  color: var(--muted-text);
 }
 
 @media (prefers-color-scheme: light) {
@@ -77,9 +97,57 @@ button:focus-visible {
     background-color: #ffffff;
   }
   a:hover {
-    color: #747bff;
+    color: var(--primary);
   }
   button {
-    background-color: #f9f9f9;
+    background-color: var(--btn-bg);
+    color: var(--btn-text);
+    border-color: var(--btn-border);
+  }
+
+  /* card style in light mode */
+  .card {
+    background: var(--card);
+    border-radius: 12px;
+    box-shadow: 0 6px 18px rgba(16,24,40,0.04);
+  }
+
+  .muted {
+    color: var(--muted-text);
   }
 }
+
+  /* Sidebar item theming: make icons/text follow sidebar tokens and app primary on hover */
+  /* Sidebar item theming: make icons/text follow sidebar tokens
+     but use the app primary color for hover/active so the sidebar
+     visually ties into the app theme. Icons inherit currentColor. */
+  [data-slot="sidebar"] a,
+  [data-slot="sidebar"] button,
+  .group\/[sidebar-wrapper] [data-slot="sidebar"] a {
+    color: var(--sidebar-foreground);
+  }
+
+  [data-slot="sidebar"] a:hover,
+  [data-slot="sidebar"] button:hover {
+    color: var(--primary);
+    background: transparent;
+  }
+
+  /* Active/selected menu item uses primary with a subtle highlight */
+  [data-slot="sidebar"] a[data-active="true"],
+  [data-slot="sidebar"] button[data-active="true"] {
+    color: var(--primary);
+    background: color-mix(in oklab, var(--primary) 8%, transparent);
+  }
+
+  /* Ensure icons inherit the text color */
+  [data-slot="sidebar"] a svg,
+  [data-slot="sidebar"] button svg {
+    color: currentColor;
+  }
+
+  /* Positioning for the sidebar trigger overlay that follows sidebar collapse state.
+     The SidebarProvider/root wrapper uses the 'group/sidebar-wrapper' class and
+     will have data-state="expanded" or "collapsed". We target that to nudge
+     the trigger so it visually tracks the sidebar (uses --sidebar-width). */
+  /* Sidebar trigger overlay rules removed — trigger is rendered inline in the header now. */
