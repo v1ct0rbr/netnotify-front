@@ -2,6 +2,7 @@
 
 
 import { AppSidebar } from "@/components/app-sidebar";
+import Header from "@/components/header";
 import { Loader } from "@/components/ui/loader";
 import {
     SidebarProvider,
@@ -11,9 +12,13 @@ import { useAuthStore } from "@/store/useAuthStore";
 import Cookies from 'js-cookie';
  
 import React from "react";
-import { Outlet, useNavigate } from "react-router-dom";
+import { Outlet, useNavigate, useMatches } from "react-router-dom";
 
-export default function MainPageLayout(): React.ReactElement {
+interface MainPageLayoutProps {
+    pageTitle: string;
+}
+
+export default function MainPageLayout({ pageTitle }: MainPageLayoutProps): React.ReactElement {
 
     const user = useAuthStore((s) => s.user);
     const isChecking = useAuthStore((s) => s.isChecking);
@@ -62,18 +67,44 @@ export default function MainPageLayout(): React.ReactElement {
         }
         // se houver token mas user ainda não, aguardamos a checkAuth
     }, [isChecking, user, navigate]);
+        // read the matched routes and prefer the innermost handle.pageTitle when available
+        const matches = useMatches();
+        const routeTitle = React.useMemo(() => {
+            // iterate from last (most specific) to first
+            for (let i = matches.length - 1; i >= 0; i--) {
+                const m = matches[i];
+                // handle may be undefined
+                // eslint-disable-next-line @typescript-eslint/ban-ts-comment
+                // @ts-ignore
+                if (m && m.handle && m.handle.pageTitle) return m.handle.pageTitle as string;
+            }
+            return undefined;
+        }, [matches]);
 
-    if (isChecking) return <Loader className="h-24" />; // mostrar loader durante verificação
+        const titleToShow = routeTitle ?? pageTitle;
 
-    const logout = useAuthStore.getState().logout;
+        // update the document title to match the route's pageTitle
+        React.useEffect(() => {
+            try {
+                if (typeof document !== "undefined") {
+                    document.title = `${titleToShow} - NetNotify`;
+                }
+            } catch {
+                // ignore in environments without document
+            }
+        }, [titleToShow]);
 
-    return (
+        if (isChecking) return <Loader className="h-24" />; // mostrar loader durante verificação
+
+        const logout = useAuthStore.getState().logout;
+
+        return (
 
 
         <SidebarProvider>
             <AppSidebar userInfo={user} logout={logout} />
-            <main className="w-full flex flex-1">
-
+            <main className="w-full">
+            <Header title={titleToShow} />
                 
                 {/* Header will contain the SidebarTrigger and ModeToggle */}
                 <Outlet />

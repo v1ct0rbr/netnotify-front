@@ -15,13 +15,19 @@ import {
 } from "@/components/ui/sidebar";
 import type { User } from "@/store/useAuthStore";
 import { toast } from "sonner";
+import { Link } from "react-router";
 
 // Menu items.
 const items = [
   {
     title: "Home",
-    url: "/home",
+    url: "/",
     icon: Home,
+  },
+  {
+    title: "Mensagens",
+    url: "/messages",
+    icon: Inbox,
   },
  
 ]
@@ -45,10 +51,11 @@ export function AppSidebar( { userInfo, logout }: AppSidebarProps) {
               {items.map((item) => (
                 <SidebarMenuItem key={item.title}>
                   <SidebarMenuButton asChild>
-                    <a href={item.url} className="flex items-center gap-3 text-sidebar-foreground hover:text-sidebar-primary dark:hover:text-sidebar-primary">
+                    
+                    <Link to={item.url} className="flex items-center gap-3 text-sidebar-foreground hover:text-sidebar-primary dark:hover:text-sidebar-primary">
                       <item.icon className="w-4 h-4 text-inherit" />
                       <span className="text-sm font-medium">{item.title}</span>
-                    </a>
+                    </Link>
                   </SidebarMenuButton>
                 </SidebarMenuItem>
               ))}
@@ -67,8 +74,9 @@ export function AppSidebar( { userInfo, logout }: AppSidebarProps) {
           </div>
           <div className="ml-4">
             <Button
-              size="sm"
-              className="btn-primary"
+
+
+              
               onClick={() => {
                 if (!userInfo) return;
                 if (logout) logout();

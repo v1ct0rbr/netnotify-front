@@ -117,11 +117,24 @@ button:focus-visible {
   }
 }
 
+[data-slot="sidebar"] a,
+
+  .group\/[sidebar-wrapper] [data-slot="sidebar"] a {
+    color: var(--sidebar-foreground);
+  }
+
+  [data-slot="sidebar"] a:hover,
+   {
+    color: var(--primary);
+    background: transparent;
+  }
+
+
   /* Sidebar item theming: make icons/text follow sidebar tokens and app primary on hover */
   /* Sidebar item theming: make icons/text follow sidebar tokens
      but use the app primary color for hover/active so the sidebar
      visually ties into the app theme. Icons inherit currentColor. */
-  [data-slot="sidebar"] a,
+/*   [data-slot="sidebar"] a,
   [data-slot="sidebar"] button,
   .group\/[sidebar-wrapper] [data-slot="sidebar"] a {
     color: var(--sidebar-foreground);
@@ -133,18 +146,18 @@ button:focus-visible {
     background: transparent;
   }
 
-  /* Active/selected menu item uses primary with a subtle highlight */
+  
   [data-slot="sidebar"] a[data-active="true"],
   [data-slot="sidebar"] button[data-active="true"] {
     color: var(--primary);
     background: color-mix(in oklab, var(--primary) 8%, transparent);
   }
 
-  /* Ensure icons inherit the text color */
+  
   [data-slot="sidebar"] a svg,
   [data-slot="sidebar"] button svg {
     color: currentColor;
-  }
+  } */
 
   /* Positioning for the sidebar trigger overlay that follows sidebar collapse state.
      The SidebarProvider/root wrapper uses the 'group/sidebar-wrapper' class and
