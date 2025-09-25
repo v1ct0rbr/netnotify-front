@@ -62,6 +62,7 @@ const MessagesList: React.FC = () => {
             } as any;
 
             const results = await filterMessages(params);
+            console.log('results', results.);
             // backend returns MessageResponseDTO[]; Try to infer total from headers if available in the API wrapper — fallback to length
             return {
                 data: results,
