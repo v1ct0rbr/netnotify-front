@@ -34,8 +34,9 @@ export const HomeForm: React.FC = () => {
   }, []);
 
   const onSubmit = (data: FormData) => {
-    
-    createMessage({content: data.content, levelId: data.level, messageTypeId: data.type}).then(res => {
+    console.log(data);
+    createMessage({content: data.content, level: data.level, type: data.type}).then(res => {
+      
       toast.success('Mensagem criada com sucesso.');
       console.log('Message created with ID:', res.object);
       // Optionally reset the form or show a success message

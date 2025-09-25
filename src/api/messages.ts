@@ -5,8 +5,8 @@ import { toast } from "sonner";
 
 export type CreateMessageDTO = {
     content: string;
-    levelId: number;
-    messageTypeId: number;
+    level: number;
+    type: number;
 }
 
 export type MessageResponseDTO = {
@@ -21,7 +21,7 @@ export type MessageResponseDTO = {
 
 interface MessagesFilterParams {
     page: number;
-    pageSize: number;
+    size: number;
     content?: string;
     levelId?: number;
     messageTypeId?: number;
@@ -34,11 +34,11 @@ export const useMessagesApi = () => {
         try {
             const response = await api.post<{res: SimpleResponse<number>}>('/messages/create', {
                 content: data.content,
-                levelId: data.levelId,
-                messageTypeId: data.messageTypeId
+                level: data.level,
+                type: data.type
             });
             toast.success('Mensagem criada com sucesso.');
-            return {object: response.data.res.object, message: response.data.res.message, status: response.data.res.status};
+            return response.data.res;
         } catch (error) {
             toast.error('Erro ao criar mensagem.');
             throw error;
@@ -49,7 +49,7 @@ export const useMessagesApi = () => {
         try {
             const query = new URLSearchParams();
             query.append('page', params.page.toString());
-            query.append('pageSize', params.pageSize.toString());
+            query.append('size', params.size.toString());
             if (params.content) query.append('content', params.content);
             if (params.levelId) query.append('levelId', params.levelId.toString());
             if (params.messageTypeId) query.append('messageTypeId', params.messageTypeId.toString());
