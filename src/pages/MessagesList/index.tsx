@@ -16,7 +16,8 @@ import {
 } from "@/components/ui/table";
 import { useAuthStore } from "@/store/useAuthStore";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { Trash2 } from "lucide-react";
+import { Eraser, Search, Trash2 } from "lucide-react";
+import type { ApiPageResponse } from "@/utils/ApiPageResponse";
 
 const PAGE_SIZE = 10;
 
@@ -61,12 +62,11 @@ const MessagesList: React.FC = () => {
                 messageTypeId: appliedFilters.messageTypeId,
             } as any;
 
-            const results = await filterMessages(params);
-            console.log('results', results.);
-            // backend returns MessageResponseDTO[]; Try to infer total from headers if available in the API wrapper — fallback to length
+            const pageResp = await filterMessages(params) as ApiPageResponse<MessageResponseDTO>;
+            // map ApiPageResponse to the UI shape expected by the component
             return {
-                data: results,
-                total: results.length,
+                data: pageResp.content,
+                total: pageResp.totalElements ?? pageResp.content.length,
             } as { data: MessageResponseDTO[]; total: number };
         },
     });
@@ -104,10 +104,7 @@ const MessagesList: React.FC = () => {
 
     return (
         <div style={{ padding: 24 }}>
-            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 12 }}>
-                <h1 style={{ fontSize: 28, margin: 0 }}>Mensagens</h1>
-            </div>
-
+           
             {/* Filter form */}
             <div style={{ display: "grid", gridTemplateColumns: "1fr auto", gap: 12, marginBottom: 16 }}>
                 <div style={{ display: "flex", gap: 12 }}>
@@ -141,10 +138,12 @@ const MessagesList: React.FC = () => {
                 </div>
 
                 <div style={{ display: "flex", gap: 8, alignItems: "end" }}>
-                    <Button variant="outline" size="sm" onClick={clearFilters} type="button">
+                    <Button size="sm" onClick={clearFilters} type="button">
+                        <Eraser className="mr-1" />
                         Limpar
                     </Button>
                     <Button size="sm" onClick={applyFilters} type="button">
+                        <Search className="mr-1" />
                         Aplicar
                     </Button>
                 </div>

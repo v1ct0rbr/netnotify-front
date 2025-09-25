@@ -1,27 +1,13 @@
 import api from "@/config/axios";
+import type { ApiPageResponse } from "@/utils/ApiPageResponse";
+import type { SimpleResponse } from "@/utils/SimpleResponse";
 import { toast } from "sonner";
 
-//  @GetMapping("/all")
-//     public ResponseEntity<SimpleResponseUtils<Page<MessageResponseDto>>> getAllMessages(
-//             @ModelAttribute MessageFilter filter,
-//             Pageable pageable) {
-//         try {
-//             Page<MessageResponseDto> messages = messageService.findAllMessages(filter, pageable);
-//             return ResponseEntity.ok(SimpleResponseUtils.success(messages));
-//         } catch (Exception e) {
-//             return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
-//                     .body(SimpleResponseUtils.error(null, "Erro ao buscar mensagens."));
-//         }
-//     }
-
-
-type ApiMessageResponse<T> = {
-    object: {
-        page: number;
-        size: number;
-        totalElements: number;
-        content: T[];
-    };
+export type CreateMessageDTO = {
+    content: string;
+    levelId: number;
+    messageTypeId: number;
+}
 
 export type MessageResponseDTO = {
     id: string;
@@ -44,7 +30,22 @@ interface MessagesFilterParams {
 }
 
 export const useMessagesApi = () => {
-    const filterMessages = async (params: MessagesFilterParams): Promise< MessageResponseDTO[]> => {
+    const createMessage = async (data: CreateMessageDTO): Promise<SimpleResponse<number>> => {
+        try {
+            const response = await api.post<{res: SimpleResponse<number>}>('/messages/create', {
+                content: data.content,
+                levelId: data.levelId,
+                messageTypeId: data.messageTypeId
+            });
+            toast.success('Mensagem criada com sucesso.');
+            return {object: response.data.res.object, message: response.data.res.message, status: response.data.res.status};
+        } catch (error) {
+            toast.error('Erro ao criar mensagem.');
+            throw error;
+        }
+    };
+
+    const filterMessages = async (params: MessagesFilterParams): Promise<ApiPageResponse<MessageResponseDTO>> => {
         try {
             const query = new URLSearchParams();
             query.append('page', params.page.toString());
@@ -56,7 +57,7 @@ export const useMessagesApi = () => {
             if (params.sortOrder) query.append('sortOrder', params.sortOrder);
             const response = await api.get<{data: MessageResponseDTO[] }>('/messages/all?' + query.toString());
             console.log('response', response.data); 
-            return response.data.data;
+            return {...response.data as unknown as ApiPageResponse<MessageResponseDTO>};
         } catch (error) {
             toast.error('Erro ao buscar mensagens.');
             throw error;
@@ -74,6 +75,7 @@ export const useMessagesApi = () => {
         }
     };
     return {
+        createMessage,
         filterMessages,
         deleteMessage,
     };

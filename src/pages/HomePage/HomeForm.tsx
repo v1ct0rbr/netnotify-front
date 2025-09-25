@@ -1,11 +1,13 @@
-import React from 'react';
-import { useForm, Controller } from 'react-hook-form';
-import { zodResolver } from '@hookform/resolvers/zod';
-import * as z from 'zod';
+import { useMessagesApi } from '@/api/messages';
 import { JoditWrapper } from '@/components/jodit/JoditEditor';
 import { Button } from '@/components/ui/button';
 import { StyledSelect } from '@/components/ui/styled-select';
 import api from '@/config/axios';
+import { zodResolver } from '@hookform/resolvers/zod';
+import React from 'react';
+import { Controller, useForm } from 'react-hook-form';
+import { toast } from 'sonner';
+import * as z from 'zod';
 
 const FormSchema = z.object({
   content: z.string().min(1, 'Content is required'),
@@ -24,13 +26,22 @@ export const HomeForm: React.FC = () => {
   const [levels, setLevels] = React.useState<{id:number;name:string}[]>([]);
   const [types, setTypes] = React.useState<{id:number;name:string}[]>([]);
 
+  const { createMessage } = useMessagesApi();
+
   React.useEffect(() => {
     handleLoadLevels();
     handleLoadTypes();
   }, []);
 
   const onSubmit = (data: FormData) => {
-    console.log('submit', data);
+    
+    createMessage({content: data.content, levelId: data.level, messageTypeId: data.type}).then(res => {
+      toast.success('Mensagem criada com sucesso.');
+      console.log('Message created with ID:', res.object);
+      // Optionally reset the form or show a success message
+    }).catch(err => {
+      console.error('Error creating message:', err);
+    });
   }
 
   const handleLoadLevels = async () => {
