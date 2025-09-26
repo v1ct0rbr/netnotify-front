@@ -1,5 +1,5 @@
-import { Calendar, Home, Inbox, LogOut, Search, Settings } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { Home, Inbox, LogOut } from "lucide-react";
 
 import {
   Sidebar,
@@ -14,8 +14,8 @@ import {
   SidebarMenuItem
 } from "@/components/ui/sidebar";
 import type { User } from "@/store/useAuthStore";
-import { toast } from "sonner";
 import { Link } from "react-router";
+import { toast } from "sonner";
 
 // Menu items.
 const items = [

@@ -18,36 +18,70 @@ import { useAuthStore } from "@/store/useAuthStore";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Eraser, Search, Trash2 } from "lucide-react";
 import type { ApiPageResponse } from "@/utils/ApiPageResponse";
+import { useSearchParams } from "react-router";
+import { formatDate, formatRelativeDate } from "@/utils/DateUtils";
 
-const PAGE_SIZE = 10;
+const PAGE_SIZE = 2;
 
 const MessagesList: React.FC = () => {
     const { filterMessages, deleteMessage } = useMessagesApi();
     const { user } = useAuthStore();
-        const isAdmin = user?.roles?.some((r) => r.name === "ROLE_SUPER");
+    const isAdmin = user?.roles?.some((r) => r.name === "ROLE_SUPER");
 
-    // form state
-    const [contentFilter, setContentFilter] = useState("");
-    const [levelIdFilter, setLevelIdFilter] = useState<string>("");
-    const [messageTypeIdFilter, setMessageTypeIdFilter] = useState<string>("");
 
-    // applied filters used by the query
+    const [searchParams, setSearchParams] = useSearchParams();
+    const initialPage = Number(searchParams.get("page") || "1");
+    const [page, setPage] = useState(initialPage);
+    
+
+    // form state (initialized from URL search params so the first request
+    // uses them immediately)
+    const [contentFilter, setContentFilter] = useState<string>(() => searchParams.get("content") || "");
+    const [levelIdFilter, setLevelIdFilter] = useState<string>(() => searchParams.get("levelId") || "");
+    const [messageTypeIdFilter, setMessageTypeIdFilter] = useState<string>(() => searchParams.get("messageTypeId") || "");
+
+    // applied filters used by the query (initialized from URL)
     const [appliedFilters, setAppliedFilters] = useState<{
         content?: string;
         levelId?: number;
         messageTypeId?: number;
-    }>({});
+
+    }>(() => {
+        const spContent = searchParams.get("content") || "";
+        const spLevel = searchParams.get("levelId") || "";
+        const spType = searchParams.get("messageTypeId") || "";
+
+        return {
+            content: spContent || undefined,
+            levelId: spLevel ? Number(spLevel) : undefined,
+            messageTypeId: spType ? Number(spType) : undefined,
+        };
+    });
 
     // aux data for selects
     const [levels, setLevels] = useState<{ id: number; name: string }[]>([]);
     const [types, setTypes] = useState<{ id: number; name: string }[]>([]);
 
     useEffect(() => {
-        api.get("/aux/levels").then((r) => setLevels(r.data)).catch(() => {});
-        api.get("/aux/message-types").then((r) => setTypes(r.data)).catch(() => {});
+        api.get("/aux/levels").then((r) => setLevels(r.data)).catch(() => { });
+        api.get("/aux/message-types").then((r) => setTypes(r.data)).catch(() => { });
     }, []);
 
-    const [page, setPage] = useState(1);
+    // NOTE: initialization above reads URL params synchronously so the first
+    // query will use them immediately (no mount effect required).
+
+    // Helper to build URLSearchParams from current filter state and page
+    const buildParams = (opts: { content?: string; levelId?: string; messageTypeId?: string; page?: number; size?: number }) => {
+        const params = new URLSearchParams();
+        if (opts.content) params.set("content", opts.content);
+        if (opts.levelId) params.set("levelId", opts.levelId);
+        if (opts.messageTypeId) params.set("messageTypeId", opts.messageTypeId);
+        if (opts.page && opts.page > 1) params.set("page", String(opts.page));
+        if (PAGE_SIZE) params.set("size", String(PAGE_SIZE));
+        return params;
+    };
+
+
     const [toast, setToast] = useState<{ type: "success" | "error"; message: string } | null>(null);
     const queryClient = useQueryClient();
 
@@ -55,12 +89,16 @@ const MessagesList: React.FC = () => {
         queryKey: ["messages", page, appliedFilters],
         queryFn: async () => {
             const params = {
-                page,
-                pageSize: PAGE_SIZE,
                 content: appliedFilters.content,
                 levelId: appliedFilters.levelId,
                 messageTypeId: appliedFilters.messageTypeId,
+                page: page - 1,
+                size: PAGE_SIZE,
+                sortBy: 1,
+                sortOrder: 1,
+
             } as any;
+
 
             const pageResp = await filterMessages(params) as ApiPageResponse<MessageResponseDTO>;
             // map ApiPageResponse to the UI shape expected by the component
@@ -91,7 +129,8 @@ const MessagesList: React.FC = () => {
             levelId: levelIdFilter ? Number(levelIdFilter) : undefined,
             messageTypeId: messageTypeIdFilter ? Number(messageTypeIdFilter) : undefined,
         });
-        setPage(1);
+
+        setSearchParams(buildParams({ content: contentFilter || undefined as any, levelId: levelIdFilter, messageTypeId: messageTypeIdFilter, page, size: PAGE_SIZE }));
     };
 
     const clearFilters = () => {
@@ -100,14 +139,29 @@ const MessagesList: React.FC = () => {
         setMessageTypeIdFilter("");
         setAppliedFilters({});
         setPage(1);
+        setSearchParams(buildParams({ page: 1 }));
     };
+
+    // Update URL when page changes
+    useEffect(() => {
+        setSearchParams(buildParams({ content: contentFilter || undefined as any, levelId: levelIdFilter, messageTypeId: messageTypeIdFilter, page }));
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [page]);
+
+    // Keep URL in sync whenever appliedFilters change so someone loading the URL
+    // with parameters will see the same request performed earlier (we also
+    // initialized appliedFilters from URL during state setup).
+    useEffect(() => {
+        setSearchParams(buildParams({ content: appliedFilters.content || undefined as any, levelId: appliedFilters.levelId ? String(appliedFilters.levelId) : undefined, messageTypeId: appliedFilters.messageTypeId ? String(appliedFilters.messageTypeId) : undefined, page }));
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [appliedFilters]);
 
     return (
         <div style={{ padding: 24 }}>
-           
+
             {/* Filter form */}
-            <div style={{ display: "grid", gridTemplateColumns: "1fr auto", gap: 12, marginBottom: 16 }}>
-                <div style={{ display: "flex", gap: 12 }}>
+            <div className="mb-4 flex flex-col md:flex-row md:items-end md:justify-between gap-4">
+                <div className="flex flex-wrap gap-4">
                     <div style={{ minWidth: 280 }}>
                         <label className="block text-sm font-medium mb-1">Conteúdo</label>
                         <input
@@ -164,60 +218,60 @@ const MessagesList: React.FC = () => {
                 <TableBody>
                     {isLoading
                         ? Array.from({ length: 3 }).map((_, i) => (
-                                <TableRow key={`skeleton-${i}`}>
+                            <TableRow key={`skeleton-${i}`}>
+                                <TableCell>
+                                    <Skeleton className="h-4 max-w-[300px]" />
+                                </TableCell>
+                                <TableCell>
+                                    <Skeleton className="h-4 w-32" />
+                                </TableCell>
+                                <TableCell>
+                                    <Skeleton className="h-4 w-24" />
+                                </TableCell>
+                                <TableCell>
+                                    <Skeleton className="h-4 w-24" />
+                                </TableCell>
+                                <TableCell>
+                                    <Skeleton className="h-4 w-40" />
+                                </TableCell>
+                                {isAdmin && (
                                     <TableCell>
-                                        <Skeleton className="h-4 max-w-[300px]" />
+                                        <Skeleton className="h-8 w-12 rounded-md" />
                                     </TableCell>
-                                    <TableCell>
-                                        <Skeleton className="h-4 w-32" />
-                                    </TableCell>
-                                    <TableCell>
-                                        <Skeleton className="h-4 w-24" />
-                                    </TableCell>
-                                    <TableCell>
-                                        <Skeleton className="h-4 w-24" />
-                                    </TableCell>
-                                    <TableCell>
-                                        <Skeleton className="h-4 w-40" />
-                                    </TableCell>
-                                    {isAdmin && (
-                                        <TableCell>
-                                            <Skeleton className="h-8 w-12 rounded-md" />
-                                        </TableCell>
-                                    )}
-                                </TableRow>
-                            ))
+                                )}
+                            </TableRow>
+                        ))
                         : data?.data.map((msg) => (
-                                <TableRow key={msg.id}>
-                                    <TableCell className="max-w-[300px] overflow-hidden text-ellipsis whitespace-nowrap">{msg.content}</TableCell>
-                                    <TableCell>{msg.user}</TableCell>
-                                    <TableCell>{msg.level}</TableCell>
-                                    <TableCell>{msg.messageType}</TableCell>
-                                    <TableCell>{new Date(msg.createdAt).toLocaleString()}</TableCell>
-                                    {isAdmin && (
-                                        <TableCell>
-                                            <button
-                                                aria-label="Apagar"
-                                                style={{
-                                                    background: "#f56565",
-                                                    border: "none",
-                                                    borderRadius: 4,
-                                                    padding: 6,
-                                                    cursor: mutation.isPending ? "not-allowed" : "pointer",
-                                                    color: "#fff",
-                                                    display: "flex",
-                                                    alignItems: "center",
-                                                    opacity: mutation.isPending ? 0.6 : 1,
-                                                }}
-                                                onClick={() => handleDelete(msg.id)}
-                                                disabled={mutation.isPending}
-                                            >
-                                                <Trash2 size={18} />
-                                            </button>
-                                        </TableCell>
-                                    )}
-                                </TableRow>
-                            ))}
+                            <TableRow key={msg.id}>
+                                <TableCell className="max-w-[300px] overflow-hidden text-ellipsis whitespace-nowrap">{msg.content}</TableCell>
+                                <TableCell>{msg.user}</TableCell>
+                                <TableCell>{msg.level}</TableCell>
+                                <TableCell>{msg.messageType}</TableCell>
+                                <TableCell>{formatRelativeDate(msg.createdAt)}</TableCell>
+                                {isAdmin && (
+                                    <TableCell>
+                                        <button
+                                            aria-label="Apagar"
+                                            style={{
+                                                background: "#f56565",
+                                                border: "none",
+                                                borderRadius: 4,
+                                                padding: 6,
+                                                cursor: mutation.isPending ? "not-allowed" : "pointer",
+                                                color: "#fff",
+                                                display: "flex",
+                                                alignItems: "center",
+                                                opacity: mutation.isPending ? 0.6 : 1,
+                                            }}
+                                            onClick={() => handleDelete(msg.id)}
+                                            disabled={mutation.isPending}
+                                        >
+                                            <Trash2 size={18} />
+                                        </button>
+                                    </TableCell>
+                                )}
+                            </TableRow>
+                        ))}
                 </TableBody>
             </Table>
 

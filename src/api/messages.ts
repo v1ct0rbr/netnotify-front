@@ -30,14 +30,15 @@ interface MessagesFilterParams {
 }
 
 export const useMessagesApi = () => {
-    const createMessage = async (data: CreateMessageDTO): Promise<SimpleResponse<number>> => {
+    const createMessage = async (data: CreateMessageDTO): Promise<SimpleResponse<string>> => {
         try {
-            const response = await api.post<{res: SimpleResponse<number>}>('/messages/create', {
+            const response = await api.post<{ res: Promise<SimpleResponse<string>> }>('/messages/create', {
                 content: data.content,
                 level: data.level,
                 type: data.type
             });
             toast.success('Mensagem criada com sucesso.');
+       
             return response.data.res;
         } catch (error) {
             toast.error('Erro ao criar mensagem.');
@@ -48,21 +49,31 @@ export const useMessagesApi = () => {
     const filterMessages = async (params: MessagesFilterParams): Promise<ApiPageResponse<MessageResponseDTO>> => {
         try {
             const query = new URLSearchParams();
-            query.append('page', params.page.toString());
-            query.append('size', params.size.toString());
+
+
             if (params.content) query.append('content', params.content);
             if (params.levelId) query.append('levelId', params.levelId.toString());
             if (params.messageTypeId) query.append('messageTypeId', params.messageTypeId.toString());
+            
+
+            if (params.size == undefined || params.size < 1) params.size = 1;
+            if (params.size > 100) params.size = 100;
+            query.append('size', params.size.toString());
+            if (params.page == undefined || params.page < 0) params.page = 0;
+            if (params.page > 1000) params.page = 1000;
+            query.append('page', params.page.toString());
+            
             if (params.sortBy) query.append('sortBy', params.sortBy);
             if (params.sortOrder) query.append('sortOrder', params.sortOrder);
-            const response = await api.get<{data: MessageResponseDTO[] }>('/messages/all?' + query.toString());
-            console.log('response', response.data); 
-            return {...response.data as unknown as ApiPageResponse<MessageResponseDTO>};
+            const response = await api.get<{ data: MessageResponseDTO[] }>('/messages/all?' + query.toString());
+            console.log('response', response.data);
+            return { ...response.data as unknown as ApiPageResponse<MessageResponseDTO> };
         } catch (error) {
             toast.error('Erro ao buscar mensagens.');
+            console.error('Error fetching messages:', error);
             throw error;
-        }        
-        
+        }
+
     };
 
     const deleteMessage = async (id: string): Promise<void> => {

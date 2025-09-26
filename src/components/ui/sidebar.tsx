@@ -5,7 +5,9 @@ import { Slot } from "@radix-ui/react-slot"
 import { cva } from "class-variance-authority"
 // Local type alias to avoid importing VariantProps at runtime (Vite may try to
 // require it). This keeps types local and prevents runtime import errors.
-type VariantProps<T> = Record<string, any>
+// Use the generic `T` in an intersection so the parameter is referenced and
+// TypeScript won't emit TS6133 ('T' is declared but its value is never read).
+type VariantProps<T> = Record<string, any> & { __typesafe?: T }
 import { PanelLeftIcon } from "lucide-react"
 
 import { useIsMobile } from "@/hooks/use-mobile"
