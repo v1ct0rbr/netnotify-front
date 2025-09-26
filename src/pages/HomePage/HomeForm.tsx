@@ -1,4 +1,4 @@
-import { useMessagesApi } from '@/api/messages';
+import { useMessagesApi, type CreateMessageDTO, type MessageResponseDTO } from '@/api/messages';
 import { JoditWrapper } from '@/components/jodit/JoditEditor';
 import { Button } from '@/components/ui/button';
 import { StyledSelect } from '@/components/ui/styled-select';
@@ -6,6 +6,7 @@ import api from '@/config/axios';
 import { zodResolver } from '@hookform/resolvers/zod';
 import React from 'react';
 import { Controller, useForm } from 'react-hook-form';
+import { useSearchParams } from 'react-router';
 import { toast } from 'sonner';
 import * as z from 'zod';
 
@@ -18,7 +19,10 @@ const FormSchema = z.object({
 type FormData = z.infer<typeof FormSchema>;
 
 export const HomeForm: React.FC = () => {
-  const { handleSubmit, control } = useForm<FormData>({
+
+  
+
+  const { handleSubmit, control, setValue } = useForm<FormData>({
     resolver: zodResolver(FormSchema),
     defaultValues: { content: '', level: 0, type: 0 }
   });
@@ -26,11 +30,30 @@ export const HomeForm: React.FC = () => {
   const [levels, setLevels] = React.useState<{id:number;name:string}[]>([]);
   const [types, setTypes] = React.useState<{id:number;name:string}[]>([]);
 
-  const { createMessage } = useMessagesApi();
+  const { createMessage, getCreateMessageDtoById } = useMessagesApi();
+  const [searchParams, setSearchParams] = useSearchParams();
+  const appliedMessageId = searchParams.get('clone-message-id');
+  const [clonedMessage, setClonedMessage] = React.useState<CreateMessageDTO | null>(null);
 
   React.useEffect(() => {
     handleLoadLevels();
     handleLoadTypes();
+    // If there's a clone-message-id in the URL, fetch that message and set as default values
+    if (appliedMessageId) {
+      getCreateMessageDtoById(appliedMessageId).then(msg => {
+        setClonedMessage(msg);
+        // Set form default values based on cloned message
+        if (msg) {
+          // Using setValue to update form fields
+          setValue('content', msg.content || '');
+          setValue('level', msg.level || 0);
+          setValue('type', msg.type || 0);
+        }
+      }).catch(err => {
+        console.error('Error fetching message to clone:', err);
+        toast.error('Failed to load message to clone.');
+      });
+    }
   }, []);
 
   const onSubmit = (data: FormData) => {

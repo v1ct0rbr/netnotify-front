@@ -12,7 +12,7 @@ export type CreateMessageDTO = {
 export type MessageResponseDTO = {
     id: string;
     content: string;
-    level: string;
+    level: `Baixo` | `Normal` | `Alto` | `Urgente`;
     messageType: string;
     user: string;
     createdAt: string;
@@ -30,6 +30,37 @@ interface MessagesFilterParams {
 }
 
 export const useMessagesApi = () => {
+    const getCreateMessageDtoById = async (id: string): Promise<CreateMessageDTO> => {
+        try {
+            const response = await api.get<CreateMessageDTO>(`/messages?clone-message-id=${id}`);
+            const message = response.data;
+            console.log('getCreateMessageDtoById response', message);            
+            if (!message) {
+                throw new Error('Erro ao buscar mensagem.');
+            }
+            return message;
+        } catch (error) {
+            toast.error(error instanceof Error ? error.message : 'Erro ao buscar mensagem.');
+            throw error;
+        }
+    }
+
+    const getMessageById = async (id: string): Promise<MessageResponseDTO> => {
+        try {
+            const response = await api.get<SimpleResponse<MessageResponseDTO>>(`/messages/${id}`);
+            const message = response.data;
+            console.log('getMessageById response', message.status);
+            
+            if (message.status !== 'SUCCESS') {
+                throw new Error(message.message || 'Erro ao buscar mensagem.');
+            }
+            return message.object as MessageResponseDTO;
+        } catch (error) {
+            toast.error(error instanceof Error ? error.message : 'Erro ao buscar mensagem.');
+            throw error;
+        }
+    }
+
     const createMessage = async (data: CreateMessageDTO): Promise<SimpleResponse<string>> => {
         try {
             const response = await api.post<{ res: Promise<SimpleResponse<string>> }>('/messages/create', {
@@ -86,6 +117,8 @@ export const useMessagesApi = () => {
         }
     };
     return {
+        getCreateMessageDtoById,
+        getMessageById,
         createMessage,
         filterMessages,
         deleteMessage,

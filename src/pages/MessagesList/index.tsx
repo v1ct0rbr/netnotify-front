@@ -1,11 +1,9 @@
-import React, { useEffect, useState } from "react";
-import { useMessagesApi } from "@/api/messages";
 import type { MessageResponseDTO } from "@/api/messages";
-import api from "@/config/axios";
-import { Pagination } from "@/components/ui/pagination";
+import { useMessagesApi } from "@/api/messages";
 import { Button } from "@/components/ui/button";
-import { StyledSelect } from "@/components/ui/styled-select";
+import { Pagination } from "@/components/ui/pagination";
 import { Skeleton } from "@/components/ui/skeleton";
+import { StyledSelect } from "@/components/ui/styled-select";
 import {
     Table,
     TableBody,
@@ -14,24 +12,42 @@ import {
     TableHeader,
     TableRow,
 } from "@/components/ui/table";
+import api from "@/config/axios";
 import { useAuthStore } from "@/store/useAuthStore";
-import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { Eraser, Search, Trash2 } from "lucide-react";
 import type { ApiPageResponse } from "@/utils/ApiPageResponse";
+import { formatRelativeDate } from "@/utils/DateUtils";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { Copy, Eraser, Eye, Search, Trash2 } from "lucide-react";
+import React, { useEffect, useState } from "react";
 import { useSearchParams } from "react-router";
-import { formatDate, formatRelativeDate } from "@/utils/DateUtils";
+import { AlertMessageDetails } from "./components/AlertMessageDetails";
+import { StatusBadge } from "@/components/StatusBadge";
 
-const PAGE_SIZE = 2;
+const PAGE_SIZE = 10;
 
 const MessagesList: React.FC = () => {
     const { filterMessages, deleteMessage } = useMessagesApi();
     const { user } = useAuthStore();
     const isAdmin = user?.roles?.some((r) => r.name === "ROLE_SUPER");
-
-
+    
     const [searchParams, setSearchParams] = useSearchParams();
     const initialPage = Number(searchParams.get("page") || "1");
     const [page, setPage] = useState(initialPage);
+
+    const [isAlertOpen, setIsAlertOpen] = useState(false);
+    const [selectedMessageId, setSelectedMessageId] = useState<string | null>(null);
+
+    const openAlert = (id: string) => {
+        setSelectedMessageId(id);
+        setIsAlertOpen(true);
+    };
+
+    const closeAlert = () => {
+        setSelectedMessageId(null);
+        setIsAlertOpen(false);
+    };
+
+
     
 
     // form state (initialized from URL search params so the first request
@@ -123,6 +139,11 @@ const MessagesList: React.FC = () => {
         mutation.mutate(id);
     };
 
+    const handleClone = (id: string) => {
+        // Redirect to home page with clone-message-id param
+        window.location.href = `/?clone-message-id=${id}`;
+    }
+
     const applyFilters = () => {
         setAppliedFilters({
             content: contentFilter || undefined,
@@ -162,7 +183,7 @@ const MessagesList: React.FC = () => {
             {/* Filter form */}
             <div className="mb-4 flex flex-col md:flex-row md:items-end md:justify-between gap-4">
                 <div className="flex flex-wrap gap-4">
-                    <div style={{ minWidth: 280 }}>
+                    <div style={{ minWidth: 200 }}>
                         <label className="block text-sm font-medium mb-1">Conteúdo</label>
                         <input
                             value={contentFilter}
@@ -181,7 +202,7 @@ const MessagesList: React.FC = () => {
                         />
                     </div>
 
-                    <div style={{ width: 220 }}>
+                    <div style={{ width: 200 }}>
                         <label className="block text-sm font-medium mb-1">Tipo</label>
                         <StyledSelect
                             options={[{ label: "", value: "" }, ...types.map((t) => ({ label: t.name, value: String(t.id) }))]}
@@ -243,13 +264,13 @@ const MessagesList: React.FC = () => {
                         ))
                         : data?.data.map((msg) => (
                             <TableRow key={msg.id}>
-                                <TableCell className="max-w-[300px] overflow-hidden text-ellipsis whitespace-nowrap">{msg.content}</TableCell>
-                                <TableCell>{msg.user}</TableCell>
-                                <TableCell>{msg.level}</TableCell>
-                                <TableCell>{msg.messageType}</TableCell>
-                                <TableCell>{formatRelativeDate(msg.createdAt)}</TableCell>
+                                <TableCell className="max-w-[300px] overflow-hidden text-ellipsis whitespace-nowrap text-left">{msg.content}</TableCell>
+                                <TableCell className="text-left">{msg.user}</TableCell>
+                                <TableCell className="text-left"> <StatusBadge level={msg.level} /></TableCell>
+                                <TableCell className="text-left">{msg.messageType}</TableCell>
+                                <TableCell className="text-left">{formatRelativeDate(msg.createdAt)}</TableCell>
                                 {isAdmin && (
-                                    <TableCell>
+                                    <TableCell className="text-left flex flex-row items-center gap-0.5">
                                         <button
                                             aria-label="Apagar"
                                             style={{
@@ -268,12 +289,49 @@ const MessagesList: React.FC = () => {
                                         >
                                             <Trash2 size={18} />
                                         </button>
+                                        <button
+                                            aria-label="Detalhes"
+                                            style={{
+                                                background: "#4299e1",
+                                                border: "none",
+                                                borderRadius: 4,
+                                                padding: 6,
+                                                cursor: "pointer",
+                                                color: "#fff",
+                                                display: "flex",
+                                                alignItems: "center",
+                                                marginLeft: 8,
+                                            }}
+                                            onClick={() => openAlert(msg.id)}
+                                        >
+                                            <Eye size={18} />
+                                        </button>
+
+                                        <button
+                                            aria-label="Clonar"
+                                            style={{
+                                                background: "#68d391",
+                                                border: "none",
+                                                borderRadius: 4,
+                                                padding: 6,
+                                                cursor: "pointer",
+                                                color: "#fff",
+                                                display: "flex",
+                                                alignItems: "center",
+                                                marginLeft: 8,
+                                            }}
+                                            onClick={() => handleClone(msg.id)}
+                                        >
+                                            <Copy size={18} />
+                                        </button>
+
                                     </TableCell>
                                 )}
                             </TableRow>
                         ))}
                 </TableBody>
             </Table>
+            <AlertMessageDetails open={isAlertOpen} id={selectedMessageId} onClose={closeAlert} />
 
             <div style={{ display: "flex", justifyContent: "center", marginTop: 24 }}>
                 {isLoading ? (
