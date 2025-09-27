@@ -1,5 +1,6 @@
 import type { MessageResponseDTO } from "@/api/messages";
 import { useMessagesApi } from "@/api/messages";
+import { StatusBadge } from "@/components/StatusBadge";
 import { Button } from "@/components/ui/button";
 import { Pagination } from "@/components/ui/pagination";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -19,9 +20,8 @@ import { formatRelativeDate } from "@/utils/DateUtils";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Copy, Eraser, Eye, Search, Trash2 } from "lucide-react";
 import React, { useEffect, useState } from "react";
-import { useSearchParams } from "react-router";
+import { Link, useSearchParams } from "react-router";
 import { AlertMessageDetails } from "./components/AlertMessageDetails";
-import { StatusBadge } from "@/components/StatusBadge";
 
 const PAGE_SIZE = 10;
 
@@ -29,8 +29,9 @@ const MessagesList: React.FC = () => {
     const { filterMessages, deleteMessage } = useMessagesApi();
     const { user } = useAuthStore();
     const isAdmin = user?.roles?.some((r) => r.name === "ROLE_SUPER");
-    
+
     const [searchParams, setSearchParams] = useSearchParams();
+
     const initialPage = Number(searchParams.get("page") || "1");
     const [page, setPage] = useState(initialPage);
 
@@ -46,10 +47,6 @@ const MessagesList: React.FC = () => {
         setSelectedMessageId(null);
         setIsAlertOpen(false);
     };
-
-
-    
-
     // form state (initialized from URL search params so the first request
     // uses them immediately)
     const [contentFilter, setContentFilter] = useState<string>(() => searchParams.get("content") || "");
@@ -75,13 +72,27 @@ const MessagesList: React.FC = () => {
     });
 
     // aux data for selects
-    const [levels, setLevels] = useState<{ id: number; name: string }[]>([]);
-    const [types, setTypes] = useState<{ id: number; name: string }[]>([]);
+    const { data: levels } = useQuery({
+        queryKey: ['levels'],
+        queryFn: async () => {
+            console.log("Loading levels...")
+            const res = await api.get<{ id: number; name: string }[]>('/aux/levels');
+            return res.data;
+        },
+        staleTime: 10 * 60 * 1000,  // Cache por 10min
+    });
 
-    useEffect(() => {
-        api.get("/aux/levels").then((r) => setLevels(r.data)).catch(() => { });
-        api.get("/aux/message-types").then((r) => setTypes(r.data)).catch(() => { });
-    }, []);
+    const { data: types } = useQuery({
+        queryKey: ['types'],
+        queryFn: async () => {
+            console.log("Loading types...")
+            const res = await api.get<{ id: number; name: string }[]>('/aux/message-types');
+            return res.data;
+        },
+        staleTime: 10 * 60 * 1000,  // Cache por 10min
+    });
+
+
 
     // NOTE: initialization above reads URL params synchronously so the first
     // query will use them immediately (no mount effect required).
@@ -139,10 +150,7 @@ const MessagesList: React.FC = () => {
         mutation.mutate(id);
     };
 
-    const handleClone = (id: string) => {
-        // Redirect to home page with clone-message-id param
-        window.location.href = `/?clone-message-id=${id}`;
-    }
+
 
     const applyFilters = () => {
         setAppliedFilters({
@@ -196,7 +204,7 @@ const MessagesList: React.FC = () => {
                     <div style={{ width: 200 }}>
                         <label className="block text-sm font-medium mb-1">Level</label>
                         <StyledSelect
-                            options={[{ label: "", value: "" }, ...levels.map((l) => ({ label: l.name, value: String(l.id) }))]}
+                            options={[{ label: "", value: "" }, ...(levels ?? []).map((l) => ({ label: l.name, value: String(l.id) }))]}
                             value={levelIdFilter}
                             onChange={(e) => setLevelIdFilter(e.target.value)}
                         />
@@ -205,7 +213,7 @@ const MessagesList: React.FC = () => {
                     <div style={{ width: 200 }}>
                         <label className="block text-sm font-medium mb-1">Tipo</label>
                         <StyledSelect
-                            options={[{ label: "", value: "" }, ...types.map((t) => ({ label: t.name, value: String(t.id) }))]}
+                            options={[{ label: "", value: "" }, ...(types ?? []).map((t) => ({ label: t.name, value: String(t.id) }))]}
                             value={messageTypeIdFilter}
                             onChange={(e) => setMessageTypeIdFilter(e.target.value)}
                         />
@@ -306,24 +314,19 @@ const MessagesList: React.FC = () => {
                                         >
                                             <Eye size={18} />
                                         </button>
-
-                                        <button
-                                            aria-label="Clonar"
-                                            style={{
-                                                background: "#68d391",
-                                                border: "none",
-                                                borderRadius: 4,
-                                                padding: 6,
-                                                cursor: "pointer",
-                                                color: "#fff",
-                                                display: "flex",
-                                                alignItems: "center",
-                                                marginLeft: 8,
-                                            }}
-                                            onClick={() => handleClone(msg.id)}
-                                        >
+                                        <Link aria-label="Clonar" style={{
+                                            background: "#68d391",
+                                            border: "none",
+                                            borderRadius: 4,
+                                            padding: 6,
+                                            cursor: "pointer",
+                                            color: "#fff",
+                                            display: "flex",
+                                            alignItems: "center",
+                                            marginLeft: 8,
+                                        }} to={{ pathname: `/`, search: `?id=${msg.id}` }}>
                                             <Copy size={18} />
-                                        </button>
+                                        </Link>
 
                                     </TableCell>
                                 )}

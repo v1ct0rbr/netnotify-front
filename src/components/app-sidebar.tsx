@@ -1,5 +1,5 @@
 import { Button } from "@/components/ui/button";
-import { Home, Inbox, LogOut } from "lucide-react";
+import { Home, Inbox, LogOut, Send } from "lucide-react";
 
 import {
   Sidebar,
@@ -20,9 +20,9 @@ import { toast } from "sonner";
 // Menu items.
 const items = [
   {
-    title: "Home",
+    title: "Nova Mensagem",
     url: "/",
-    icon: Home,
+    icon: Send,
   },
   {
     title: "Mensagens",

@@ -97,7 +97,7 @@ export const useMessagesApi = () => {
             if (params.sortBy) query.append('sortBy', params.sortBy);
             if (params.sortOrder) query.append('sortOrder', params.sortOrder);
             const response = await api.get<{ data: MessageResponseDTO[] }>('/messages/all?' + query.toString());
-            console.log('response', response.data);
+            
             return { ...response.data as unknown as ApiPageResponse<MessageResponseDTO> };
         } catch (error) {
             toast.error('Erro ao buscar mensagens.');
@@ -109,7 +109,7 @@ export const useMessagesApi = () => {
 
     const deleteMessage = async (id: string): Promise<void> => {
         try {
-            await api.delete(`/messages/${id}`);
+            await api.delete(`/messages/delete?id=${id}`);
             toast.success('Mensagem apagada com sucesso.');
         } catch (error) {
             toast.error('Erro ao apagar mensagem.');
