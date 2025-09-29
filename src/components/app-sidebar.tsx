@@ -1,5 +1,5 @@
 import { Button } from "@/components/ui/button";
-import { Home, Inbox, LogOut, Send } from "lucide-react";
+import { Inbox, LogOut, Send } from "lucide-react";
 
 import {
   Sidebar,

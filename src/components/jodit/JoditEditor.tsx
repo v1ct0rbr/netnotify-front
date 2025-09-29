@@ -1,4 +1,12 @@
-import React, { useEffect, useRef } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
+import { Code, Image as ImageIcon } from 'lucide-react';
+import {
+  Dialog,
+  DialogContent,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from '@/components/ui/dialog';
 import Quill from 'quill';
 import 'quill/dist/quill.snow.css';
 
@@ -13,6 +21,76 @@ export const JoditWrapper: React.FC<Props> = ({ value, onChange, config }) => {
   const quillRef = useRef<any>(null);
   const inputFileRef = useRef<HTMLInputElement | null>(null);
   const toolbarRef = useRef<HTMLDivElement | null>(null);
+  const [isHtmlMode, setIsHtmlMode] = useState(false);
+  const [htmlValue, setHtmlValue] = useState<string>(value || '');
+  // track last html emitted from quill to avoid echoing prop updates back into the editor
+  const lastQuillHtmlRef = useRef<string | null>(null);
+  // guard to indicate we are programmatically applying content to the editor
+  const isApplyingRef = useRef<boolean>(false);
+  // track if user is actively focused/typing in the editor
+  const hasFocusRef = useRef<boolean>(false);
+  // modal state for image insertion
+  const [imgModalOpen, setImgModalOpen] = useState(false);
+  const [imgUrl, setImgUrl] = useState('');
+  const [imgWidth, setImgWidth] = useState('');
+  const [imgHeight, setImgHeight] = useState('');
+  const [selectedFile, setSelectedFile] = useState<File | null>(null);
+  const [imgError, setImgError] = useState<string | null>(null);
+
+  // confirm insertion moved to component scope so modal can call it
+  const confirmInsertImage = async () => {
+    setImgError(null);
+    let finalUrl = imgUrl && imgUrl.trim() ? imgUrl.trim() : undefined;
+    try {
+      if (!finalUrl && selectedFile) {
+          if (config && typeof config.uploadImage === 'function') {
+            finalUrl = await config.uploadImage(selectedFile);
+          } else {
+          setImgError('File upload is not supported (no uploadImage handler provided).');
+          return;
+          }
+      }
+
+      if (!finalUrl) {
+        setImgError('Please provide an image URL or select a file to upload.');
+        return;
+      }
+
+      const styles: string[] = [];
+      if (imgWidth) styles.push(`width:${imgWidth.replace(/[^0-9.%]/g, '')}${/\D$/.test(imgWidth) ? '' : 'px'}`);
+      if (imgHeight) styles.push(`height:${imgHeight.replace(/[^0-9.%]/g, '')}${/\D$/.test(imgHeight) ? '' : 'px'}`);
+      const styleAttr = styles.length ? ` style="${styles.join(';')}"` : '';
+
+      if (quillRef.current) {
+        // preserve current selection so we can restore it after insertion
+        const priorSel = quillRef.current.getSelection && quillRef.current.getSelection(true);
+        const insertIndex = (priorSel && typeof priorSel.index === 'number') ? priorSel.index : (quillRef.current.getLength ? quillRef.current.getLength() : 0);
+        const html = `<img src="${finalUrl}" alt=""${styleAttr} />`;
+        // mark we're applying programmatically so the text-change handler ignores this event
+        isApplyingRef.current = true;
+        // insert HTML at the captured index
+        quillRef.current.clipboard.dangerouslyPasteHTML(insertIndex, html);
+        // move selection to just after the inserted node
+        try {
+          quillRef.current.setSelection(insertIndex + 1, 0);
+          quillRef.current.focus && quillRef.current.focus();
+        } catch (e) {
+          // ignore selection errors
+        }
+        const htmlNow = quillRef.current.root.innerHTML;
+        lastQuillHtmlRef.current = htmlNow;
+        onChange(htmlNow);
+        setHtmlValue(htmlNow);
+        // clear the applying flag on next tick so normal typing resumes
+        setTimeout(() => {
+          isApplyingRef.current = false;
+        }, 0);
+      }
+      setImgModalOpen(false);
+      } catch (err: any) {
+        setImgError(err?.message || 'Upload failed');
+    }
+  };
 
   useEffect(() => {
     if (!containerRef.current) return;
@@ -26,61 +104,38 @@ export const JoditWrapper: React.FC<Props> = ({ value, onChange, config }) => {
       [{ align: [] }],
     ];
 
-    // prepare handler for image insertion
-    const toBase64 = (f: File) => new Promise<string | null>((resolve) => {
-      const reader = new FileReader();
-      reader.onload = () => resolve(reader.result as string);
-      reader.onerror = () => resolve(null);
-      reader.readAsDataURL(f);
-    });
-
+    // Image handler now prompts for an image URL and optional size, inserts an <img> tag
+    // open the image modal instead of prompting twice
     const imageHandler = function(this: any) {
-      // 'this' is toolbar module context sometimes; use quillRef
-      if (!inputFileRef.current) {
-        const input = document.createElement('input');
-        input.type = 'file';
-        input.accept = 'image/*';
-        input.style.display = 'none';
-        input.addEventListener('change', async () => {
-          const file = input.files && input.files[0];
-          if (!file) return;
-
-          let url: string | null = null;
-          if (config && typeof config.uploadImage === 'function') {
-            try {
-              url = await config.uploadImage(file);
-            } catch (e) {
-              url = await toBase64(file);
-            }
-          } else {
-            url = await toBase64(file);
-          }
-
-          if (url && quillRef.current) {
-            const range = quillRef.current.getSelection(true);
-            quillRef.current.insertEmbed(range.index, 'image', url, 'user');
-            quillRef.current.setSelection(range.index + 1, 0);
-          }
-          input.value = '';
-        });
-        document.body.appendChild(input);
-        inputFileRef.current = input;
+      try {
+        setImgError(null);
+        setImgUrl('');
+        setImgWidth('');
+        setImgHeight('');
+        setSelectedFile(null);
+        setImgModalOpen(true);
+      } catch (err) {
+        // ignore
       }
-      inputFileRef.current.click();
     };
+
 
     // create editor
     const editorContainer = containerRef.current as HTMLElement;
     const toolbarContainer = toolbarRef.current as HTMLElement | null;
 
     // Initialize Quill using the toolbar container we render in JSX (deterministic)
-    quillRef.current = new Quill(editorContainer, {
+  quillRef.current = new Quill(editorContainer, {
       theme: (config && config.theme) || 'snow',
       modules: {
         // include header and align handlers in handlers so toolbar-based selects are wired
+        // Do not register the default 'image' handler here — we attach a single custom click listener
+        // to a bespoke toolbar button to avoid duplicate prompts.
+        // Prevent Quill from wiring built-in handlers (image etc.). We'll wire header/align manually
+        // and attach our single custom image click listener.
         toolbar: toolbarContainer
-          ? { container: toolbarContainer, handlers: { image: imageHandler, header: (value: any) => { try { if (quillRef.current) quillRef.current.format('header', value === '' ? false : Number(value)); } catch(e){} }, align: (value: any) => { try { if (quillRef.current) quillRef.current.format('align', value === '' ? false : value); } catch(e){} } } }
-          : { container: toolbarOptions, handlers: { image: imageHandler, header: (value: any) => { try { if (quillRef.current) quillRef.current.format('header', value === '' ? false : Number(value)); } catch(e){} }, align: (value: any) => { try { if (quillRef.current) quillRef.current.format('align', value === '' ? false : value); } catch(e){} } } },
+          ? { container: toolbarContainer, handlers: {} }
+          : { container: toolbarOptions, handlers: {} },
         ...(config && config.modules),
       },
       // explicitly allow header format + common formats to avoid accidental format restrictions
@@ -97,6 +152,44 @@ export const JoditWrapper: React.FC<Props> = ({ value, onChange, config }) => {
       ...config,
     });
 
+    // ensure editor is enabled and focusable
+    try {
+      quillRef.current.enable && quillRef.current.enable(true);
+      if (quillRef.current && quillRef.current.root) {
+        quillRef.current.root.setAttribute('contenteditable', 'true');
+        quillRef.current.root.setAttribute('tabindex', '0');
+      }
+    } catch (e) {}
+
+    // clicking the container should focus Quill so typing becomes possible
+    const onContainerClick = () => {
+      try {
+        quillRef.current && typeof quillRef.current.focus === 'function' && quillRef.current.focus();
+      } catch (e) {}
+    };
+    try {
+      editorContainer.addEventListener('click', onContainerClick);
+      (quillRef.current as any).__containerClickCleanup = () => editorContainer.removeEventListener('click', onContainerClick);
+    } catch (e) {}
+
+    // track focus/blur to prevent external prop updates while user is typing
+    const onFocus = () => {
+      hasFocusRef.current = true;
+    };
+    const onBlur = () => {
+      hasFocusRef.current = false;
+    };
+    try {
+      if (quillRef.current && quillRef.current.root) {
+        quillRef.current.root.addEventListener('focus', onFocus);
+        quillRef.current.root.addEventListener('blur', onBlur);
+        (quillRef.current as any).__focusCleanup = () => {
+          quillRef.current.root.removeEventListener('focus', onFocus);
+          quillRef.current.root.removeEventListener('blur', onBlur);
+        };
+      }
+    } catch (e) {}
+
     // expose quill instance for quick manual debugging in browser console
     try {
       (window as any).__quillInstance = quillRef.current;
@@ -105,7 +198,15 @@ export const JoditWrapper: React.FC<Props> = ({ value, onChange, config }) => {
 
     // set initial content
     try {
-      quillRef.current.root.innerHTML = value || '';
+      // apply initial content using Quill's clipboard conversion to preserve internal state
+      try {
+        isApplyingRef.current = true;
+        const delta = quillRef.current.clipboard.convert(value || '');
+        quillRef.current.setContents(delta, 'silent');
+        setHtmlValue(value || '');
+      } finally {
+        setTimeout(() => { isApplyingRef.current = false; }, 0);
+      }
     } catch (e) {
       // ignore
     }
@@ -145,7 +246,7 @@ export const JoditWrapper: React.FC<Props> = ({ value, onChange, config }) => {
       // ignore
     }
 
-    // If the toolbar is provided as a DOM node sometimes Quill doesn't wire
+  // If the toolbar is provided as a DOM node sometimes Quill doesn't wire
     // up the header select correctly in some environments. Add a fallback
     // listener that forces the header format when the select changes.
     try {
@@ -169,6 +270,37 @@ export const JoditWrapper: React.FC<Props> = ({ value, onChange, config }) => {
         };
         if (headerSelect) headerSelect.addEventListener('change', headerHandler);
 
+        // attach HTML edit button handler if present
+        try {
+          const htmlBtn = toolbarContainer.querySelector('.html-btn') as HTMLButtonElement | null;
+          if (htmlBtn) {
+            const htmlHandler = () => {
+              try {
+                const currentHtml = quillRef.current ? quillRef.current.root.innerHTML : '';
+                setHtmlValue(currentHtml);
+                setIsHtmlMode((s) => !s);
+              } catch (e) {}
+            };
+            htmlBtn.addEventListener('click', htmlHandler);
+            (quillRef.current as any).__htmlBtnCleanup = () => htmlBtn.removeEventListener('click', htmlHandler);
+          }
+        } catch (e) {}
+
+        // attach custom image button handler (use a bespoke class to avoid Quill's built-in handler)
+        try {
+          const imgBtn = toolbarContainer.querySelector('.image-custom-btn') as HTMLButtonElement | null;
+          if (imgBtn) {
+            const imgHandler = (ev?: Event) => {
+              ev && ev.preventDefault();
+              try {
+                imageHandler.call(null);
+              } catch (e) {}
+            };
+            imgBtn.addEventListener('click', imgHandler);
+            (quillRef.current as any).__imgBtnCleanup = () => imgBtn.removeEventListener('click', imgHandler);
+          }
+        } catch (e) {}
+
         // cleanup: remove listener on destroy
         const origDestroy = () => {
           try {
@@ -184,8 +316,14 @@ export const JoditWrapper: React.FC<Props> = ({ value, onChange, config }) => {
 
     const handler = () => {
       try {
+        // ignore text-change events triggered by our programmatic writes
+        if (isApplyingRef.current) return;
         const html = quillRef.current.root.innerHTML;
+        // mark this html as coming from the editor, so the value prop won't be written back
+        lastQuillHtmlRef.current = html;
         onChange(html);
+        // keep textarea in sync when not editing HTML directly
+        if (!isHtmlMode) setHtmlValue(html);
       } catch (e) {
         // ignore
       }
@@ -208,6 +346,18 @@ export const JoditWrapper: React.FC<Props> = ({ value, onChange, config }) => {
         try {
           const cleanup = (quillRef.current as any) && (quillRef.current as any).__headerCleanup;
           if (typeof cleanup === 'function') cleanup();
+          } catch (e) {}
+          try {
+            const htmlCleanup = (quillRef.current as any) && (quillRef.current as any).__htmlBtnCleanup;
+            if (typeof htmlCleanup === 'function') htmlCleanup();
+        } catch (e) {}
+        try {
+          const contCleanup = (quillRef.current as any) && (quillRef.current as any).__containerClickCleanup;
+          if (typeof contCleanup === 'function') contCleanup();
+        } catch (e) {}
+        try {
+          const focusCleanup = (quillRef.current as any) && (quillRef.current as any).__focusCleanup;
+          if (typeof focusCleanup === 'function') focusCleanup();
         } catch (e) {}
       } catch (e) {
         // ignore
@@ -219,8 +369,55 @@ export const JoditWrapper: React.FC<Props> = ({ value, onChange, config }) => {
   useEffect(() => {
     if (!quillRef.current) return;
     const current = quillRef.current.root.innerHTML || '';
-    if (value !== current) quillRef.current.root.innerHTML = value || '';
+    // if the incoming value matches the last html emitted by quill, don't rewrite the DOM
+    if (lastQuillHtmlRef.current && value === lastQuillHtmlRef.current) return;
+    // if user is actively focused/typing, skip external prop updates to avoid cursor jumps
+    if (hasFocusRef.current) return;
+    if (value !== current) {
+      // Use Quill's clipboard conversion and setContents to avoid direct DOM writes
+      try {
+        const sel = quillRef.current.getSelection && quillRef.current.getSelection(true);
+        isApplyingRef.current = true;
+        const delta = quillRef.current.clipboard.convert(value || '');
+        quillRef.current.setContents(delta, 'silent');
+        // attempt to restore previous selection if present
+        if (sel && typeof sel.index === 'number') {
+          try {
+            quillRef.current.setSelection(sel.index, sel.length || 0);
+          } catch (e) {
+            // ignore selection restore errors
+          }
+        }
+      } catch (e) {
+        // fallback to direct innerHTML if convert/setContents fails
+        try {
+          quillRef.current.root.innerHTML = value || '';
+        } catch (ee) {
+          // ignore
+        }
+      } finally {
+        setTimeout(() => { isApplyingRef.current = false; }, 0);
+      }
+    }
   }, [value]);
+
+  // When toggling HTML mode off, push textarea content back into Quill and
+  // emit change. This keeps the editor and external onChange in sync.
+  useEffect(() => {
+    if (!quillRef.current) return;
+    if (!isHtmlMode) {
+      try {
+        // mark we're applying programmatically to suppress the 'text-change' handler
+        isApplyingRef.current = true;
+        quillRef.current.root.innerHTML = htmlValue || '';
+        onChange(htmlValue || '');
+        // clear applying flag next tick
+        setTimeout(() => {
+          isApplyingRef.current = false;
+        }, 0);
+      } catch (e) {}
+    }
+  }, [isHtmlMode, htmlValue, onChange]);
 
   return (
     <div>
@@ -240,7 +437,8 @@ export const JoditWrapper: React.FC<Props> = ({ value, onChange, config }) => {
         </span>
         <span className="ql-formats">
           <button className="ql-link" aria-label="Link" />
-          <button className="ql-image" aria-label="Image" />
+          <button className="image-custom-btn" aria-label="Image"><ImageIcon className="w-4 h-4" /></button>
+          <button type="button" className="html-btn" aria-label="Edit HTML"><Code className="w-4 h-4" /></button>
         </span>
         <span className="ql-formats">
           <button className="ql-list" value="ordered" aria-label="Ordered list" />
@@ -255,7 +453,50 @@ export const JoditWrapper: React.FC<Props> = ({ value, onChange, config }) => {
           </select>
         </span>
       </div>
-      <div ref={containerRef} className="ql-container" />
+      <div className="relative">
+        <div ref={containerRef} className="ql-container min-h-[200px] p-2 border rounded bg-background text-body" />
+        {isHtmlMode && (
+          <textarea
+            className="absolute inset-0 w-full h-full p-2 border rounded bg-background text-body z-10"
+            value={htmlValue}
+            onChange={(e) => setHtmlValue(e.target.value)}
+          />
+        )}
+      </div>
+      {/* Image insertion modal */}
+      <Dialog open={imgModalOpen} onOpenChange={(v) => setImgModalOpen(Boolean(v))}>
+        <DialogContent className="max-w-lg">
+          <DialogHeader>
+            <DialogTitle>Inserir imagem</DialogTitle>
+          </DialogHeader>
+          <div className="grid gap-2">
+            <label className="text-sm">URL pública</label>
+            <input value={imgUrl} onChange={(e) => setImgUrl(e.target.value)} className="input" placeholder="https://..." />
+
+            <div className="grid grid-cols-2 gap-2">
+              <div>
+                <label className="text-sm">Width</label>
+                <input value={imgWidth} onChange={(e) => setImgWidth(e.target.value)} className="input" placeholder="e.g. 300 or 50%" />
+              </div>
+              <div>
+                <label className="text-sm">Height</label>
+                <input value={imgHeight} onChange={(e) => setImgHeight(e.target.value)} className="input" placeholder="e.g. 200 or 50%" />
+              </div>
+            </div>
+
+            <div>
+              <label className="text-sm">Ou selecione um arquivo (upload)</label>
+              <input type="file" accept="image/*" onChange={(e) => setSelectedFile(e.target.files ? e.target.files[0] : null)} />
+            </div>
+
+            {imgError && <div className="text-sm text-destructive">{imgError}</div>}
+          </div>
+          <DialogFooter className="flex justify-end gap-2 mt-4">
+            <button type="button" className='btn btn-primary' onClick={() => setImgModalOpen(false)}>Cancelar</button>
+            <button type="button" className="btn btn-primary" onClick={() => confirmInsertImage()}>Inserir</button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 };
