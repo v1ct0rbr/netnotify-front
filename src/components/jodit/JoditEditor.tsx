@@ -1,5 +1,5 @@
 import React, { useEffect, useRef, useState } from 'react';
-import { Code, Image as ImageIcon } from 'lucide-react';
+import { Image as ImageIcon } from 'lucide-react';
 import {
   Dialog,
   DialogContent,
@@ -9,6 +9,92 @@ import {
 } from '@/components/ui/dialog';
 import Quill from 'quill';
 import 'quill/dist/quill.snow.css';
+
+// Import Quill blots
+const Inline = Quill.import('blots/inline');
+const Block = Quill.import('blots/block');
+
+// Custom Bold format that applies inline styles
+class BoldInline extends Inline {
+  static blotName = 'bold';
+  static tagName = 'STRONG';
+  
+  static create() {
+    const node = super.create();
+    node.setAttribute('style', 'font-weight: bold;');
+    return node;
+  }
+}
+
+// Custom Italic format that applies inline styles
+class ItalicInline extends Inline {
+  static blotName = 'italic';
+  static tagName = 'EM';
+  
+  static create() {
+    const node = super.create();
+    node.setAttribute('style', 'font-style: italic;');
+    return node;
+  }
+}
+
+// Custom Underline format that applies inline styles
+class UnderlineInline extends Inline {
+  static blotName = 'underline';
+  static tagName = 'U';
+  
+  static create() {
+    const node = super.create();
+    node.setAttribute('style', 'text-decoration: underline;');
+    return node;
+  }
+}
+
+// Custom Header format that applies inline font-size styles
+class HeaderBlock extends Block {
+  static blotName = 'header';
+  static tagName = ['H1', 'H2', 'H3', 'H4', 'H5', 'H6'];
+  
+  static create(value: string | number) {
+    const level = typeof value === 'string' ? parseInt(value) : value;
+    const tagName = `H${Math.min(Math.max(level, 1), 6)}`;
+    const node = super.create(tagName);
+    
+    let styles = '';
+    // Apply inline font-size based on header level
+    switch(level) {
+      case 1:
+        styles = 'font-size: 2rem; font-weight: bold; margin: 1rem 0 0.5rem 0;';
+        break;
+      case 2:
+        styles = 'font-size: 1.5rem; font-weight: bold; margin: 0.75rem 0 0.5rem 0;';
+        break;
+      case 3:
+        styles = 'font-size: 1.25rem; font-weight: bold; margin: 0.5rem 0 0.25rem 0;';
+        break;
+      default:
+        styles = 'font-size: 1rem; font-weight: bold;';
+        break;
+    }
+    
+    node.setAttribute('style', styles);
+    return node;
+  }
+  
+  static formats(node: HTMLElement) {
+    return parseInt(node.tagName.charAt(1));
+  }
+}
+
+// Use existing Quill align attributor but ensure it uses inline styles
+const AlignStyle = Quill.import('attributors/style/align');
+
+// Register custom formats
+Quill.register(BoldInline, true);
+Quill.register(ItalicInline, true);
+Quill.register(UnderlineInline, true);
+Quill.register(HeaderBlock, true);
+Quill.register(AlignStyle, true);
 
 interface Props {
   value: string;
@@ -21,8 +107,6 @@ export const JoditWrapper: React.FC<Props> = ({ value, onChange, config }) => {
   const quillRef = useRef<any>(null);
   const inputFileRef = useRef<HTMLInputElement | null>(null);
   const toolbarRef = useRef<HTMLDivElement | null>(null);
-  const [isHtmlMode, setIsHtmlMode] = useState(false);
-  const [htmlValue, setHtmlValue] = useState<string>(value || '');
   // track last html emitted from quill to avoid echoing prop updates back into the editor
   const lastQuillHtmlRef = useRef<string | null>(null);
   // guard to indicate we are programmatically applying content to the editor
@@ -80,7 +164,6 @@ export const JoditWrapper: React.FC<Props> = ({ value, onChange, config }) => {
         const htmlNow = quillRef.current.root.innerHTML;
         lastQuillHtmlRef.current = htmlNow;
         onChange(htmlNow);
-        setHtmlValue(htmlNow);
         // clear the applying flag on next tick so normal typing resumes
         setTimeout(() => {
           isApplyingRef.current = false;
@@ -105,7 +188,6 @@ export const JoditWrapper: React.FC<Props> = ({ value, onChange, config }) => {
     ];
 
     // Image handler now prompts for an image URL and optional size, inserts an <img> tag
-    // open the image modal instead of prompting twice
     const imageHandler = function(this: any) {
       try {
         setImgError(null);
@@ -119,23 +201,17 @@ export const JoditWrapper: React.FC<Props> = ({ value, onChange, config }) => {
       }
     };
 
-
     // create editor
     const editorContainer = containerRef.current as HTMLElement;
     const toolbarContainer = toolbarRef.current as HTMLElement | null;
 
     // Initialize Quill using the toolbar container we render in JSX (deterministic)
-  quillRef.current = new Quill(editorContainer, {
+    quillRef.current = new Quill(editorContainer, {
       theme: (config && config.theme) || 'snow',
       modules: {
-        // include header and align handlers in handlers so toolbar-based selects are wired
-        // Do not register the default 'image' handler here — we attach a single custom click listener
-        // to a bespoke toolbar button to avoid duplicate prompts.
-        // Prevent Quill from wiring built-in handlers (image etc.). We'll wire header/align manually
-        // and attach our single custom image click listener.
         toolbar: toolbarContainer
-          ? { container: toolbarContainer, handlers: {} }
-          : { container: toolbarOptions, handlers: {} },
+          ? { container: toolbarContainer, handlers: { image: imageHandler } }
+          : { container: toolbarOptions, handlers: { image: imageHandler } },
         ...(config && config.modules),
       },
       // explicitly allow header format + common formats to avoid accidental format restrictions
@@ -203,7 +279,6 @@ export const JoditWrapper: React.FC<Props> = ({ value, onChange, config }) => {
         isApplyingRef.current = true;
         const delta = quillRef.current.clipboard.convert(value || '');
         quillRef.current.setContents(delta, 'silent');
-        setHtmlValue(value || '');
       } finally {
         setTimeout(() => { isApplyingRef.current = false; }, 0);
       }
@@ -270,22 +345,6 @@ export const JoditWrapper: React.FC<Props> = ({ value, onChange, config }) => {
         };
         if (headerSelect) headerSelect.addEventListener('change', headerHandler);
 
-        // attach HTML edit button handler if present
-        try {
-          const htmlBtn = toolbarContainer.querySelector('.html-btn') as HTMLButtonElement | null;
-          if (htmlBtn) {
-            const htmlHandler = () => {
-              try {
-                const currentHtml = quillRef.current ? quillRef.current.root.innerHTML : '';
-                setHtmlValue(currentHtml);
-                setIsHtmlMode((s) => !s);
-              } catch (e) {}
-            };
-            htmlBtn.addEventListener('click', htmlHandler);
-            (quillRef.current as any).__htmlBtnCleanup = () => htmlBtn.removeEventListener('click', htmlHandler);
-          }
-        } catch (e) {}
-
         // attach custom image button handler (use a bespoke class to avoid Quill's built-in handler)
         try {
           const imgBtn = toolbarContainer.querySelector('.image-custom-btn') as HTMLButtonElement | null;
@@ -322,8 +381,6 @@ export const JoditWrapper: React.FC<Props> = ({ value, onChange, config }) => {
         // mark this html as coming from the editor, so the value prop won't be written back
         lastQuillHtmlRef.current = html;
         onChange(html);
-        // keep textarea in sync when not editing HTML directly
-        if (!isHtmlMode) setHtmlValue(html);
       } catch (e) {
         // ignore
       }
@@ -338,6 +395,24 @@ export const JoditWrapper: React.FC<Props> = ({ value, onChange, config }) => {
         if (inputFileRef.current && inputFileRef.current.parentNode) {
           inputFileRef.current.parentNode.removeChild(inputFileRef.current);
         }
+        // cleanup focus listeners
+        try {
+          const focusCleanup = (quillRef.current as any) && (quillRef.current as any).__focusCleanup;
+          if (typeof focusCleanup === 'function') focusCleanup();
+        } catch (e) {}
+        
+        // cleanup container click listeners  
+        try {
+          const containerCleanup = (quillRef.current as any) && (quillRef.current as any).__containerClickCleanup;
+          if (typeof containerCleanup === 'function') containerCleanup();
+        } catch (e) {}
+        
+        // cleanup image button listeners
+        try {
+          const imgCleanup = (quillRef.current as any) && (quillRef.current as any).__imgBtnCleanup;
+          if (typeof imgCleanup === 'function') imgCleanup();
+        } catch (e) {}
+        
         // clear editor DOM
         if (containerRef.current) containerRef.current.innerHTML = '';
         // clear toolbar DOM
@@ -346,18 +421,6 @@ export const JoditWrapper: React.FC<Props> = ({ value, onChange, config }) => {
         try {
           const cleanup = (quillRef.current as any) && (quillRef.current as any).__headerCleanup;
           if (typeof cleanup === 'function') cleanup();
-          } catch (e) {}
-          try {
-            const htmlCleanup = (quillRef.current as any) && (quillRef.current as any).__htmlBtnCleanup;
-            if (typeof htmlCleanup === 'function') htmlCleanup();
-        } catch (e) {}
-        try {
-          const contCleanup = (quillRef.current as any) && (quillRef.current as any).__containerClickCleanup;
-          if (typeof contCleanup === 'function') contCleanup();
-        } catch (e) {}
-        try {
-          const focusCleanup = (quillRef.current as any) && (quillRef.current as any).__focusCleanup;
-          if (typeof focusCleanup === 'function') focusCleanup();
         } catch (e) {}
       } catch (e) {
         // ignore
@@ -401,24 +464,6 @@ export const JoditWrapper: React.FC<Props> = ({ value, onChange, config }) => {
     }
   }, [value]);
 
-  // When toggling HTML mode off, push textarea content back into Quill and
-  // emit change. This keeps the editor and external onChange in sync.
-  useEffect(() => {
-    if (!quillRef.current) return;
-    if (!isHtmlMode) {
-      try {
-        // mark we're applying programmatically to suppress the 'text-change' handler
-        isApplyingRef.current = true;
-        quillRef.current.root.innerHTML = htmlValue || '';
-        onChange(htmlValue || '');
-        // clear applying flag next tick
-        setTimeout(() => {
-          isApplyingRef.current = false;
-        }, 0);
-      } catch (e) {}
-    }
-  }, [isHtmlMode, htmlValue, onChange]);
-
   return (
     <div>
       <div ref={toolbarRef} className="ql-toolbar" aria-label="Editor toolbar">
@@ -438,7 +483,6 @@ export const JoditWrapper: React.FC<Props> = ({ value, onChange, config }) => {
         <span className="ql-formats">
           <button className="ql-link" aria-label="Link" />
           <button className="image-custom-btn" aria-label="Image"><ImageIcon className="w-4 h-4" /></button>
-          <button type="button" className="html-btn" aria-label="Edit HTML"><Code className="w-4 h-4" /></button>
         </span>
         <span className="ql-formats">
           <button className="ql-list" value="ordered" aria-label="Ordered list" />
@@ -455,13 +499,6 @@ export const JoditWrapper: React.FC<Props> = ({ value, onChange, config }) => {
       </div>
       <div className="relative">
         <div ref={containerRef} className="ql-container min-h-[200px] p-2 border rounded bg-background text-body" />
-        {isHtmlMode && (
-          <textarea
-            className="absolute inset-0 w-full h-full p-2 border rounded bg-background text-body z-10"
-            value={htmlValue}
-            onChange={(e) => setHtmlValue(e.target.value)}
-          />
-        )}
       </div>
       {/* Image insertion modal */}
       <Dialog open={imgModalOpen} onOpenChange={(v) => setImgModalOpen(Boolean(v))}>

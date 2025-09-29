@@ -28,7 +28,7 @@ export const HomeForm: React.FC<HomeFormProps> = ({ id }: HomeFormProps) => {
 
 
 
-  const { handleSubmit, control, setValue } = useForm<FormData>({
+  const { handleSubmit, control, setValue, reset } = useForm<FormData>({
     resolver: zodResolver(FormSchema),
     defaultValues: { content: '', level: 0, type: 0 }
   });
@@ -96,10 +96,13 @@ export const HomeForm: React.FC<HomeFormProps> = ({ id }: HomeFormProps) => {
   const onSubmit = (data: FormData) => {
     console.log(data);
     createMessage({ content: data.content, level: data.level, type: data.type }).then(res => {
-
+      
       toast.success('Mensagem criada com sucesso.');
       console.log('Message created with ID:', res.object);
-      // Optionally reset the form or show a success message
+      // limpa formulário ao concluir corretamente
+      reset({ content: '', level: 0, type: 0 });
+      setClonedMessage(null);
+       // Optionally reset the form or show a success message
     }).catch(err => {
       console.error('Error creating message:', err);
     });
@@ -177,3 +180,7 @@ export const HomeForm: React.FC<HomeFormProps> = ({ id }: HomeFormProps) => {
 
   );
 }
+function setClonedMessage(arg0: null) {
+  throw new Error('Function not implemented.');
+}
+
