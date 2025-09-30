@@ -143,13 +143,19 @@ export const JoditWrapper: React.FC<Props> = ({ value, onChange, config }) => {
       const styles: string[] = [];
       if (imgWidth) styles.push(`width:${imgWidth.replace(/[^0-9.%]/g, '')}${/\D$/.test(imgWidth) ? '' : 'px'}`);
       if (imgHeight) styles.push(`height:${imgHeight.replace(/[^0-9.%]/g, '')}${/\D$/.test(imgHeight) ? '' : 'px'}`);
+      // force display:block so margin auto will center the image when wrapped in a block
+      if (!styles.some(s => /^display:/.test(s))) styles.unshift('display:block');
       const styleAttr = styles.length ? ` style="${styles.join(';')}"` : '';
 
       if (quillRef.current) {
         // preserve current selection so we can restore it after insertion
         const priorSel = quillRef.current.getSelection && quillRef.current.getSelection(true);
         const insertIndex = (priorSel && typeof priorSel.index === 'number') ? priorSel.index : (quillRef.current.getLength ? quillRef.current.getLength() : 0);
-        const html = `<img src="${finalUrl}" alt=""${styleAttr} />`;
+        // Wrap the image in a block (p) so alignment (text-align) applies to the block,
+        // and centering works via text-align:center on that block.
+        // Default: insert block with no alignment (left). If user chooses toolbar align afterwards,
+        // toolbar handler (below) will set text-align on the block.
+        const html = `<p>${`<img src="${finalUrl}" alt=""${styleAttr} />`}</p>`;
         // mark we're applying programmatically so the text-change handler ignores this event
         isApplyingRef.current = true;
         // insert HTML at the captured index
@@ -312,6 +318,37 @@ export const JoditWrapper: React.FC<Props> = ({ value, onChange, config }) => {
             quillRef.current.format('align', value === '' ? false : value);
             if (sel) quillRef.current.setSelection(sel.index, sel.length);
             console.debug('[JoditWrapper] html after align format=', quillRef.current.root.innerHTML);
+            // If the selection targets an image leaf, apply the alignment to the parent block (p/div)
+            try {
+              if (sel && typeof sel.index === 'number') {
+                const [leaf] = quillRef.current.getLeaf(sel.index);
+                const dom = leaf && leaf.domNode;
+                if (dom && dom.tagName === 'IMG') {
+                  const parentBlock = dom.closest('p, div, figure');
+                  if (parentBlock) {
+                    if (!value) parentBlock.style.textAlign = '';
+                    else parentBlock.style.textAlign = String(value);
+                    // ensure image remains block-level when centering
+                    dom.style.display = 'block';
+                    if (value === 'center') {
+                      dom.style.marginLeft = 'auto';
+                      dom.style.marginRight = 'auto';
+                    } else {
+                      dom.style.marginLeft = '';
+                      dom.style.marginRight = '';
+                    }
+                    // notify Quill about DOM change by updating innerHTML at the block range
+                    const blockIndex = quillRef.current.getIndex(parentBlock);
+                    // use dangerouslyPasteHTML to replace block content preserving Quill state
+                    const newHtml = parentBlock.outerHTML;
+                    quillRef.current.clipboard.dangerouslyPasteHTML(blockIndex, newHtml);
+                  }
+                }
+              }
+            } catch (err2) {
+              // swallow secondary errors to avoid breaking editor
+              console.debug('[JoditWrapper] align image DOM adjust failed', err2);
+            }
           } catch (err) {
             console.error('[JoditWrapper] align handler error', err);
           }
