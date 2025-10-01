@@ -145,8 +145,7 @@ const MessagesList: React.FC = () => {
 
     const mutation = useMutation({
         mutationFn: (id: string) => deleteMessage(id),
-        onSuccess: () => {
-            setToast({ type: "success", message: "Mensagem apagada." });
+        onSuccess: () => {            
             queryClient.invalidateQueries({ queryKey: ["messages"] });
         },
         onError: () => setToast({ type: "error", message: "Erro ao apagar mensagem." }),
