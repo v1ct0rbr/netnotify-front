@@ -94,6 +94,10 @@ export function AlertMessageDetails({ id, open, onClose }: AlertMessageDetailsPr
                     ) : data ? (
                         <div className="space-y-4 text-sm">
                             <div>
+                                <div className="text-xs text-muted-foreground">Título</div>
+                                <div className="mt-1">{data.title}</div>
+                            </div>
+                            <div>
                                 <div className="text-xs text-muted-foreground">Conteúdo</div>
                                                                {/* render only sanitized HTML */}
                                 <div

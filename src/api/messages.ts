@@ -4,6 +4,7 @@ import type { SimpleResponse } from "@/utils/SimpleResponse";
 import { toast } from "sonner";
 
 export type CreateMessageDTO = {
+    title?: string;
     content: string;
     level: number;
     type: number;
@@ -11,6 +12,7 @@ export type CreateMessageDTO = {
 
 export type MessageResponseDTO = {
     id: string;
+    title?: string;
     content: string;
     level: `Baixo` | `Normal` | `Alto` | `Urgente`;
     messageType: string;
@@ -64,6 +66,7 @@ export const useMessagesApi = () => {
     const createMessage = async (data: CreateMessageDTO): Promise<SimpleResponse<string>> => {
         try {
             const response = await api.post<{ res: Promise<SimpleResponse<string>> }>('/messages/create', {
+                title: data.title,
                 content: data.content,
                 level: data.level,
                 type: data.type

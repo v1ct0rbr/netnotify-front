@@ -1,4 +1,5 @@
 import { useMessagesApi } from '@/api/messages';
+import ConfirmationDialog from '@/components/ConfirmationDialog';
 import { JoditWrapper } from '@/components/jodit/JoditEditor';
 import { Button } from '@/components/ui/button';
 import { Skeleton } from '@/components/ui/skeleton';
@@ -12,9 +13,10 @@ import { toast } from 'sonner';
 import * as z from 'zod';
 
 const FormSchema = z.object({
-  content: z.string().min(1, 'Content is required'),
-  level: z.number().min(1, 'Level is required'),
-  type: z.number().min(1, 'Type is required')
+  title: z.string().min(1, 'O título é obrigatório').max(100, 'O título deve ter no máximo 100 caracteres').optional(),
+  content: z.string().min(1, 'O conteúdo é obrigatório'),
+  level: z.number().min(1, 'O nível é obrigatório'),
+  type: z.number().min(1, 'O tipo é obrigatório')
 });
 
 type FormData = z.infer<typeof FormSchema>;
@@ -23,120 +25,115 @@ interface HomeFormProps {
   id?: string | null;
 }
 
-
 export const HomeForm: React.FC<HomeFormProps> = ({ id }: HomeFormProps) => {
 
+  const [isDialogOpen, setIsDialogOpen] = React.useState(false);
 
-
-  const { handleSubmit, control, setValue, reset } = useForm<FormData>({
+  const { handleSubmit, control, setValue, reset, formState: { errors } } = useForm<FormData>({
     resolver: zodResolver(FormSchema),
-    defaultValues: { content: '', level: 0, type: 0 }
+    defaultValues: { title: '', content: '', level: 0, type: 0 }
   });
 
-  const [levels, setLevels] = React.useState<{ id: number; name: string }[]>([]);
-  const [types, setTypes] = React.useState<{ id: number; name: string }[]>([]);
-  const [loading, setLoading] = React.useState(true);
   const { createMessage, getCreateMessageDtoById } = useMessagesApi();
 
-
-  // Module-level cache for clone fetches. This deduplicates inflight requests
-  // across component mounts (useful to avoid duplicate network calls in
-  // StrictMode or remounts).
-  const { data: msg } = useQuery({
+  const { data: msg, isLoading: msgLoading } = useQuery({
     queryKey: ['messageDto', id],
     queryFn: () => id ? getCreateMessageDtoById(id) : null,
-    enabled: !!id,  // Só roda se id existir
-    staleTime: 5 * 60 * 1000,  // Cache por 5min
+    enabled: !!id,
+    staleTime: 5 * 60 * 1000,
   });
 
-  const { data: levelsData } = useQuery({
+  const { data: levelsData, isLoading: levelsLoading } = useQuery({
     queryKey: ['levels'],
     queryFn: async () => {
-      console.log("Loading levels...")
       const res = await api.get('/aux/levels');
       return res.data;
     },
-    staleTime: 10 * 60 * 1000,  // Cache por 10min
+    staleTime: 10 * 60 * 1000,
   });
 
-  const { data: typesData } = useQuery({
+  const { data: typesData, isLoading: typesLoading } = useQuery({
     queryKey: ['types'],
     queryFn: async () => {
-      console.log("Loading types...")
       const res = await api.get('/aux/message-types');
       return res.data;
     },
-    staleTime: 10 * 60 * 1000,  // Cache por 10min
+    staleTime: 10 * 60 * 1000,
   });
 
+  const isLoading = msgLoading || levelsLoading || typesLoading;
+
   React.useEffect(() => {
-    const loadAll = async () => {
-      try {
-        // Load levels and types in parallel
-        await Promise.all([handleLoadLevels(), handleLoadTypes()])
-        if (msg) {
-          setValue("content", msg.content || "")
-          setValue("level", msg.level || 0)
-          setValue("type", msg.type || 0)
-        }
-      } catch (err) {
-        console.error("Error loading form data:", err)
-        toast.error("Failed to load form data.")
-      }
+    if (!msg) return;
+    try {
+      setValue("title", msg.title || "");
+      setValue("content", msg.content || "");
+      setValue("level", msg.level || 0);
+      setValue("type", msg.type || 0);
+    } catch (err) {
+      console.error("Error setting form values from message DTO:", err);
     }
-    loadAll()
-    // Only re-run when the provided `id` changes. We intentionally omit
-    // `getCreateMessageDtoById` from deps because its identity may be unstable
-    // from the custom hook; we guard via a module-level cache above.
-    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [msg, setValue]);
 
-    setLoading(false);
-  }, [msg])
-
-  const onSubmit = (data: FormData) => {
-    console.log(data);
-    createMessage({ content: data.content, level: data.level, type: data.type }).then(res => {
-      
+  const submitForm = (data: FormData) => {
+     createMessage({ title: data.title, content: data.content, level: data.level, type: data.type }).then(res => {
       toast.success('Mensagem criada com sucesso.');
-      console.log('Message created with ID:', res.object);
-      // limpa formulário ao concluir corretamente
-      reset({ content: '', level: 0, type: 0 });
-      setClonedMessage(null);
-       // Optionally reset the form or show a success message
+      reset({ title: '', content: '', level: 0, type: 0 });
     }).catch(err => {
       console.error('Error creating message:', err);
+      toast.error('Erro ao criar mensagem.');
     });
   }
 
-  const handleLoadLevels = async () => {
+  // openDialog will validate the form; only opens confirmation dialog when form is valid
+  const openDialog = handleSubmit(() => setIsDialogOpen(true));
 
-    setLevels(levelsData || []);
-
-
-  }
-
-  const handleLoadTypes = async () => {
-
-    setTypes(typesData || []);
-  }
+  // called when user confirms in dialog: finally submit (re-validates)
+  const handleConfirmSend = () => {
+    setIsDialogOpen(false);
+    handleSubmit(submitForm)();
+  };
 
   return (
     <>
-      {loading ?
+      {isLoading ?
         <>
           <Skeleton className='w-full h-10 mb-4' />
           <Skeleton className='w-full h-10 mb-4' />
           <Skeleton className='w-full h-10 mb-4' />
         </>
         :
-        <form onSubmit={handleSubmit(onSubmit)} className="space-y-4">
+        // prevent default submit so we control submission via the button click (which validates before opening dialog)
+        <form onSubmit={(e) => e.preventDefault()} className="space-y-4">
+          <div>
+            <label className="block text-sm font-medium mb-1">Title</label>
+            <Controller
+              control={control}
+              name="title"
+              render={({ field }) => (
+                <div>
+                  <input
+                    type="text"
+                    {...field}
+                    className={`w-full border rounded px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500 ${errors.title ? 'border-red-500' : 'border-gray-300'}`}
+                    placeholder="Enter title"
+                  />
+                  {errors.title && <p className="text-red-500 text-sm mt-1">{errors.title.message}</p>}
+                </div>
+              )}
+            />
+          </div>
+
           <div>
             <label className="block text-sm font-medium mb-1">Content</label>
             <Controller
               control={control}
               name="content"
               render={({ field }) => (
-                <JoditWrapper value={field.value} onChange={field.onChange} />
+                <div>
+                  <JoditWrapper value={field.value} onChange={field.onChange} />
+                  {errors.content && <p className="text-red-500 text-sm mt-1">{errors.content.message}</p>}
+                </div>
               )}
             />
           </div>
@@ -148,11 +145,14 @@ export const HomeForm: React.FC<HomeFormProps> = ({ id }: HomeFormProps) => {
                 control={control}
                 name="level"
                 render={({ field }) => (
-                  <StyledSelect
-                    options={[{ label: 'Selecione', value: '' }, ...(levels.map(l => ({ label: l.name, value: String(l.id) })))]}
-                    value={field.value === 0 ? '' : String(field.value)}
-                    onChange={(e) => field.onChange(Number(e.target.value))}
-                  />
+                  <div>
+                    <StyledSelect
+                      options={[{ label: 'Selecione', value: '' }, ...((levelsData || []).map((l: any) => ({ label: l.name, value: String(l.id) })))]}
+                      value={field.value === 0 ? '' : String(field.value)}
+                      onChange={(e) => field.onChange(Number(e.target.value))}
+                    />
+                    {errors.level && <p className="text-red-500 text-sm mt-1">{errors.level.message}</p>}
+                  </div>
                 )}
               />
             </div>
@@ -163,24 +163,34 @@ export const HomeForm: React.FC<HomeFormProps> = ({ id }: HomeFormProps) => {
                 control={control}
                 name="type"
                 render={({ field }) => (
-                  <StyledSelect
-                    options={[{ label: 'Selecione', value: '' }, ...(types.map(t => ({ label: t.name, value: String(t.id) })))]}
-                    value={field.value === 0 ? '' : String(field.value)}
-                    onChange={(e) => field.onChange(Number(e.target.value))}
-                  />
+                  <div>
+                    <StyledSelect
+                      options={[{ label: 'Selecione', value: '' }, ...((typesData || []).map((t: any) => ({ label: t.name, value: String(t.id) })))]}
+                      value={field.value === 0 ? '' : String(field.value)}
+                      onChange={(e) => field.onChange(Number(e.target.value))}
+                    />
+                    {errors.type && <p className="text-red-500 text-sm mt-1">{errors.type.message}</p>}
+                  </div>
                 )}
               />
             </div>
           </div>
 
-          <Button className='btn-primary' type="submit">Enviar</Button>
+          {/* validate and open confirmation dialog on click */}
+          <Button type="button" onClick={openDialog} className='btn-primary'>Enviar</Button>
         </form>
       }
-    </>
 
+      <ConfirmationDialog
+        isOpen={isDialogOpen}
+        title="Confirmar envio"
+        description="Você tem certeza que deseja enviar esta mensagem?"
+        confirmText="Enviar"
+        cancelText="Cancelar"
+        onClose={() => setIsDialogOpen(false)}
+        callback={handleConfirmSend}
+      />
+    </>
   );
-}
-function setClonedMessage(arg0: null) {
-  throw new Error('Function not implemented.');
 }
 

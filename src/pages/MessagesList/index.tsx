@@ -49,22 +49,27 @@ const MessagesList: React.FC = () => {
     };
     // form state (initialized from URL search params so the first request
     // uses them immediately)
+    const [titleFilter, setTitleFilter] = useState<string>(() => searchParams.get("title") || "");
     const [contentFilter, setContentFilter] = useState<string>(() => searchParams.get("content") || "");
     const [levelIdFilter, setLevelIdFilter] = useState<string>(() => searchParams.get("levelId") || "");
     const [messageTypeIdFilter, setMessageTypeIdFilter] = useState<string>(() => searchParams.get("messageTypeId") || "");
 
     // applied filters used by the query (initialized from URL)
     const [appliedFilters, setAppliedFilters] = useState<{
+        title?: string;
         content?: string;
         levelId?: number;
         messageTypeId?: number;
 
     }>(() => {
+        // Initialize from URL search params
+        const spTitle = searchParams.get("title") || "";
         const spContent = searchParams.get("content") || "";
         const spLevel = searchParams.get("levelId") || "";
         const spType = searchParams.get("messageTypeId") || "";
 
         return {
+            title: spTitle || undefined,
             content: spContent || undefined,
             levelId: spLevel ? Number(spLevel) : undefined,
             messageTypeId: spType ? Number(spType) : undefined,
@@ -98,8 +103,9 @@ const MessagesList: React.FC = () => {
     // query will use them immediately (no mount effect required).
 
     // Helper to build URLSearchParams from current filter state and page
-    const buildParams = (opts: { content?: string; levelId?: string; messageTypeId?: string; page?: number; size?: number }) => {
+    const buildParams = (opts: { title?: string; content?: string; levelId?: string; messageTypeId?: string; page?: number; size?: number }) => {
         const params = new URLSearchParams();
+        if (opts.title) params.set("title", opts.title);
         if (opts.content) params.set("content", opts.content);
         if (opts.levelId) params.set("levelId", opts.levelId);
         if (opts.messageTypeId) params.set("messageTypeId", opts.messageTypeId);
@@ -116,6 +122,7 @@ const MessagesList: React.FC = () => {
         queryKey: ["messages", page, appliedFilters],
         queryFn: async () => {
             const params = {
+                title: appliedFilters.title,
                 content: appliedFilters.content,
                 levelId: appliedFilters.levelId,
                 messageTypeId: appliedFilters.messageTypeId,
@@ -154,6 +161,7 @@ const MessagesList: React.FC = () => {
 
     const applyFilters = () => {
         setAppliedFilters({
+            title: titleFilter || undefined,
             content: contentFilter || undefined,
             levelId: levelIdFilter ? Number(levelIdFilter) : undefined,
             messageTypeId: messageTypeIdFilter ? Number(messageTypeIdFilter) : undefined,
@@ -166,6 +174,7 @@ const MessagesList: React.FC = () => {
         setContentFilter("");
         setLevelIdFilter("");
         setMessageTypeIdFilter("");
+        setTitleFilter("");
         setAppliedFilters({});
         setPage(1);
         setSearchParams(buildParams({ page: 1 }));
@@ -173,7 +182,7 @@ const MessagesList: React.FC = () => {
 
     // Update URL when page changes
     useEffect(() => {
-        setSearchParams(buildParams({ content: contentFilter || undefined as any, levelId: levelIdFilter, messageTypeId: messageTypeIdFilter, page }));
+        setSearchParams(buildParams({ content: contentFilter || undefined as any, levelId: levelIdFilter, messageTypeId: messageTypeIdFilter, page, title: titleFilter || undefined, size: PAGE_SIZE }));
         // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [page]);
 
@@ -181,7 +190,7 @@ const MessagesList: React.FC = () => {
     // with parameters will see the same request performed earlier (we also
     // initialized appliedFilters from URL during state setup).
     useEffect(() => {
-        setSearchParams(buildParams({ content: appliedFilters.content || undefined as any, levelId: appliedFilters.levelId ? String(appliedFilters.levelId) : undefined, messageTypeId: appliedFilters.messageTypeId ? String(appliedFilters.messageTypeId) : undefined, page }));
+        setSearchParams(buildParams({ title: appliedFilters.title || undefined, content: appliedFilters.content || undefined as any, levelId: appliedFilters.levelId ? String(appliedFilters.levelId) : undefined, messageTypeId: appliedFilters.messageTypeId ? String(appliedFilters.messageTypeId) : undefined, page }));
         // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [appliedFilters]);
 
@@ -191,6 +200,15 @@ const MessagesList: React.FC = () => {
             {/* Filter form */}
             <div className="mb-4 flex flex-col md:flex-row md:items-end md:justify-between gap-4">
                 <div className="flex flex-wrap gap-4">
+                    <div>
+                        <label className="block text-sm font-medium mb-1">Título</label>
+                        <input
+                            value={titleFilter}
+                            onChange={(e) => setTitleFilter(e.target.value)}
+                            className="w-full border rounded-md px-3 py-2 text-sm"
+                            placeholder="Buscar por título"
+                        />
+                    </div>
                     <div style={{ minWidth: 200 }}>
                         <label className="block text-sm font-medium mb-1">Conteúdo</label>
                         <input
@@ -236,7 +254,7 @@ const MessagesList: React.FC = () => {
             <Table>
                 <TableHeader>
                     <TableRow>
-                        <TableHead>Conteúdo</TableHead>
+                        <TableHead>Título</TableHead>                        
                         <TableHead>Usuário</TableHead>
                         <TableHead>Level</TableHead>
                         <TableHead>Tipo</TableHead>
@@ -272,7 +290,7 @@ const MessagesList: React.FC = () => {
                         ))
                         : data?.data.map((msg) => (
                             <TableRow key={msg.id}>
-                                <TableCell className="max-w-[300px] overflow-hidden text-ellipsis whitespace-nowrap text-left">{msg.content}</TableCell>
+                                <TableCell className="max-w-[300px] overflow-hidden text-ellipsis whitespace-nowrap text-left">{msg.title}</TableCell>
                                 <TableCell className="text-left">{msg.user}</TableCell>
                                 <TableCell className="text-left"> <StatusBadge level={msg.level} /></TableCell>
                                 <TableCell className="text-left">{msg.messageType}</TableCell>
