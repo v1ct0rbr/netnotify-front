@@ -9,7 +9,6 @@ export function HomePage() {
 
   return (
     <div className="container mx-auto p-4">
-
       <HomeForm id={id} />
     </div>
   );

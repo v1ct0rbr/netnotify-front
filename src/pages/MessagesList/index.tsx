@@ -26,7 +26,7 @@ import { AlertMessageDetails } from "./components/AlertMessageDetails";
 const PAGE_SIZE = 10;
 
 const MessagesList: React.FC = () => {
-    const { filterMessages, deleteMessage } = useMessagesApi();
+    const { filterMessages, deleteMessage} = useMessagesApi();
     const { user } = useAuthStore();
     const isAdmin = user?.roles?.some((r) => r.name === "ROLE_SUPER");
 
@@ -37,6 +37,8 @@ const MessagesList: React.FC = () => {
 
     const [isAlertOpen, setIsAlertOpen] = useState(false);
     const [selectedMessageId, setSelectedMessageId] = useState<string | null>(null);
+
+    
 
     const openAlert = (id: string) => {
         setSelectedMessageId(id);
@@ -97,7 +99,7 @@ const MessagesList: React.FC = () => {
         staleTime: 10 * 60 * 1000,  // Cache por 10min
     });
 
-
+    
 
     // NOTE: initialization above reads URL params synchronously so the first
     // query will use them immediately (no mount effect required).
@@ -178,6 +180,7 @@ const MessagesList: React.FC = () => {
         setPage(1);
         setSearchParams(buildParams({ page: 1 }));
     };
+
 
     // Update URL when page changes
     useEffect(() => {

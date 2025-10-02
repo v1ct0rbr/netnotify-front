@@ -27,6 +27,20 @@ interface HomeFormProps {
 
 export const HomeForm: React.FC<HomeFormProps> = ({ id }: HomeFormProps) => {
 
+  // função reutilizável para desempacotar HTML vindo do servidor
+  const unescapeServerHtml = React.useCallback((raw: string) => {
+    if (typeof raw !== 'string') return raw ?? '';
+    let s = raw;
+    s = s.replace(/\\"/g, '"')
+         .replace(/\\'/g, "'")
+         .replace(/\\n/g, '\n')
+         .replace(/\\r/g, '\r')
+         .replace(/\\t/g, '\t')
+         .replace(/\\\//g, '/')
+         .replace(/\\\\/g, '\\');
+    return s;
+  }, []);
+
   const [isDialogOpen, setIsDialogOpen] = React.useState(false);
 
   const { handleSubmit, control, setValue, reset, formState: { errors } } = useForm<FormData>({
@@ -38,9 +52,10 @@ export const HomeForm: React.FC<HomeFormProps> = ({ id }: HomeFormProps) => {
 
   const { data: msg, isLoading: msgLoading } = useQuery({
     queryKey: ['messageDto', id],
-    queryFn: () => id ? getCreateMessageDtoById(id) : null,
+    queryFn: async () =>  id ? await getCreateMessageDtoById(id) : null ,
     enabled: !!id,
     staleTime: 5 * 60 * 1000,
+    
   });
 
   const { data: levelsData, isLoading: levelsLoading } = useQuery({
@@ -66,14 +81,17 @@ export const HomeForm: React.FC<HomeFormProps> = ({ id }: HomeFormProps) => {
   React.useEffect(() => {
     if (!msg) return;
     try {
-      setValue("title", msg.title || "");
-      setValue("content", msg.content || "");
-      setValue("level", msg.level || 0);
-      setValue("type", msg.type || 0);
+      reset({
+        title: msg.title ?? '',
+        // use a cleaned version of msg.content
+        content: unescapeServerHtml(msg.content),
+        level: msg.level ?? 0,
+        type: msg.type ?? 0,
+      });
     } catch (err) {
-      console.error("Error setting form values from message DTO:", err);
+      console.error('Error resetting form values from message DTO:', err);
     }
-  }, [msg, setValue]);
+  }, [msg, reset, unescapeServerHtml]);
 
   const submitForm = (data: FormData) => {
      createMessage({ title: data.title, content: data.content, level: data.level, type: data.type }).then(res => {
@@ -131,7 +149,8 @@ export const HomeForm: React.FC<HomeFormProps> = ({ id }: HomeFormProps) => {
               name="content"
               render={({ field }) => (
                 <div>
-                  <JoditWrapper value={field.value} onChange={field.onChange} />
+                  {/* force remount when the fetched message changes so editor mounts with server HTML */}
+                  <JoditWrapper key={msg ? `msg-content-${msg.content}` : 'jodit-initial'} value={field.value} onChange={field.onChange} />
                   {errors.content && <p className="text-red-500 text-sm mt-1">{errors.content.message}</p>}
                 </div>
               )}
