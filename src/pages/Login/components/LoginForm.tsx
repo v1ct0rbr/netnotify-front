@@ -17,7 +17,7 @@ import { StyledSelect } from "@/components/ui/styled-select";
 const LoginFormSchema = z.object({
     username: z.string().min(1, "Login é obrigatório"),
     password: z.string().min(1, "Senha é obrigatória"),
-    typeLogin: z.string().optional(),
+   
     method: z.enum(["password", "ldap"], {
         message: "Selecione o método de autenticação"
     })
@@ -37,14 +37,14 @@ export function LoginForm({
         defaultValues: {
             username: "",
             password: "",
-            typeLogin: "password"
+            method: "password"
         },
     });
 
     // Função para lidar com o envio do formulário
     const onSubmit = async (data: LoginFormData) => {
         try {
-            await login(data.username, data.password, data.typeLogin as 'password' | 'ldap');
+            await login(data.username, data.password, data.method as 'password' | 'ldap');
             toast.success("Login realizado com sucesso!");
             // Redireciona para a página inicial após o login bem-sucedido
             navigate("/");

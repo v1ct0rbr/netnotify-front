@@ -1,12 +1,14 @@
 import { useMessagesApi } from '@/api/messages';
 import ConfirmationDialog from '@/components/ConfirmationDialog';
-import { JoditWrapper } from '@/components/jodit/JoditEditor';
+import TinyMceEditor from '@/components/TinyMceEditor';
 import { Button } from '@/components/ui/button';
 import { Skeleton } from '@/components/ui/skeleton';
 import { StyledSelect } from '@/components/ui/styled-select';
 import api from '@/config/axios';
+import { StringUtils } from '@/utils/StringUtils';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { useQuery } from '@tanstack/react-query';
+
 import React from 'react';
 import { Controller, useForm } from 'react-hook-form';
 import { toast } from 'sonner';
@@ -28,22 +30,12 @@ interface HomeFormProps {
 export const HomeForm: React.FC<HomeFormProps> = ({ id }: HomeFormProps) => {
 
   // função reutilizável para desempacotar HTML vindo do servidor
-  const unescapeServerHtml = React.useCallback((raw: string) => {
-    if (typeof raw !== 'string') return raw ?? '';
-    let s = raw;
-    s = s.replace(/\\"/g, '"')
-         .replace(/\\'/g, "'")
-         .replace(/\\n/g, '\n')
-         .replace(/\\r/g, '\r')
-         .replace(/\\t/g, '\t')
-         .replace(/\\\//g, '/')
-         .replace(/\\\\/g, '\\');
-    return s;
-  }, []);
 
+
+  const { htmlToString, unescapeServerHtml } = StringUtils();
   const [isDialogOpen, setIsDialogOpen] = React.useState(false);
 
-  const { handleSubmit, control, setValue, reset, formState: { errors } } = useForm<FormData>({
+  const { handleSubmit, control, reset, formState: { errors } } = useForm<FormData>({
     resolver: zodResolver(FormSchema),
     defaultValues: { title: '', content: '', level: 0, type: 0 }
   });
@@ -54,8 +46,7 @@ export const HomeForm: React.FC<HomeFormProps> = ({ id }: HomeFormProps) => {
     queryKey: ['messageDto', id],
     queryFn: async () =>  id ? await getCreateMessageDtoById(id) : null ,
     enabled: !!id,
-    staleTime: 5 * 60 * 1000,
-    
+    staleTime: 5 * 60 * 1000,    
   });
 
   const { data: levelsData, isLoading: levelsLoading } = useQuery({
@@ -80,21 +71,21 @@ export const HomeForm: React.FC<HomeFormProps> = ({ id }: HomeFormProps) => {
 
   React.useEffect(() => {
     if (!msg) return;
+    console.log('Resetting form with message DTO:', msg);
     try {
       reset({
-        title: msg.title ?? '',
-        // use a cleaned version of msg.content
-        content: unescapeServerHtml(msg.content),
+        title: msg.title ?? '',            
+        content: msg.content ?? '',
         level: msg.level ?? 0,
         type: msg.type ?? 0,
       });
     } catch (err) {
       console.error('Error resetting form values from message DTO:', err);
     }
-  }, [msg, reset, unescapeServerHtml]);
+  }, [msg, reset]);
 
   const submitForm = (data: FormData) => {
-     createMessage({ title: data.title, content: data.content, level: data.level, type: data.type }).then(res => {
+     createMessage({ title: data.title, content: htmlToString(data.content), level: data.level, type: data.type }).then(res => {
       toast.success('Mensagem criada com sucesso.');
       reset({ title: '', content: '', level: 0, type: 0 });
     }).catch(err => {
@@ -102,10 +93,8 @@ export const HomeForm: React.FC<HomeFormProps> = ({ id }: HomeFormProps) => {
       toast.error('Erro ao criar mensagem.');
     });
   }
-
   // openDialog will validate the form; only opens confirmation dialog when form is valid
   const openDialog = handleSubmit(() => setIsDialogOpen(true));
-
   // called when user confirms in dialog: finally submit (re-validates)
   const handleConfirmSend = () => {
     setIsDialogOpen(false);
@@ -149,8 +138,8 @@ export const HomeForm: React.FC<HomeFormProps> = ({ id }: HomeFormProps) => {
               name="content"
               render={({ field }) => (
                 <div>
-                  {/* force remount when the fetched message changes so editor mounts with server HTML */}
-                  <JoditWrapper key={msg ? `msg-content-${msg.content}` : 'jodit-initial'} value={field.value} onChange={field.onChange} />
+                 
+                  <TinyMceEditor key={msg ? `msg-content-${unescapeServerHtml(msg.content)}` : 'tinymce-initial'} value={field.value} onChange={field.onChange} />
                   {errors.content && <p className="text-red-500 text-sm mt-1">{errors.content.message}</p>}
                 </div>
               )}

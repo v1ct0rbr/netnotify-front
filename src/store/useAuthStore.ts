@@ -45,6 +45,8 @@ export const useAuthStore = create<AuthState>((set, get) => ({
   _checkLock: false,
 
   login: async (username, password, typeLogin) => {
+    
+    console.log('[auth] login called with', { username, typeLogin });
 
     const url = typeLogin === 'ldap' ? '/auth/ldap-login' : '/auth/login';
 

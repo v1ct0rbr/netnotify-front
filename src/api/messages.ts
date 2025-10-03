@@ -36,7 +36,7 @@ export const useMessagesApi = () => {
         try {
             const response = await api.get<CreateMessageDTO>(`/messages?clone-message-id=${id}`);
             const message = response.data;
-            console.log('getCreateMessageDtoById response', message);            
+            
             if (!message) {
                 throw new Error('Erro ao buscar mensagem.');
             }
@@ -51,8 +51,7 @@ export const useMessagesApi = () => {
         try {
             const response = await api.get<SimpleResponse<MessageResponseDTO>>(`/messages/${id}`);
             const message = response.data;
-            console.log('getMessageById response', message.status);
-            
+                        
             if (message.status !== 'SUCCESS') {
                 throw new Error(message.message || 'Erro ao buscar mensagem.');
             }

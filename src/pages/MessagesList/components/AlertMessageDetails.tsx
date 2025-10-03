@@ -3,6 +3,7 @@ import { StatusBadge } from "@/components/StatusBadge";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Skeleton } from "@/components/ui/skeleton";
+import { StringUtils } from "@/utils/StringUtils";
 import { useQuery } from "@tanstack/react-query";
 import { formatRelative } from "date-fns";
 import { ptBR } from "date-fns/locale";
@@ -16,6 +17,8 @@ type AlertMessageDetailsProps = {
 };
 
 export function AlertMessageDetails({ id, open, onClose }: AlertMessageDetailsProps) {
+
+    const { htmlToString, unescapeServerHtml } = StringUtils();
 
     const { getMessageById } = useMessagesApi();
     // Fetch message details by ID
@@ -42,26 +45,19 @@ export function AlertMessageDetails({ id, open, onClose }: AlertMessageDetailsPr
             setSanitizedHtml("");
             return;
         }
+        
 
         let cancelled = false;
         (async () => {
             try {
-                // dynamic import avoids build/runtime errors if dompurify isn't installed
-                           // dynamic import avoids build/runtime errors if dompurify isn't installed
-                const mod = await import("dompurify");
-                // mod can export the factory or the instance depending on bundler/env
-                const factoryOrInstance = (mod as any).default ?? mod;
-                // if it's a function, call with window to get an instance (createDOMPurify)
-                const purify =
-                    typeof factoryOrInstance === "function"
-                        ? factoryOrInstance(window)
-                        : factoryOrInstance;
-                const safe = purify.sanitize(data.content);
+                            
+                const safe = unescapeServerHtml(data.content);
+              
                 if (!cancelled) setSanitizedHtml(String(safe));
             } catch (e) {
                 // dompurify not available — fallback to raw content (risky)
-                console.warn("dompurify not available — rendering raw HTML. Install 'dompurify' to sanitize content.", e);
-                if (!cancelled) setSanitizedHtml(data.content);
+                console.log("dompurify not available — rendering raw HTML. Install 'dompurify' to sanitize content.", e);
+                if (!cancelled) setSanitizedHtml(unescapeServerHtml(data.content));
             }
         })();
 
