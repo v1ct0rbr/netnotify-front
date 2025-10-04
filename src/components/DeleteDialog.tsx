@@ -22,7 +22,7 @@ export function DeleteDialog({ id, info, open, onClose }: DeleteDialogProps) {
             onClose();
             toast.success('Message deleted successfully.');
         } catch (error) {
-            toast.error('Failed to delete the message.');
+            toast.error('Failed to delete the message.' + (error instanceof Error ? error.message : ''));
             // Optionally, show an error message
         }
     };
