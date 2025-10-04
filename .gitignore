@@ -23,3 +23,10 @@ dist-ssr
 *.sln
 *.sw?
 .env
+package-lock.json
+yarn.lock
+.pnpm-lock.yaml
+.next
+out
+.build
+.nuxt
