@@ -1,166 +1,157 @@
+/* Consolidated global styles and theme tokens */
+
 :root {
   font-family: system-ui, Avenir, Helvetica, Arial, sans-serif;
   line-height: 1.5;
   font-weight: 400;
 
   color-scheme: light dark;
-  color: rgba(255, 255, 255, 0.87);
-  background-color: #242424;
 
+  /* Theme token defaults (light) */
+  --foreground: #111827;
+  --background: #ffffff;
+  --primary: #2563eb;
+
+  /* button palettes */
+  --btn-primary-bg: #2563eb;
+  --btn-primary-foreground: #ffffff;
+
+  --btn-destructive-bg: #b91c1c;
+  --btn-destructive-foreground: #ffffff;
+
+  --btn-success-bg: #059669;
+  --btn-success-foreground: #ffffff;
+
+  --btn-neutral-bg: #f3f4f6;
+  --btn-neutral-foreground: #111827;
+
+  --btn-border: rgba(0,0,0,0.06);
+  --btn-focus-ring: 0 0 0 3px rgba(37,99,235,0.12);
+
+  /* popover / general */
+  --popover: #ffffff;
+  --popover-foreground: #111827;
+
+  --muted-text: rgba(17,24,39,0.6);
+}
+
+/* Dark theme overrides */
+.dark {
+  --foreground: #e5e7eb;
+  --background: #0b1220;
+  --primary: #93c5fd;
+
+  --btn-primary-bg: #1e3a8a;
+  --btn-primary-foreground: #ffffff;
+
+  --btn-destructive-bg: #7f1d1d;
+  --btn-destructive-foreground: #ffffff;
+
+  --btn-success-bg: #065f46;
+  --btn-success-foreground: #ffffff;
+
+  --btn-neutral-bg: #111827;
+  --btn-neutral-foreground: #e5e7eb;
+
+  --btn-border: rgba(255,255,255,0.06);
+  --btn-focus-ring: 0 0 0 3px rgba(99,102,241,0.10);
+
+  --popover: #0b1220;
+  --popover-foreground: #e5e7eb;
+
+  --muted-text: rgba(229,231,235,0.6);
+}
+
+/* Base page */
+html, body {
+  margin: 0;
+  min-width: 320px;
+  min-height: 100vh;
+  color: var(--foreground);
+  background-color: var(--background);
   font-synthesis: none;
   text-rendering: optimizeLegibility;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
 }
 
-a {
-  font-weight: 500;
-  color: var(--primary);
-  text-decoration: inherit;
-}
-a:hover {
-  color: var(--primary);
-}
+/* Links */
+a { font-weight: 500; color: var(--primary); text-decoration: inherit; }
+a:hover { color: var(--primary); }
 
-body {
-  margin: 0;
-  min-width: 320px;
-  min-height: 100vh;
-  line-height: inherit;
-  color: var(--foreground);
-}
+/* Headings */
+h1 { font-size: 3.2em; line-height: 1.1; }
 
-h1 {
-  font-size: 3.2em;
-  line-height: 1.1;
-}
-
-/* Quill editor specific styles: ensure headings inside editor render and inherit theme */
-.ql-container {
-  background: transparent; /* match app background */
-}
-.ql-editor {
-  color: inherit; /* inherit color from app (light/dark) */
-  min-height: 150px;
-}
-.ql-editor h1,
-.ql-editor h2,
-.ql-editor h3 {
-  margin: 0.67em 0;
-  color: inherit;
-}
+/* Quill editor */
+.ql-container { background: transparent; }
+.ql-editor { color: inherit; min-height: 150px; }
+.ql-editor h1, .ql-editor h2, .ql-editor h3 { margin: 0.67em 0; color: inherit; }
 .ql-editor h1 { font-size: 2em; }
 .ql-editor h2 { font-size: 1.5em; }
 .ql-editor h3 { font-size: 1.25em; }
 
+/* Buttons (generic) */
 button {
   border-radius: 8px;
   border: 1px solid transparent;
-  padding: 0.6em 1.2em;
+  padding: 0.45em 0.9em;
   font-size: 1em;
   font-weight: 500;
   font-family: inherit;
-  background-color: var(--btn-bg);
+  background-color: var(--btn-neutral-bg);
+  color: var(--btn-neutral-foreground);
   cursor: pointer;
-  transition: border-color 0.25s, background-color 200ms ease, color 200ms ease, transform 125ms ease;
+  transition: border-color .20s, background-color .12s ease, color .12s ease, transform .08s ease;
 }
-button:hover {
-  border-color: #646cff;
-  transform: translateY(-2px);
-}
-button:focus,
-button:focus-visible {
-  outline: 4px auto -webkit-focus-ring-color;
-}
+button:hover { transform: translateY(-1px); }
+button:focus, button:focus-visible { outline: none; box-shadow: var(--btn-focus-ring); }
 
-/* Styled select adjustments: ensure native option contrast follows theme tokens where supported */
+/* Styled native selects */
 .styled-select select,
 .styled-select select:focus {
-  background-color: var(--input);
-  color: var(--foreground);
-}
-
-/* When browsers support styling option elements, apply app tokens (some UAs ignore option styling) */
-.styled-select option {
   background-color: var(--popover);
   color: var(--popover-foreground);
 }
+.styled-select option { background-color: var(--popover); color: var(--popover-foreground); }
+.styled-select svg { color: var(--muted-text); }
 
-/* Improve the arrow color by inheriting muted token */
-.styled-select svg {
-  color: var(--muted-text);
+/* Inline icon buttons used in tables (aria-label) */
+button[aria-label], a[aria-label] {
+  transition: background-color .12s ease, color .12s ease, transform .06s ease;
+  border-radius: 4px;
+  padding: 6px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  line-height: 1;
 }
-
-@media (prefers-color-scheme: light) {
-  :root {
-    color: #213547;
-    background-color: #ffffff;
-  }
-  a:hover {
-    color: var(--primary);
-  }
-  button {
-    background-color: var(--btn-bg);
-    color: var(--btn-text);
-    border-color: var(--btn-border);
-  }
-
-  /* card style in light mode */
-  .card {
-    background: var(--card);
-    border-radius: 12px;
-    box-shadow: 0 6px 18px rgba(16,24,40,0.04);
-  }
-
-  .muted {
-    color: var(--muted-text);
-  }
+button[aria-label]:not(:disabled):hover, a[aria-label]:not([aria-disabled="true"]):hover {
+  filter: brightness(.96);
+  transform: translateY(-1px);
 }
+button[aria-label]:focus, a[aria-label]:focus { outline: none; box-shadow: var(--btn-focus-ring); transform: translateY(-1px); }
+button[aria-label] svg, a[aria-label] svg { color: inherit; width: 18px; height: 18px; }
 
+/* Sidebar item theming (fixed selectors) */
 [data-slot="sidebar"] a,
+[data-slot="sidebar"] button,
+.group\\/[sidebar-wrapper] [data-slot="sidebar"] a {
+  color: var(--sidebar-foreground, var(--muted-text));
+}
+[data-slot="sidebar"] a:hover,
+[data-slot="sidebar"] button:hover {
+  color: var(--primary);
+  background: transparent;
+}
+[data-slot="sidebar"] a[data-active="true"],
+[data-slot="sidebar"] button[data-active="true"] {
+  color: var(--primary);
+  background: color-mix(in oklab, var(--primary) 8%, transparent);
+}
+[data-slot="sidebar"] a svg,
+[data-slot="sidebar"] button svg { color: currentColor; }
 
-  .group\/[sidebar-wrapper] [data-slot="sidebar"] a {
-    color: var(--sidebar-foreground);
-  }
-
-  [data-slot="sidebar"] a:hover,
-   {
-    color: var(--primary);
-    background: transparent;
-  }
-
-
-  /* Sidebar item theming: make icons/text follow sidebar tokens and app primary on hover */
-  /* Sidebar item theming: make icons/text follow sidebar tokens
-     but use the app primary color for hover/active so the sidebar
-     visually ties into the app theme. Icons inherit currentColor. */
-/*   [data-slot="sidebar"] a,
-  [data-slot="sidebar"] button,
-  .group\/[sidebar-wrapper] [data-slot="sidebar"] a {
-    color: var(--sidebar-foreground);
-  }
-
-  [data-slot="sidebar"] a:hover,
-  [data-slot="sidebar"] button:hover {
-    color: var(--primary);
-    background: transparent;
-  }
-
-  
-  [data-slot="sidebar"] a[data-active="true"],
-  [data-slot="sidebar"] button[data-active="true"] {
-    color: var(--primary);
-    background: color-mix(in oklab, var(--primary) 8%, transparent);
-  }
-
-  
-  [data-slot="sidebar"] a svg,
-  [data-slot="sidebar"] button svg {
-    color: currentColor;
-  } */
-
-  /* Positioning for the sidebar trigger overlay that follows sidebar collapse state.
-     The SidebarProvider/root wrapper uses the 'group/sidebar-wrapper' class and
-     will have data-state="expanded" or "collapsed". We target that to nudge
-     the trigger so it visually tracks the sidebar (uses --sidebar-width). */
-  /* Sidebar trigger overlay rules removed — trigger is rendered inline in the header now. */
+/* Responsive helpers */
+@media (max-width: 640px) {
+  button[aria-label], a[aria-label] { padding: 8px; }
+}

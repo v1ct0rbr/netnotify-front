@@ -1,3 +1,4 @@
+import { Button } from "./ui/button";
 
 
 interface ConfirmationDialogProps {
@@ -17,12 +18,12 @@ function ConfirmationDialog(props: ConfirmationDialogProps) {
 
     return (
         <div className="fixed inset-0 flex items-center justify-center z-50">
-            <div className="bg-white rounded-lg shadow-lg p-6">
+            <div className="rounded-lg shadow-lg p-6 dark:bg-gray-800 light:bg-gray-100">
                 <h2 className="text-lg font-semibold mb-4">{title}</h2>
                 <p className="mb-4">{description}</p>
                 <div className="flex justify-end">
-                    <button className="mr-2" onClick={onClose}>{cancelText || 'Cancelar'}</button>
-                    <button className="btn-primary" onClick={callback}>{confirmText || 'Confirmar'}</button>
+                    <Button variant="outline" className="mr-2" onClick={onClose}>{cancelText || 'Cancelar'}</Button>
+                    <Button className="btn-primary" onClick={callback}>{confirmText || 'Confirmar'}</Button>
                 </div>
             </div>
         </div>

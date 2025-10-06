@@ -44,9 +44,9 @@ export const HomeForm: React.FC<HomeFormProps> = ({ id }: HomeFormProps) => {
 
   const { data: msg, isLoading: msgLoading } = useQuery({
     queryKey: ['messageDto', id],
-    queryFn: async () =>  id ? await getCreateMessageDtoById(id) : null ,
+    queryFn: async () => id ? await getCreateMessageDtoById(id) : null,
     enabled: !!id,
-    staleTime: 5 * 60 * 1000,    
+    staleTime: 5 * 60 * 1000,
   });
 
   const { data: levelsData, isLoading: levelsLoading } = useQuery({
@@ -74,7 +74,7 @@ export const HomeForm: React.FC<HomeFormProps> = ({ id }: HomeFormProps) => {
     console.log('Resetting form with message DTO:', msg);
     try {
       reset({
-        title: msg.title ?? '',            
+        title: msg.title ?? '',
         content: msg.content ?? '',
         level: msg.level ?? 0,
         type: msg.type ?? 0,
@@ -85,12 +85,11 @@ export const HomeForm: React.FC<HomeFormProps> = ({ id }: HomeFormProps) => {
   }, [msg, reset]);
 
   const submitForm = (data: FormData) => {
-     createMessage({ title: data.title, content: htmlToString(data.content), level: data.level, type: data.type }).then(res => {
+    createMessage({ title: data.title, content: htmlToString(data.content), level: data.level, type: data.type }).then(res => {
       toast.success('Mensagem criada com sucesso.');
       reset({ title: '', content: '', level: 0, type: 0 });
     }).catch(err => {
-      console.error('Error creating message:', err);
-      toast.error('Erro ao criar mensagem.');
+      toast.error('Erro ao criar mensagem.' + (err?.response?.data?.message ? ` ${err.response.data.message}` : ''));
     });
   }
   // openDialog will validate the form; only opens confirmation dialog when form is valid
@@ -138,7 +137,7 @@ export const HomeForm: React.FC<HomeFormProps> = ({ id }: HomeFormProps) => {
               name="content"
               render={({ field }) => (
                 <div>
-                 
+
                   <TinyMceEditor key={msg ? `msg-content-${unescapeServerHtml(msg.content)}` : 'tinymce-initial'} value={field.value} onChange={field.onChange} />
                   {errors.content && <p className="text-red-500 text-sm mt-1">{errors.content.message}</p>}
                 </div>

@@ -36,7 +36,7 @@ export const useMessagesApi = () => {
         try {
             const response = await api.get<CreateMessageDTO>(`/messages?clone-message-id=${id}`);
             const message = response.data;
-            
+
             if (!message) {
                 throw new Error('Erro ao buscar mensagem.');
             }
@@ -51,7 +51,7 @@ export const useMessagesApi = () => {
         try {
             const response = await api.get<SimpleResponse<MessageResponseDTO>>(`/messages/${id}`);
             const message = response.data;
-                        
+
             if (message.status !== 'SUCCESS') {
                 throw new Error(message.message || 'Erro ao buscar mensagem.');
             }
@@ -71,10 +71,9 @@ export const useMessagesApi = () => {
                 type: data.type
             });
             toast.success('Mensagem criada com sucesso.');
-       
+
             return response.data.res;
         } catch (error) {
-            toast.error('Erro ao criar mensagem.');
             throw error;
         }
     };
@@ -87,7 +86,7 @@ export const useMessagesApi = () => {
             if (params.content) query.append('content', params.content);
             if (params.levelId) query.append('levelId', params.levelId.toString());
             if (params.messageTypeId) query.append('messageTypeId', params.messageTypeId.toString());
-            
+
 
             if (params.size == undefined || params.size < 1) params.size = 1;
             if (params.size > 100) params.size = 100;
@@ -95,11 +94,11 @@ export const useMessagesApi = () => {
             if (params.page == undefined || params.page < 0) params.page = 0;
             if (params.page > 1000) params.page = 1000;
             query.append('page', params.page.toString());
-            
+
             if (params.sortBy) query.append('sortBy', params.sortBy);
             if (params.sortOrder) query.append('sortOrder', params.sortOrder);
             const response = await api.get<{ data: MessageResponseDTO[] }>('/messages/all?' + query.toString());
-            
+
             return { ...response.data as unknown as ApiPageResponse<MessageResponseDTO> };
         } catch (error) {
             toast.error('Erro ao buscar mensagens.');

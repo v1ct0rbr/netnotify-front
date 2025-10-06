@@ -200,56 +200,74 @@ const MessagesList: React.FC = () => {
         <div style={{ padding: 24 }}>
 
             {/* Filter form */}
-            <div className="mb-4 flex flex-col md:flex-row md:items-end md:justify-between gap-4">
-                <div className="flex flex-wrap gap-4">
-                    <div>
+            <div className="mb-4">
+                <form
+                    onSubmit={(e) => { e.preventDefault(); setPage(1); applyFilters(); }}
+                    className="grid grid-cols-1 md:grid-cols-12 gap-4 items-end"
+                >
+                    <div className="md:col-span-4">
                         <label className="block text-sm font-medium mb-1">Título</label>
                         <input
                             value={titleFilter}
                             onChange={(e) => setTitleFilter(e.target.value)}
+                            onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); setPage(1); applyFilters(); } }}
                             className="w-full border rounded-md px-3 py-2 text-sm"
                             placeholder="Buscar por título"
                         />
                     </div>
-                    <div style={{ minWidth: 200 }}>
+
+                    <div className="md:col-span-4">
                         <label className="block text-sm font-medium mb-1">Conteúdo</label>
                         <input
                             value={contentFilter}
                             onChange={(e) => setContentFilter(e.target.value)}
+                            onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); setPage(1); applyFilters(); } }}
                             className="w-full border rounded-md px-3 py-2 text-sm"
                             placeholder="Buscar por conteúdo"
                         />
                     </div>
 
-                    <div style={{ width: 200 }}>
+                    <div className="md:col-span-2">
                         <label className="block text-sm font-medium mb-1">Level</label>
                         <StyledSelect
-                            options={[{ label: "", value: "" }, ...(levels ?? []).map((l) => ({ label: l.name, value: String(l.id) }))]}
+                            options={[{ label: "Todos", value: "" }, ...(levels ?? []).map((l) => ({ label: l.name, value: String(l.id) }))]}
                             value={levelIdFilter}
                             onChange={(e) => setLevelIdFilter(e.target.value)}
                         />
                     </div>
 
-                    <div style={{ width: 200 }}>
+                    <div className="md:col-span-2">
                         <label className="block text-sm font-medium mb-1">Tipo</label>
                         <StyledSelect
-                            options={[{ label: "", value: "" }, ...(types ?? []).map((t) => ({ label: t.name, value: String(t.id) }))]}
+                            options={[{ label: "Todos", value: "" }, ...(types ?? []).map((t) => ({ label: t.name, value: String(t.id) }))]}
                             value={messageTypeIdFilter}
                             onChange={(e) => setMessageTypeIdFilter(e.target.value)}
                         />
                     </div>
-                </div>
 
-                <div style={{ display: "flex", gap: 8, alignItems: "end" }}>
-                    <Button size="sm" onClick={clearFilters} type="button">
-                        <Eraser className="mr-1" />
-                        Limpar
-                    </Button>
-                    <Button size="sm" onClick={applyFilters} type="button">
-                        <Search className="mr-1" />
-                        Aplicar
-                    </Button>
-                </div>
+                    <div className="md:col-span-12 flex flex-col md:flex-row md:justify-end gap-2">
+                        <Button
+                            size="sm"
+                            variant="outline"
+                            onClick={() => { clearFilters(); }}
+                            type="button"
+                            className="w-full md:w-auto"
+                        >
+                            <Eraser className="mr-1" />
+                            Limpar
+                        </Button>
+
+                        <Button
+                            size="sm"
+                            onClick={() => { setPage(1); applyFilters(); }}
+                            type="button"
+                            className="w-full md:w-auto"
+                        >
+                            <Search className="mr-1" />
+                            Aplicar
+                        </Button>
+                    </div>
+                </form>
             </div>
 
             {/* Table */}
@@ -302,12 +320,12 @@ const MessagesList: React.FC = () => {
                                         <button
                                             aria-label="Apagar"
                                             style={{
-                                                background: "#f56565",
+                                                background: "var(--btn-destructive-bg, #f56565)",
                                                 border: "none",
                                                 borderRadius: 4,
                                                 padding: 6,
                                                 cursor: mutation.isPending ? "not-allowed" : "pointer",
-                                                color: "#fff",
+                                                color: "var(--btn-destructive-foreground, #fff)",
                                                 display: "flex",
                                                 alignItems: "center",
                                                 opacity: mutation.isPending ? 0.6 : 1,
@@ -320,12 +338,12 @@ const MessagesList: React.FC = () => {
                                         <button
                                             aria-label="Detalhes"
                                             style={{
-                                                background: "#4299e1",
+                                                background: "var(--btn-primary-bg, #4299e1)",
                                                 border: "none",
                                                 borderRadius: 4,
                                                 padding: 6,
                                                 cursor: "pointer",
-                                                color: "#fff",
+                                                color: "var(--btn-primary-foreground, #fff)",
                                                 display: "flex",
                                                 alignItems: "center",
                                                 marginLeft: 8,
@@ -334,20 +352,23 @@ const MessagesList: React.FC = () => {
                                         >
                                             <Eye size={18} />
                                         </button>
-                                        <Link aria-label="Clonar" style={{
-                                            background: "#68d391",
-                                            border: "none",
-                                            borderRadius: 4,
-                                            padding: 6,
-                                            cursor: "pointer",
-                                            color: "#fff",
-                                            display: "flex",
-                                            alignItems: "center",
-                                            marginLeft: 8,
-                                        }} to={{ pathname: `/`, search: `?id=${msg.id}` }}>
+                                        <Link
+                                            aria-label="Clonar"
+                                            style={{
+                                                background: "var(--btn-success-bg, #68d391)",
+                                                border: "none",
+                                                borderRadius: 4,
+                                                padding: 6,
+                                                cursor: "pointer",
+                                                color: "var(--btn-success-foreground, #fff)",
+                                                display: "flex",
+                                                alignItems: "center",
+                                                marginLeft: 8,
+                                            }}
+                                            to={{ pathname: `/`, search: `?id=${msg.id}` }}
+                                        >
                                             <Copy size={18} />
                                         </Link>
-
                                     </TableCell>
                                 )}
                             </TableRow>
