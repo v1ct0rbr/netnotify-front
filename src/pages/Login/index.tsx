@@ -1,7 +1,7 @@
 import { GalleryVerticalEnd } from "lucide-react"
 
-import { LoginForm } from "./components/LoginForm"
 
+import { KeycloakServerAuth } from "./components/KeycloakServerAuth";
 export default function LoginPage() {
   return (
     <div className="grid min-h-svh lg:grid-cols-2">
@@ -15,8 +15,8 @@ export default function LoginPage() {
           </a>
         </div>
         <div className="flex flex-1 items-center justify-center">
-          <div className="w-full max-w-xs">
-            <LoginForm />
+          <div className="w-full ">
+            <KeycloakServerAuth />
           </div>
         </div>
       </div>
