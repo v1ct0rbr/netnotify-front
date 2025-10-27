@@ -1,13 +1,12 @@
 import { Lock } from "lucide-react";
 
 export function KeycloakServerAuth() {
-    const authUrl = `${import.meta.env.VITE_KEYCLOAK_AUTH_SERVER_URL}?client_id=${import.meta.env.VITE_KEYCLOAK_CLIENT_ID}&redirect_uri=${encodeURIComponent(
-        window.location.origin + "/login/callback"
+    const authUrl = `${import.meta.env.VITE_KEYCLOAK_AUTH_SERVER_URL}/realms/${import.meta.env.VITE_KEYCLOAK_REALM}/protocol/openid-connect/auth?response_type=code&client_id=${import.meta.env.VITE_KEYCLOAK_CLIENT_ID}&redirect_uri=${encodeURIComponent(
+        `${import.meta.env.VITE_KEYCLOAK_URL_REDIRECT}`
     )}&response_type=code&scope=openid`;
 
     return (
-        
-            <div className="bg-white/95 backdrop-blur-md rounded-2xl shadow-lg p-12 max-w-md w-full mx-auto">
+        <div className="bg-white/95 backdrop-blur-md rounded-2xl shadow-lg p-12 max-w-md w-full mx-auto">
                 <div className="text-center mb-6">
                     <Lock className="w-16 h-16 text-indigo-500 mx-auto mb-4" />
                     <h2 className="text-2xl font-bold mb-2 text-fuchsia-900">Login with Keycloak</h2>
