@@ -1,23 +1,16 @@
 import { Button } from "@/components/ui/button";
-
-import { Input } from "@/components/ui/input";
-import { cn } from "@/lib/utils";
-import { useForm } from "react-hook-form";
-import { z } from "zod";
-
-import { Form, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
+import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
+import { useKeycloak } from "@/hooks/useKeycloak";
 import { useAuthStore } from "@/store/useAuthStore";
 import { zodResolver } from "@hookform/resolvers/zod";
-import { Home } from "lucide-react";
-import { Link, useNavigate } from "react-router";
+import { useForm } from "react-hook-form";
+import { useNavigate } from "react-router-dom";
 import { toast } from "sonner";
-// import { useDefaultColor } from "@/config/defaultColors";
-import { StyledSelect } from "@/components/ui/styled-select";
+import * as z from "zod";
 
 const LoginFormSchema = z.object({
     username: z.string().min(1, "Login é obrigatório"),
     password: z.string().min(1, "Senha é obrigatória"),
-   
     method: z.enum(["password", "ldap"], {
         message: "Selecione o método de autenticação"
     })
@@ -27,9 +20,11 @@ type LoginFormData = z.infer<typeof LoginFormSchema>;
 
 export function LoginForm({
     className,
-    ...props
-}: React.ComponentProps<"form">) {
+}: {
+    className?: string;
+}) {
     const login = useAuthStore((state) => state.login);
+    const { keycloak } = useKeycloak();
     const navigate = useNavigate();
 
     const form = useForm<LoginFormData>({
@@ -41,56 +36,43 @@ export function LoginForm({
         },
     });
 
-    // Função para lidar com o envio do formulário
     const onSubmit = async (data: LoginFormData) => {
         try {
             await login(data.username, data.password, data.method as 'password' | 'ldap');
             toast.success("Login realizado com sucesso!");
-            // Redireciona para a página inicial após o login bem-sucedido
             navigate("/");
         } catch (error) {
-            toast.error("Erro ao fazer login. Verifique suas credenciais.");
-            // Aqui você pode lidar com erros de autenticação, como exibir uma mensagem de erro
-            console.error("Erro ao fazer login:", error);
+            toast.error("Falha no login. Verifique suas credenciais.");
+            console.error(error);
         }
     }
+
     return (
-        <Form {...form}>
-
-
-            <form className={cn("flex flex-col gap-6", className)} {...props}>
-                <div className="flex flex-col items-center gap-2 text-center">
-                    <h1 className="text-2xl font-bold">Acesse sua conta</h1>
-                    <p className="text-muted-foreground text-sm text-balance">
-                        Informe seu login e senha para acessar sua conta.
-                    </p>
-                </div>
-                <div className="grid gap-6">
-                    <FormField control={form.control} name="username" render={({ field }) => (
-                        <FormItem className="grid gap-3">
-                            <FormLabel htmlFor="login">Login</FormLabel>
-                            <Input
-                                id="username"
-                                type="text"
-                                placeholder="Preencha com seu login"
-                                {...field}
-                            />
-                            <FormMessage />
-                        </FormItem>
-                    )} />
+        <div className={className}>
+            <Form {...form}>
+                <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
+                    <FormField
+                        control={form.control}
+                        name="username"
+                        render={({ field }) => (
+                            <FormItem>
+                                <FormLabel>Usuário</FormLabel>
+                                <FormControl>
+                                    <input {...field} className="w-full border rounded px-3 py-2" />
+                                </FormControl>
+                                <FormMessage />
+                            </FormItem>
+                        )}
+                    />
                     <FormField
                         control={form.control}
                         name="password"
                         render={({ field }) => (
-                            <FormItem className="grid gap-3">
-                                <FormLabel htmlFor="password">Senha</FormLabel>
-                                <Input
-                                    id="password"
-                                    type="password"
-                                    placeholder="Preencha com sua senha"
-                                    required
-                                    {...field}
-                                />
+                            <FormItem>
+                                <FormLabel>Senha</FormLabel>
+                                <FormControl>
+                                    <input {...field} type="password" className="w-full border rounded px-3 py-2" />
+                                </FormControl>
                                 <FormMessage />
                             </FormItem>
                         )}
@@ -99,39 +81,40 @@ export function LoginForm({
                         control={form.control}
                         name="method"
                         render={({ field }) => (
-                            <FormItem className="grid gap-3">
-                                <label className="block text-sm font-medium text-gray-700 mb-1">Método</label>
-                                <StyledSelect
-                                    options={[
-                                        { label: "Selecione", value: "" },
-                                        { label: "Senha", value: "password" },
-                                        { label: "LDAP", value: "ldap" }
-                                    ]}
-                                    value={field.value}
-                                    onChange={field.onChange}
-                                    name={field.name}
-                                    onBlur={field.onBlur}
-                                    ref={field.ref}
-                                />
+                            <FormItem>
+                                <FormLabel>Método</FormLabel>
+                                <FormControl>
+                                    <select {...field} className="w-full border rounded px-3 py-2">
+                                        <option value="password">Senha</option>
+                                        <option value="ldap">LDAP</option>
+                                    </select>
+                                </FormControl>
                                 <FormMessage />
                             </FormItem>
                         )}
                     />
-                    <Button type="submit" className={`w-full`} onClick={form.handleSubmit(onSubmit)}>
-                        Login
-                    </Button>
-                </div>
+                    <Button type="submit" className="w-full">Entrar</Button>
+                </form>
+            </Form>
 
-            </form>
-            {/*
-    Back to home link can be added here
-    */}
-            <div className="mt-4 text-center">
-                <Link to="/" className="hover:underline flex items-center justify-center">
-                    <Home className="inline mr-1" />
-                    Voltar para a página inicial
-                </Link>
+            <div className="relative my-4">
+                <div className="absolute inset-0 flex items-center">
+                    <span className="w-full border-t" />
+                </div>
+                <div className="relative flex justify-center text-xs uppercase">
+                    <span className="bg-background px-2 text-muted-foreground">Ou</span>
+                </div>
             </div>
-        </Form >
+
+            <Button
+                type="button"
+                variant="outline"
+                className="w-full"
+                onClick={() => keycloak?.login()}
+            >
+                <i className="fas fa-sign-in-alt mr-2"></i>
+                Entrar com Keycloak
+            </Button>
+        </div>
     )
 }

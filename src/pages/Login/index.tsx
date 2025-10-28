@@ -1,18 +1,24 @@
-import api from "@/config/axios"
-import { useAuthStore } from "@/store/useAuthStore"
 import { GalleryVerticalEnd } from "lucide-react"
 import React from "react"
 import { useLocation, useNavigate } from "react-router-dom"
 import { toast } from "sonner"
-import { KeycloakServerAuth } from "./components/KeycloakServerAuth"
+import api from "@/config/axios"
+import { useAuthStore } from "@/store/useAuthStore"
+import { LoginForm } from "./components/LoginForm"
+import { useKeycloak } from "@/hooks/useKeycloak"
+import { useKeycloakCodeExchange } from "@/hooks/useKeycloakCodeExchange"
 
 export default function LoginPage() {
   const navigate = useNavigate()
   const location = useLocation()
   const { checkAuth } = useAuthStore()
+  const { keycloak, isAuthenticated } = useKeycloak()
   const [processing, setProcessing] = React.useState(false)
 
-  // decode JWT payload safely (for optional exp validation)
+  // Processa o authorization code do Keycloak
+  useKeycloakCodeExchange()
+
+  // decode JWT payload safely
   const parseJwt = (token: string) => {
     try {
       const base64Url = token.split(".")[1]
@@ -30,6 +36,13 @@ export default function LoginPage() {
     }
   }
 
+  // if already authenticated via Keycloak, redirect
+  React.useEffect(() => {
+    if (isAuthenticated) {
+      navigate("/", { replace: true })
+    }
+  }, [isAuthenticated, navigate])
+
   // process auth via URL: ?token=<jwt>[&redirect=/rota]
   React.useEffect(() => {
     const search = new URLSearchParams(location.search)
@@ -38,7 +51,6 @@ export default function LoginPage() {
 
     if (!token) return
 
-    // basic JWT format check
     const isJwt = /^[A-Za-z0-9-_]+\.[A-Za-z0-9-_]+\.[A-Za-z0-9-_]+$/.test(token)
     if (!isJwt) {
       toast.error("Token inválido.")
@@ -48,7 +60,6 @@ export default function LoginPage() {
     setProcessing(true)
     ;(async () => {
       try {
-        // optional: validate exp if present
         const payload = parseJwt(token)
         const exp = payload?.exp ? Number(payload.exp) : undefined
         if (exp && Date.now() >= exp * 1000) {
@@ -57,13 +68,9 @@ export default function LoginPage() {
           return
         }
 
-        // persist token to localStorage
         localStorage.setItem("token", token)
-
-        // set default Authorization header
         api.defaults.headers.common["Authorization"] = `Bearer ${token}`
 
-        // validate token and fetch user profile
         const ok = await checkAuth()
         if (!ok) {
           toast.error("Falha ao validar token.")
@@ -73,8 +80,6 @@ export default function LoginPage() {
         }
 
         toast.success("Autenticado com sucesso!")
-
-        // navigate and clean query params
         navigate(redirectTo, { replace: true })
       } catch (e) {
         console.error("Auth via URL error:", e)
@@ -97,14 +102,13 @@ export default function LoginPage() {
           </a>
         </div>
         <div className="flex flex-1 items-center justify-center">
-          <div className="w-full ">
+          <div className="w-full">
             {processing ? (
               <div className="text-center text-muted py-8">
-                <div className="spinner mb-2"></div>
-                Autenticando via token...
+                <div className="mb-2">Autenticando via token...</div>
               </div>
             ) : (
-              <KeycloakServerAuth />
+              <LoginForm />
             )}
           </div>
         </div>

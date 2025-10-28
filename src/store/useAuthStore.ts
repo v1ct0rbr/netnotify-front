@@ -1,10 +1,8 @@
 import { create } from 'zustand';
 import api from '@/config/axios';
-import camelcaseKeys from 'camelcase-keys';
+import keycloak from '@/config/keycloak';
 
-// enum de rolename 
 export type RoleName = 'ROLE_SUPER' | 'ROLE_USER' | 'ROLE_GUEST';
-
 
 interface LoginResponse {
   token: string;
@@ -16,13 +14,11 @@ interface Role {
   name: RoleName;
 }
 
-
 export interface User {
   fullName?: string;
   username: string;
   email?: string;
   roles: Role[];
-
 }
 
 interface AuthState {
@@ -30,11 +26,12 @@ interface AuthState {
   token: string | null;
   isChecking: boolean;
   isAuthenticated: boolean;
+  setUser: (user: User | null) => void;
+  setToken: (token: string | null) => void;
   login: (username: string, password: string, typeLogin: 'password' | 'ldap') => Promise<void>;
+  loginKeycloak: () => void;
   logout: () => void;
   checkAuth: () => Promise<boolean>;
-  // internal lock (not exposed)
-  _checkLock?: boolean;
 }
 
 export const useAuthStore = create<AuthState>((set, get) => ({
@@ -42,79 +39,61 @@ export const useAuthStore = create<AuthState>((set, get) => ({
   token: null,
   isChecking: false,
   isAuthenticated: false,
-  _checkLock: false,
+
+  setUser: (user) => set({ user, isAuthenticated: !!user }),
+  setToken: (token) => set({ token }),
 
   login: async (username, password, typeLogin) => {
-    
     console.log('[auth] login called with', { username, typeLogin });
 
     const url = typeLogin === 'ldap' ? '/auth/ldap-login' : '/auth/login';
 
-    const res = await api.post(url, { username, password },
-    {
-      headers: {
-        'Content-Type': 'application/json',
-        },
-      }
-    ) as { data: LoginResponse };   
-   
+    const res = await api.post(url, { username, password }, {
+      headers: { 'Content-Type': 'application/json' },
+    }) as { data: LoginResponse };
 
-   
     const token = res.data.token;
-    console.debug('[auth] login response:', res.data);
+    localStorage.setItem('token', token);
     api.defaults.headers.common['Authorization'] = `Bearer ${token}`;
 
-    // persist token and state
-    localStorage.setItem('token', token);
-    set({ token });
+    set({ token, user: res.data.user, isAuthenticated: true });
+  },
 
-    // Atualiza o estado do usuário imediatamente após login
-    const ok = await get().checkAuth();
-    if (!ok) {
-      throw new Error('Authentication failed after login');
-    }
+  loginKeycloak: () => {
+    keycloak.login();
   },
 
   logout: () => {
     localStorage.removeItem('token');
+    delete api.defaults.headers.common['Authorization'];
     set({ user: null, token: null, isAuthenticated: false });
+    keycloak.logout();
   },
 
   checkAuth: async () => {
-    if (typeof window === "undefined") return false;
-
-    const token = localStorage.getItem('token');
-    if (!token) {
-      set({ user: null, token: null, isAuthenticated: false });
-      return false;
-    }
-
-    // prevent concurrent checks
-    if (get()._checkLock) return !!get().user;
-    (get() as any)._checkLock = true;
     set({ isChecking: true });
-
     try {
-      console.debug('[auth] checkAuth token from storage:', token);
-      const res = await api.get('/profile/me', {
-        headers: { Authorization: `Bearer ${token}` },
-      });
-      console.debug('[auth] /profile/me response:', res.data);
-      const camelUser = res.data ? (camelcaseKeys(res.data as unknown as Record<string, unknown>, { deep: true }) as unknown as User) : null;
-      set({
-        user: camelUser,
-        token,
-        isAuthenticated: !!camelUser,
-      });
+      const token = localStorage.getItem('token');
+      if (!token) {
+        set({ isChecking: false });
+        return false;
+      }
+
       api.defaults.headers.common['Authorization'] = `Bearer ${token}`;
-      return !!camelUser;
-    } catch (err) {
-      localStorage.removeItem('token');
-      set({ user: null, token: null, isAuthenticated: false });
-      return false;
-    } finally {
+
+      const res = await api.get('/profile/me') as { data: { user: User } };
+      if (res.data?.user) {
+        set({ user: res.data.user, token, isAuthenticated: true, isChecking: false });
+        return true;
+      }
+
       set({ isChecking: false });
-      (get() as any)._checkLock = false;
+      return false;
+    } catch (err) {
+      console.error('[auth] checkAuth failed:', err);
+      localStorage.removeItem('token');
+      set({ user: null, token: null, isAuthenticated: false, isChecking: false });
+      return false;
     }
   },
 }));
