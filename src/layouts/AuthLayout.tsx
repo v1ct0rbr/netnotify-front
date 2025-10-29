@@ -2,6 +2,8 @@ import { cn } from "@/lib/utils";
 import { Outlet } from "react-router";
 
 export function AuthLayout() {
+ 
+
     return (
         <main
               data-slot="sidebar-inset"

@@ -1,88 +1,85 @@
 import { useEffect, useRef } from 'react';
-import { useLocation, useNavigate } from 'react-router-dom';
+import { useNavigate } from 'react-router-dom';
 import { toast } from 'sonner';
-import api from '@/config/axios';
-import { useAuthStore } from '@/store/useAuthStore';
+import { authService } from '../services/AuthService';
 
 /**
- * Hook que processa o OAuth2 Authorization Code do Keycloak
- * Quando Keycloak redireciona com ?code=..., este hook faz o exchange com o backend
+ * Hook que processa o OAuth2 Authorization Code Flow do Keycloak
+ * 
+ * Fluxo:
+ * 1. Usuário faz login no Keycloak
+ * 2. Keycloak retorna código de autorização na URL
+ * 3. Este hook extrai o código
+ * 4. Envia para o backend trocar por JWT
+ * 5. Backend retorna JWT customizado
+ * 6. Frontend armazena JWT e redireciona
+ * 
+ * @param enabled - Se true, ativa o processamento. Default: false
  */
-export const useKeycloakCodeExchange = () => {
-  const location = useLocation();
+export const useKeycloakCodeExchange = (enabled: boolean = false) => {
   const navigate = useNavigate();
-  const { setUser, setToken } = useAuthStore();
   const processedRef = useRef(false);
 
   useEffect(() => {
+    if (!enabled) {
+      console.log('⚠️ useKeycloakCodeExchange desativado');
+      return;
+    }
+
     if (processedRef.current) return;
 
-    const params = new URLSearchParams(location.search + location.hash);
-    const code = params.get('code');
-    const state = params.get('state');
-    const sessionState = params.get('session_state');
-    const redirectTo = params.get('redirect') || '/';
+    const urlParams = new URLSearchParams(window.location.search);
+    const code = urlParams.get('code');
 
-    if (!code) return;
+    if (!code) {
+      console.log('ℹ️ Nenhum código de autorização na URL');
+      return;
+    }
 
     processedRef.current = true;
 
     (async () => {
       try {
-        console.log('[keycloak-exchange] Processing authorization code:', {
-          code: code.substring(0, 20) + '...',
-          state: state?.substring(0, 20) + '...',
-          sessionState: sessionState?.substring(0, 20) + '...',
-        });
+        console.log('🔄 [Code Exchange] Iniciando troca de código...');
+        console.log('📋 Código:', code.substring(0, 20) + '...');
 
-        // Faz o exchange do code pelo JWT no backend
-        const res = await api.post(
-          '/auth/keycloak/exchange',
-          {
-            code,
-            state,
-            session_state: sessionState,
-            redirectUri: window.location.origin + '/auth/login',
-          },
-          {
-            headers: { 'Content-Type': 'application/json' },
-          }
+        // Chama o serviço de autenticação para trocar código por token
+        const response = await authService.exchangeCodeForToken(code);
+
+        console.log('✅ [Code Exchange] Token recebido com sucesso');
+        console.log('⏱️ Token expira em:', response.expires_in, 'segundos');
+
+        // Limpa URL (remove código)
+        window.history.replaceState(
+          {},
+          document.title,
+          window.location.pathname
         );
 
-        if (!res.data?.token) {
-          toast.error('Erro: Token não recebido do servidor.');
-          console.error('No token in response:', res.data);
-          return;
-        }
+        toast.success('✅ Autenticado com sucesso!');
 
-        // Armazena token e configura header
-        const token = res.data.token;
-        localStorage.setItem('token', token);
-        api.defaults.headers.common['Authorization'] = `Bearer ${token}`;
+        // Redireciona para home
+        setTimeout(() => {
+          navigate('/', { replace: true });
+        }, 500);
+      } catch (error: any) {
+        console.error(
+          '❌ [Code Exchange] Erro:',
+          error.response?.data || error.message
+        );
 
-        // Sync com backend para validar e obter user profile
-        const profileRes = await api.get('/profile/me');
-        if (profileRes.data?.user) {
-          setUser(profileRes.data.user);
-          setToken(token);
-          toast.success('Autenticado com Keycloak com sucesso!');
-
-          // Limpa os parâmetros da URL e redireciona
-          window.history.replaceState({}, document.title, '/');
-          navigate(redirectTo, { replace: true });
-        } else {
-          toast.error('Falha ao carregar perfil do usuário.');
-        }
-      } catch (err: any) {
-        console.error('[keycloak-exchange] Error:', err.response?.data || err.message);
         const errorMsg =
-          err.response?.data?.message ||
-          'Falha ao processar autorização do Keycloak.';
+          error.response?.data?.message || 'Falha ao processar autorização.';
         toast.error(errorMsg);
 
-        // Limpa URL com parametros de erro
-        window.history.replaceState({}, document.title, '/');
+        // Limpa URL
+        window.history.replaceState({}, document.title, window.location.pathname);
+
+        // Redireciona para login
+        setTimeout(() => {
+          navigate('/login', { replace: true });
+        }, 1000);
       }
     })();
-  }, [location.search, location.hash, navigate, setUser, setToken]);
+  }, [enabled, navigate]);
 };
