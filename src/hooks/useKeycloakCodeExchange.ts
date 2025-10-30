@@ -9,67 +9,58 @@ import { authService } from '../services/AuthService';
  * Fluxo:
  * 1. Usuário faz login no Keycloak
  * 2. Keycloak retorna código de autorização na URL
- * 3. Este hook extrai o código
- * 4. Envia para o backend trocar por JWT
+ * 3. Este hook recebe o código como parâmetro
+ * 4. Envia para o backend trocar por token
  * 5. Backend retorna JWT customizado
  * 6. Frontend armazena JWT e redireciona
  * 
- * @param enabled - Se true, ativa o processamento. Default: false
+ * @param code - Código de autorização retornado pelo Keycloak (ou null/undefined)
  */
-export const useKeycloakCodeExchange = (enabled: boolean = false) => {
+export const useKeycloakCodeExchange = (code: string | null | undefined) => {
   const navigate = useNavigate();
   const processedRef = useRef(false);
 
   useEffect(() => {
-    if (!enabled) {
-      console.log('⚠️ useKeycloakCodeExchange desativado');
-      return;
-    }
-
-    if (processedRef.current) return;
-
-    const urlParams = new URLSearchParams(window.location.search);
-    const code = urlParams.get('code');
-
+    // Se não tem código, não faz nada
     if (!code) {
-      console.log('ℹ️ Nenhum código de autorização na URL');
+      console.log('ℹ️ [useKeycloakCodeExchange] Sem código para processar');
       return;
     }
 
+    // Se já processou, não tenta novamente
+    if (processedRef.current) {
+      console.log('⏭️ [useKeycloakCodeExchange] Já processado anteriormente');
+      return;
+    }
+
+    console.log('🔍 [useKeycloakCodeExchange] Processando código:', code.substring(0, 30) + '...');
+
+    // Marca como processado ANTES de iniciar a troca
     processedRef.current = true;
 
+    // Processa o código
     (async () => {
       try {
-        console.log('🔄 [Code Exchange] Iniciando troca de código...');
-        console.log('📋 Código:', code.substring(0, 20) + '...');
+        console.log('🔄 [Code Exchange] Iniciando...');
 
         // Chama o serviço de autenticação para trocar código por token
         const response = await authService.exchangeCodeForToken(code);
 
-        console.log('✅ [Code Exchange] Token recebido com sucesso');
-        console.log('⏱️ Token expira em:', response.expires_in, 'segundos');
+        console.log('✅ [Code Exchange] Sucesso! Token válido por', response.expires_in, 's');
 
         // Limpa URL (remove código)
-        window.history.replaceState(
-          {},
-          document.title,
-          window.location.pathname
-        );
+        window.history.replaceState({}, document.title, window.location.pathname);
 
         toast.success('✅ Autenticado com sucesso!');
 
         // Redireciona para home
         setTimeout(() => {
           navigate('/', { replace: true });
-        }, 500);
+        }, 300);
       } catch (error: any) {
-        console.error(
-          '❌ [Code Exchange] Erro:',
-          error.response?.data || error.message
-        );
+        console.error('❌ [Code Exchange] Erro:', error.response?.data?.message || error.message);
 
-        const errorMsg =
-          error.response?.data?.message || 'Falha ao processar autorização.';
+        const errorMsg = error.response?.data?.message || 'Falha ao processar autorização.';
         toast.error(errorMsg);
 
         // Limpa URL
@@ -81,5 +72,5 @@ export const useKeycloakCodeExchange = (enabled: boolean = false) => {
         }, 1000);
       }
     })();
-  }, [enabled, navigate]);
+  }, [code, navigate]);
 };

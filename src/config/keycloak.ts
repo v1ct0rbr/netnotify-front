@@ -13,6 +13,8 @@ const keycloak = new Keycloak({
   url: import.meta.env.VITE_KEYCLOAK_URL || 'https://keycloak.derpb.com.br',
   realm: import.meta.env.VITE_KEYCLOAK_REALM || 'testes',
   clientId: import.meta.env.VITE_KEYCLOAK_CLIENT_ID || 'teste-cli',
+  
 });
+
 
 export default keycloak;

@@ -26,20 +26,31 @@ class AuthService {
   }> {
     try {
       console.log('🔄 Trocando código por token...');
+      console.log('📝 Código:', code.substring(0, 50) + '...');
+      console.log('🌐 URL do Backend:', api.defaults.baseURL);
       
       const response = await api.post('/auth/callback', {
         code: code,
       });
 
       console.log('✅ Token recebido com sucesso');
+      console.log('📦 Resposta:', {
+        access_token: response.data.access_token?.substring(0, 50) + '...',
+        refresh_token: response.data.refresh_token?.substring(0, 50) + '...',
+        expires_in: response.data.expires_in,
+        user: response.data.user
+      });
       
       // Armazena tokens (axios interceptor procura por 'token')
       localStorage.setItem('token', response.data.access_token);
       localStorage.setItem('refresh_token', response.data.refresh_token);
 
       return response.data;
-    } catch (error) {
+    } catch (error: any) {
       console.error('❌ Erro ao trocar código por token:', error);
+      console.error('🔴 Status:', error.response?.status);
+      console.error('🔴 Dados:', error.response?.data);
+      console.error('🔴 Headers:', error.config?.headers);
       throw error;
     }
   }

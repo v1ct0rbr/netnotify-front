@@ -9,8 +9,7 @@ interface LoginResponse {
   user: User;
 }
 
-interface Role {
-  id: number;
+interface Role {  
   name: RoleName;
 }
 
