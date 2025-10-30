@@ -3,7 +3,7 @@ import { Lock } from "lucide-react";
 export function KeycloakServerAuth() {
     const authUrl = `${import.meta.env.VITE_KEYCLOAK_AUTH_SERVER_URL}/realms/${import.meta.env.VITE_KEYCLOAK_REALM}/protocol/openid-connect/auth?response_type=code&client_id=${import.meta.env.VITE_KEYCLOAK_CLIENT_ID}&redirect_uri=${encodeURIComponent(
         `${import.meta.env.VITE_KEYCLOAK_URL_REDIRECT}`
-    )}&response_type=code&scope=openid`;
+    )}&scope=openid`;
 
     return (
         <div className="bg-white/95 backdrop-blur-md rounded-2xl shadow-lg p-12 max-w-md w-full mx-auto">
@@ -16,7 +16,7 @@ export function KeycloakServerAuth() {
                 <div className="flex justify-center">
                     <a
                         href={authUrl}
-                        className="inline-block bg-gradient-to-r from-indigo-500 to-purple-600 text-fuchsia-900 px-8 py-3 rounded-full font-semibold uppercase tracking-wide shadow-md transition-transform transform hover:-translate-y-1"
+                        className="inline-block bg-gradient-to-r from-indigo-500 to-purple-600 text-white px-8 py-3 rounded-full font-semibold uppercase tracking-wide shadow-md transition-transform transform hover:-translate-y-1 hover:shadow-lg"
                     >
                         Login with Keycloak
                     </a>
