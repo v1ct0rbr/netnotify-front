@@ -28,9 +28,14 @@ class AuthService {
       console.log('🔄 Trocando código por token...');
       console.log('📝 Código:', code.substring(0, 50) + '...');
       console.log('🌐 URL do Backend:', api.defaults.baseURL);
-      
+
       const response = await api.post('/auth/callback', {
         code: code,
+      }, {
+        headers: {
+          'Content-Type': 'application/json',
+          'X-Redirect-Uri': import.meta.env.VITE_KEYCLOAK_URL_REDIRECT
+        },
       });
 
       console.log('✅ Token recebido com sucesso');

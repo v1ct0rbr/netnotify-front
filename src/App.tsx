@@ -76,7 +76,7 @@ const SecuredContent = () => {
   // Se não está autenticado e não há código, redireciona para login
   if (!keycloak?.authenticated) {
     // Chama o Keycloak para fazer login
-    keycloak?.login({ redirectUri: window.location.origin + window.location.pathname });
+    keycloak?.login({ redirectUri: import.meta.env.VITE_KEYCLOAK_URL_REDIRECT });
     return <div className="flex items-center justify-center h-screen">Redirecionando para login...</div>;
   }
   
