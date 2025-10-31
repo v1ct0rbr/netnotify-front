@@ -76,26 +76,22 @@ class AuthService {
 
   /**
    * Renova o token usando refresh token
+   * (Currently unused - can be called when token expires)
    */
-  private async refreshToken(refreshToken: string): Promise<{
-    access_token: string;
-    refresh_token: string;
-    expires_in: number;
-  }> {
-    console.log('🔄 Renovando token...');
-    
-    const response = await api.post('/auth/refresh', {
-      refresh_token: refreshToken,
-    });
-
-    console.log('✅ Token renovado');
-    
-    // Atualiza tokens
-    localStorage.setItem('token', response.data.access_token);
-    localStorage.setItem('refresh_token', response.data.refresh_token);
-    
-    return response.data;
-  }
+  // private async refreshToken(refreshToken: string): Promise<{
+  //   access_token: string;
+  //   refresh_token: string;
+  //   expires_in: number;
+  // }> {
+  //   console.log('🔄 Renovando token...');
+  //   const response = await api.post('/auth/refresh', {
+  //     refresh_token: refreshToken,
+  //   });
+  //   console.log('✅ Token renovado');
+  //   localStorage.setItem('token', response.data.access_token);
+  //   localStorage.setItem('refresh_token', response.data.refresh_token);
+  //   return response.data;
+  // }
 
   /**
    * Faz logout

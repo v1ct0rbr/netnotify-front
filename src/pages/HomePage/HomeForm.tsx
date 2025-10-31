@@ -85,7 +85,7 @@ export const HomeForm: React.FC<HomeFormProps> = ({ id }: HomeFormProps) => {
   }, [msg, reset]);
 
   const submitForm = (data: FormData) => {
-    createMessage({ title: data.title, content: htmlToString(data.content), level: data.level, type: data.type }).then(res => {
+    createMessage({ title: data.title, content: htmlToString(data.content), level: data.level, type: data.type }).then(() => {
       toast.success('Mensagem criada com sucesso.');
       reset({ title: '', content: '', level: 0, type: 0 });
     }).catch(err => {

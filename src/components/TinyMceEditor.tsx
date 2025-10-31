@@ -1,4 +1,4 @@
-import React, { useRef, useEffect, useState } from 'react';
+import { useRef, useEffect, useState } from 'react';
 import { Editor } from '@tinymce/tinymce-react';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
@@ -207,22 +207,7 @@ function TinyMceEditor({ value, onChange }: TinyMceEditorProps) {
     };
 
     // derive content_style from CSS variables if available
-    const computeContentStyle = () => {
-        try {
-            const cs = getComputedStyle(document.documentElement);
-            const bg = cs.getPropertyValue('--background').trim() || (theme === 'dark' ? '#0b1220' : '#ffffff');
-            const color = cs.getPropertyValue('--body').trim() || (theme === 'dark' ? '#e6eef8' : '#111827');
-            // ensure valid values
-            const bgVal = bg || (theme === 'dark' ? '#0b1220' : '#ffffff');
-            const colorVal = color || (theme === 'dark' ? '#e6eef8' : '#111827');
-            // content style: body + default link color
-            return `body { background: ${bgVal}; color: ${colorVal}; } a { color: ${theme === 'dark' ? '#93c5fd' : '#1d4ed8'} }`;
-        } catch {
-            return theme === 'dark'
-                ? 'body { background:#0b1220; color:#e6eef8 } a { color:#93c5fd }'
-                : 'body { background:#ffffff; color:#111827 } a { color:#1d4ed8 }';
-        }
-    };
+    // (function removed - not currently used, but can be reinstated if needed for dynamic theming)
 
     // Editor key forces remount on theme change so skin/content_css take effect
     const editorKey = `tinymce-${theme}-${themeTick}`;

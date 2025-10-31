@@ -18,7 +18,7 @@ type AlertMessageDetailsProps = {
 
 export function AlertMessageDetails({ id, open, onClose }: AlertMessageDetailsProps) {
 
-    const { htmlToString, unescapeServerHtml } = StringUtils();
+    const { unescapeServerHtml } = StringUtils();
 
     const { getMessageById } = useMessagesApi();
     // Fetch message details by ID
