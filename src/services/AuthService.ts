@@ -17,8 +17,14 @@ class AuthService {
    * 
    * Chamado após usuário fazer login no Keycloak
    * @param code - Código de autorização retornado por Keycloak
+   * @param redirectUri - URI de redirecionamento (deve ser o mesmo usado no login)
+   * @param codeVerifier - Code verifier PKCE (opcional)
    */
-  async exchangeCodeForToken(code: string): Promise<{
+  async exchangeCodeForToken(
+    code: string,
+    redirectUri: string,
+    codeVerifier?: string
+  ): Promise<{
     access_token: string;
     refresh_token: string;
     expires_in: number;
@@ -28,14 +34,22 @@ class AuthService {
       console.log('🔄 Trocando código por token...');
       console.log('📝 Código:', code.substring(0, 50) + '...');
       console.log('🌐 URL do Backend:', api.defaults.baseURL);
+      console.log('📍 Redirect URI:', redirectUri);
+      console.log('🔐 Code Verifier:', codeVerifier ? 'presente (' + codeVerifier.substring(0, 30) + '...)' : 'ausente ❌');
 
-      const response = await api.post('/auth/callback', {
+      const payload = {
         code: code,
-      }, {
+        redirect_uri: redirectUri,
+        code_verifier: codeVerifier,
+      };
+
+      console.log('📤 Payload enviado:', JSON.stringify(payload, null, 2));
+
+      const response = await api.post('/auth/callback', payload, {
         headers: {
           'Content-Type': 'application/json',
-          'X-Redirect-Uri': import.meta.env.VITE_KEYCLOAK_URL_REDIRECT
-        },
+          'X-Redirect-Uri': redirectUri,
+        }
       });
 
       console.log('✅ Token recebido com sucesso');

@@ -2,6 +2,7 @@ import { useEffect, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { toast } from 'sonner';
 import { authService } from '../services/AuthService';
+import { getPkceCodeVerifierFromStorage, debugStorageKeys } from '../lib/pkce';
 
 /**
  * Hook que processa o OAuth2 Authorization Code Flow do Keycloak
@@ -43,8 +44,23 @@ export const useKeycloakCodeExchange = (code: string | null | undefined) => {
       try {
         console.log('🔄 [Code Exchange] Iniciando...');
 
+        // Extrai redirectUri (deve ser o mesmo usado no login)
+        // IMPORTANTE: Garante que tenha trailing slash para evitar mismatch com PKCE
+        let redirectUri = `${window.location.origin}${window.location.pathname}`;
+        if (!redirectUri.endsWith('/')) {
+          redirectUri = redirectUri + '/';
+        }
+        console.log('📍 Redirect URI (com slash):', redirectUri);
+
+        // Extrai code_verifier do storage (PKCE)
+        const codeVerifier = getPkceCodeVerifierFromStorage();
+        
+        if (!codeVerifier) {
+          debugStorageKeys();
+        }
+
         // Chama o serviço de autenticação para trocar código por token
-        const response = await authService.exchangeCodeForToken(code);
+        const response = await authService.exchangeCodeForToken(code, redirectUri, codeVerifier);
 
         console.log('✅ [Code Exchange] Sucesso! Token válido por', response.expires_in, 's');
 

@@ -9,6 +9,7 @@ import keycloak from "./config/keycloak"
 import { useKeycloakStorageFixture } from './hooks/useKeycloakStorageFixture'
 import { useKeycloakCodeExchange } from './hooks/useKeycloakCodeExchange'
 import { useDebugURL } from './hooks/useDebugURL'
+import { usePreservePkceCodeVerifier } from './hooks/usePreservePkceCodeVerifier'
 
 function App() {
   return (
@@ -19,7 +20,8 @@ function App() {
           onLoad: 'check-sso', // Muda para 'check-sso' para NÃO redirecionar automaticamente
           checkLoginIframe: false,
           silentCheckSsoFallback: false,
-          pkceMethod: 'S256',
+          pkceMethod: 'S256',        
+          
           // Solicita que o Keycloak retorne o `code` na query string (ex: ?code=...)
           // por padrão alguns adaptadores/adapters podem usar fragment (#code=...)
           // Definir como 'query' ajuda no fluxo Authorization Code + PKCE
@@ -37,6 +39,9 @@ function App() {
 }
 
 const SecuredContent = () => {
+  // Preserva o PKCE code_verifier ANTES que seja limpo
+  usePreservePkceCodeVerifier();
+  
   // Use o hook para prevenir erros de storage access
   const { keycloak, initialized } = useKeycloakStorageFixture();
   
@@ -76,7 +81,12 @@ const SecuredContent = () => {
   // Se não está autenticado e não há código, redireciona para login
   if (!keycloak?.authenticated) {
     // Chama o Keycloak para fazer login
-    keycloak?.login({ redirectUri: import.meta.env.VITE_KEYCLOAK_URL_REDIRECT });
+    // IMPORTANTE: Garante trailing slash para evitar mismatch com PKCE
+    let redirectUri = window.location.origin + window.location.pathname;
+    if (!redirectUri.endsWith('/')) {
+      redirectUri = redirectUri + '/';
+    }
+    keycloak?.login({ redirectUri });
     return <div className="flex items-center justify-center h-screen">Redirecionando para login...</div>;
   }
   
