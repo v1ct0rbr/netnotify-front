@@ -3,7 +3,7 @@ import { StatusBadge } from "@/components/StatusBadge";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Skeleton } from "@/components/ui/skeleton";
-import { StringUtils } from "@/utils/StringUtils";
+import { unescapeServerHtml } from "@/utils/StringUtils";
 import { useQuery } from "@tanstack/react-query";
 import { formatRelative } from "date-fns";
 import { ptBR } from "date-fns/locale";
@@ -17,8 +17,6 @@ type AlertMessageDetailsProps = {
 };
 
 export function AlertMessageDetails({ id, open, onClose }: AlertMessageDetailsProps) {
-
-    const { unescapeServerHtml } = StringUtils();
 
     const { getMessageById } = useMessagesApi();
     // Fetch message details by ID

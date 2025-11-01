@@ -6,7 +6,7 @@ import Header from "@/components/header";
 import {
     SidebarProvider,
 } from '@/components/ui/sidebar';
-import { useKeycloak } from "@react-keycloak/web";
+import { useAuthStore } from "@/store/useAuthStore";
 import Cookies from 'js-cookie';
  
 import React, { useEffect } from "react";
@@ -18,18 +18,29 @@ interface MainPageLayoutProps {
 
 export default function MainPageLayout({ pageTitle }: MainPageLayoutProps): React.ReactElement {
 
-    const { keycloak } = useKeycloak();
-    const user = keycloak?.tokenParsed?.preferred_username;
+    const {logout, user} = useAuthStore()
 
-    // ✅ NÃO chama keycloak?.login() aqui!
-    // O Keycloak Provider já redireciona automaticamente se não autenticado
-    // Se precisar fazer algo quando autenticado, faça aqui
+    const handleLogout = async () => {
+        console.log('Iniciando logout...');
+        await logout();
+        window.location.href = '/';
+    };
+
+    // Extrair username do token JWT armazenado (para debug)
     useEffect(() => {
-        if (keycloak?.authenticated) {
-            console.log("✅ Usuário autenticado:", user);
-            // Aqui você pode fazer outras coisas, como carregar dados do usuário
+        try {
+            const token = localStorage.getItem('access_token');
+            if (token) {
+                const decoded = JSON.parse(atob(token.split('.')[1]));
+                const username = decoded.preferred_username || decoded.sub || null;
+                console.log("Usuario autenticado:", username);
+            }
+        } catch (error) {
+            console.error("Erro ao extrair username do token:", error);
         }
-    }, [keycloak?.authenticated, user]);
+    }, []);
+
+ 
 
     const [isDark] = React.useState<boolean>(() => {
         try {
@@ -86,7 +97,7 @@ export default function MainPageLayout({ pageTitle }: MainPageLayoutProps): Reac
     
         return (
             <SidebarProvider>
-                <AppSidebar userInfo={user} logout={keycloak?.logout} />
+                <AppSidebar userInfo={user} logout={handleLogout} />
                 <main className="w-full">
                 <Header title={titleToShow} />
                     

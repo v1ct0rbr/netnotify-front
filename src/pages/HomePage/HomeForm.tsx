@@ -5,7 +5,7 @@ import { Button } from '@/components/ui/button';
 import { Skeleton } from '@/components/ui/skeleton';
 import { StyledSelect } from '@/components/ui/styled-select';
 import api from '@/config/axios';
-import { StringUtils } from '@/utils/StringUtils';
+import { htmlToString, unescapeServerHtml } from '@/utils/StringUtils';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { useQuery } from '@tanstack/react-query';
 
@@ -29,10 +29,6 @@ interface HomeFormProps {
 
 export const HomeForm: React.FC<HomeFormProps> = ({ id }: HomeFormProps) => {
 
-  // função reutilizável para desempacotar HTML vindo do servidor
-
-
-  const { htmlToString, unescapeServerHtml } = StringUtils();
   const [isDialogOpen, setIsDialogOpen] = React.useState(false);
 
   const { handleSubmit, control, reset, formState: { errors } } = useForm<FormData>({

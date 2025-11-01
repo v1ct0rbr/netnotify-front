@@ -1,78 +1,97 @@
-import { create } from 'zustand';
 import api from '@/config/axios';
-import keycloak from '@/config/keycloak';
+import { create } from 'zustand';
+import { authService } from '@/services/AuthService';
 
-export type RoleName = 'ROLE_SUPER' | 'ROLE_USER' | 'ROLE_GUEST';
+/**
+ * Roles específicas da aplicação (enum do backend)
+ * Deve corresponder ao enum ApplicationRole do backend
+ */
+export type ApplicationRole = 
+  | 'SERVER_MANAGER'      // Pode gerenciar servidores
+  | 'ALERT_MANAGER'       // Pode gerenciar alertas
+  | 'REPORT_VIEWER'       // Pode visualizar relatórios
+  | 'SYSTEM_ADMIN'        // Administração completa do sistema
+  | 'MONITORING_VIEWER'   // Apenas visualização de monitoramento
+  | 'ROLE_USER';
 
-interface LoginResponse {
-  token: string;
-  user: User;
-}
-
-interface Role {  
-  name: RoleName;
-}
-
-export interface User {
-  fullName?: string;
+export interface UserInfo {
+  fullName: string;
   username: string;
-  email?: string;
-  roles: Role[];
+  email: string;
+  roles: ApplicationRole[];
+}
+
+export interface KeycloakTokenResponse {
+  accessToken: string;
+  refreshToken: string;
+  expiresIn: number;
+  tokenType: string;
+  user: UserInfo;
 }
 
 interface AuthState {
-  user: User | null;
+  user: UserInfo | null;
   token: string | null;
+  refreshToken: string | null;
   isChecking: boolean;
   isAuthenticated: boolean;
-  setUser: (user: User | null) => void;
+  setUser: (user: UserInfo | null) => void;
   setToken: (token: string | null) => void;
-  login: (username: string, password: string, typeLogin: 'password' | 'ldap') => Promise<void>;
-  loginKeycloak: () => void;
-  logout: () => void;
+  setTokens: (response: KeycloakTokenResponse) => void;  
+  logout: () => Promise<void>;
   checkAuth: () => Promise<boolean>;
 }
 
 export const useAuthStore = create<AuthState>((set) => ({
   user: null,
   token: null,
+  refreshToken: null,
   isChecking: false,
   isAuthenticated: false,
 
   setUser: (user) => set({ user, isAuthenticated: !!user }),
   setToken: (token) => set({ token }),
 
-  login: async (username, password, typeLogin) => {
-    console.log('[auth] login called with', { username, typeLogin });
-
-    const url = typeLogin === 'ldap' ? '/auth/ldap-login' : '/auth/login';
-
-    const res = await api.post(url, { username, password }, {
-      headers: { 'Content-Type': 'application/json' },
-    }) as { data: LoginResponse };
-
-    const token = res.data.token;
-    localStorage.setItem('token', token);
-    api.defaults.headers.common['Authorization'] = `Bearer ${token}`;
-
-    set({ token, user: res.data.user, isAuthenticated: true });
+  // Método para armazenar tokens e usuário recebidos do OAuth2 Keycloak
+  setTokens: (response: KeycloakTokenResponse) => {
+    console.log('💾 [auth] Armazenando tokens e dados do usuário:', response.user);
+    
+    localStorage.setItem('access_token', response.accessToken);
+    if (response.refreshToken) {
+      localStorage.setItem('refresh_token', response.refreshToken);
+    }
+    
+    api.defaults.headers.common['Authorization'] = `Bearer ${response.accessToken}`;
+    
+    set({
+      token: response.accessToken,
+      refreshToken: response.refreshToken || null,
+      user: response.user,
+      isAuthenticated: true,
+    });
   },
 
-  loginKeycloak: () => {
-    keycloak.login();
-  },
 
-  logout: () => {
-    localStorage.removeItem('token');
-    delete api.defaults.headers.common['Authorization'];
-    set({ user: null, token: null, isAuthenticated: false });
-    keycloak.logout();
+  logout: async () => {
+    console.log('🚪 [auth] Iniciando logout...');
+    try {
+      // Chamar o authService que faz logout local + Keycloak
+      await authService.logout();
+      
+      // Limpar store
+      set({ user: null, token: null, refreshToken: null, isAuthenticated: false });
+      console.log('✅ [auth] Logout completo realizado');
+    } catch (error) {
+      console.error('❌ [auth] Erro durante logout:', error);
+      // Mesmo com erro, limpar estado local
+      set({ user: null, token: null, refreshToken: null, isAuthenticated: false });
+    }
   },
 
   checkAuth: async () => {
     set({ isChecking: true });
     try {
-      const token = localStorage.getItem('token');
+      const token = localStorage.getItem('access_token');
       if (!token) {
         set({ isChecking: false });
         return false;
@@ -80,7 +99,7 @@ export const useAuthStore = create<AuthState>((set) => ({
 
       api.defaults.headers.common['Authorization'] = `Bearer ${token}`;
 
-      const res = await api.get('/profile/me') as { data: { user: User } };
+      const res = await api.get('/profile/me') as { data: { user: UserInfo } };
       if (res.data?.user) {
         set({ user: res.data.user, token, isAuthenticated: true, isChecking: false });
         return true;
@@ -90,7 +109,7 @@ export const useAuthStore = create<AuthState>((set) => ({
       return false;
     } catch (err) {
       console.error('[auth] checkAuth failed:', err);
-      localStorage.removeItem('token');
+      localStorage.removeItem('access_token');
       set({ user: null, token: null, isAuthenticated: false, isChecking: false });
       return false;
     }

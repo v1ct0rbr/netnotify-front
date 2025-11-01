@@ -33,12 +33,11 @@ const api = axios.create({
     headers: {
         'Content-Type': 'application/json',
         'Accept': 'application/json',
-
     },
 });
 
 api.interceptors.request.use(config => {
-    const token = localStorage.getItem('token'); // ou useContext/useState
+    const token = localStorage.getItem('access_token'); // Buscar access_token (não token)
     if (token) {
     config.headers.Authorization = `Bearer ${token}`;
     console.debug('[api] request Authorization header set:', config.headers.Authorization, 'url:', config.url);

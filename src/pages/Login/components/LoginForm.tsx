@@ -1,29 +1,22 @@
 import { Button } from "@/components/ui/button";
-import { useKeycloak } from "@/hooks/useKeycloak";
-
-
-
-
 
 export function LoginForm({
     className,
 }: {
     className?: string;
 }) {
-   
-    const { keycloak } = useKeycloak();
-   
-
+    const handleLogin = () => {
+        // Redirecionar para página raiz que iniciará o fluxo OAuth2
+        window.location.href = '/';
+    };
 
     return (
         <div className={className}>
-            
-
             <Button
                 type="button"
                 variant="outline"
                 className="w-full"
-                onClick={() => keycloak?.login()}
+                onClick={handleLogin}
             >
                 <i className="fas fa-sign-in-alt mr-2"></i>
                 Entrar com Keycloak

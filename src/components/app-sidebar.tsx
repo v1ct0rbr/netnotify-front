@@ -13,7 +13,7 @@ import {
   SidebarMenuButton,
   SidebarMenuItem
 } from "@/components/ui/sidebar";
-import type { User } from "@/store/useAuthStore";
+import { type UserInfo } from "@/store/useAuthStore";
 import { Link } from "react-router";
 import { toast } from "sonner";
 
@@ -33,10 +33,11 @@ const items = [
 ]
 
 interface AppSidebarProps {
-  userInfo?: User | null;
+  userInfo?: UserInfo | null;
   logout?: () => void;
 }
-export function AppSidebar( { userInfo, logout }: AppSidebarProps) {
+export function AppSidebar( { userInfo, logout: onLogout }: AppSidebarProps) {
+
   return (
     <Sidebar>
       <SidebarHeader>
@@ -69,7 +70,7 @@ export function AppSidebar( { userInfo, logout }: AppSidebarProps) {
             
             <div>
               <div className="text-sm font-medium">{userInfo?.fullName}</div>
-              <div className="text-xs text-muted-foreground">{userInfo?.email}</div>
+              
             </div>
           </div>
           <div className="ml-4">
@@ -78,8 +79,8 @@ export function AppSidebar( { userInfo, logout }: AppSidebarProps) {
 
               
               onClick={() => {
-                if (!userInfo) return;
-                if (logout) logout();
+               
+                if (onLogout) onLogout();
                 toast.success("Logout realizado com sucesso!");
               }}
             >
