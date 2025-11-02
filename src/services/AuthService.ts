@@ -5,15 +5,11 @@
  * 1. Receber o código de autorização do Keycloak
  * 2. Enviar para o backend trocar por token
  * 3. Armazenar o token no localStorage
- * 4. Fazer logout no Keycloak
+ * 4. Fazer logout no backend (que revoga no Keycloak)
  */
 
 import type { UserInfo } from '@/store/useAuthStore';
 import api from '../config/axios';
-
-const KEYCLOAK_URL = import.meta.env.VITE_KEYCLOAK_AUTH_SERVER_URL || 'https://keycloak.derpb.com.br';
-const KEYCLOAK_REALM = import.meta.env.VITE_KEYCLOAK_REALM || 'testes';
-const KEYCLOAK_CLIENT_ID = import.meta.env.VITE_KEYCLOAK_CLIENT_ID || 'netnotify-front';
 
 class AuthService {
 
@@ -105,63 +101,55 @@ class AuthService {
   // }
 
   /**
-   * Faz logout no Keycloak revogando o refresh token
-   */
-  private async revokeTokenInKeycloak(refreshToken: string): Promise<void> {
-    try {
-      console.log('🔐 Revogando token no Keycloak...');
-
-      const formData = new URLSearchParams({
-        client_id: KEYCLOAK_CLIENT_ID,
-        token: refreshToken,
-        token_type_hint: 'refresh_token',
-      });
-
-      const response = await fetch(
-        `${KEYCLOAK_URL}/realms/${KEYCLOAK_REALM}/protocol/openid-connect/revoke`,
-        {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/x-www-form-urlencoded',
-          },
-          body: formData.toString(),
-        }
-      );
-
-      if (response.ok) {
-        console.log('✅ Token revogado com sucesso no Keycloak');
-      } else {
-        console.warn('⚠️ Erro ao revogar token no Keycloak:', response.status);
-      }
-    } catch (error) {
-      console.error('❌ Erro ao revogar token no Keycloak:', error);
-      // Não lançar erro - logout local já foi feito
-    }
-  }
-
-  /**
-   * Faz logout completo (local + Keycloak)
+   * Faz logout completo via backend
+   * 
+   * O backend é responsável por:
+   * 1. Validar o token
+   * 2. Revogar o refresh token no Keycloak
+   * 3. Limpar sessões
    */
   async logout(): Promise<void> {
     try {
+      const token = localStorage.getItem('access_token');
       const refreshToken = localStorage.getItem('refresh_token');
       
+      console.log('🚪 [auth] Iniciando logout...');
+
+      // 1. Remover dados locais imediatamente
       localStorage.removeItem('access_token');
       localStorage.removeItem('refresh_token');
+      localStorage.removeItem('token');
+      localStorage.removeItem('user');
+      localStorage.removeItem('expires_in');
+      localStorage.removeItem('token_type');
+      localStorage.removeItem('auth-storage'); // Zustand store
       delete api.defaults.headers.common['Authorization'];
 
       console.log('✅ Logout local realizado');
 
-      // Se temos refresh token, revogar no Keycloak também
-      if (refreshToken) {
-        await this.revokeTokenInKeycloak(refreshToken);
+      // 2. Notificar backend para revogação e limpeza
+      if (token || refreshToken) {
+        try {
+          console.log('📡 Chamando endpoint de logout no backend...');
+          await api.post('/auth/logout', {           
+            refreshToken: refreshToken
+          });
+          console.log('✅ Backend logout realizado');
+        } catch (error: any) {
+          console.warn('⚠️ Backend logout falhou:', error.message);
+          // Não impede logout local - já foi feito
+        }
       }
 
-      // Marcar timestamp de logout para evitar reautenticação imediata
+      // 3. Marcar timestamp de logout para evitar reautenticação imediata
       sessionStorage.setItem('logout_timestamp', Date.now().toString());
       console.log('⏱️ Logout timestamp marcado');
+      console.log('✅ [auth] Logout completo realizado');
     } catch (error) {
       console.error('❌ Erro durante logout:', error);
+      // Mesmo com erro, limpar tudo localmente
+      localStorage.clear();
+      sessionStorage.removeItem('pkce_code_verifier');
       throw error;
     }
   }

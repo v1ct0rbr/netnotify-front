@@ -13,6 +13,7 @@ import MessagesList from "@/pages/MessagesList";
 
 
 import { createBrowserRouter } from "react-router-dom";
+import Profile from "@/pages/Profile";
 
 export const router = createBrowserRouter([
     {
@@ -40,8 +41,12 @@ export const router = createBrowserRouter([
                         path: "messages",
                         Component: MessagesList,
                         handle: { pageTitle: "Mensagens" },
-                    }
-                   
+                    },
+                    {
+                        path: "profile",
+                        Component: Profile,
+                        handle: { pageTitle: "Perfil" },
+                    },
 
                 ],
             },

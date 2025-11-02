@@ -1,6 +1,8 @@
 import api from '@/config/axios';
 import { create } from 'zustand';
+import { persist } from 'zustand/middleware';
 import { authService } from '@/services/AuthService';
+import { toast } from 'sonner';
 
 /**
  * Roles específicas da aplicação (enum do backend)
@@ -40,9 +42,12 @@ interface AuthState {
   setTokens: (response: KeycloakTokenResponse) => void;  
   logout: () => Promise<void>;
   checkAuth: () => Promise<boolean>;
+  getAuthInfo: () => Promise<{ user: UserInfo | null; isAuthenticated: boolean }>;
 }
 
-export const useAuthStore = create<AuthState>((set) => ({
+export const useAuthStore = create<AuthState>()(
+  persist(
+    (set) => ({
   user: null,
   token: null,
   refreshToken: null,
@@ -114,4 +119,36 @@ export const useAuthStore = create<AuthState>((set) => ({
       return false;
     }
   },
-}));
+
+  getAuthInfo: async () => {
+    set({ isChecking: true });
+    try {
+      const res = await api.get('/profile/me') as { data: { user: UserInfo } };
+      const token = localStorage.getItem('access_token');
+      const isAuthenticated = !!(token && res.data?.user);
+      
+      // Atualizar o store com os dados do usuário
+      if (res.data?.user) {
+        set({ user: res.data.user, token, isAuthenticated, isChecking: false });
+      }
+      
+      return { user: res.data?.user || null, isAuthenticated };
+    } catch (error) {
+      toast.error('Erro ao obter informações de autenticação.');
+      console.error('[auth] getAuthInfo failed:', error);
+      set({ isChecking: false, isAuthenticated: false });
+      return { user: null, isAuthenticated: false };
+    }
+  }
+    }),
+    {
+      name: 'auth-storage',
+      partialize: (state) => ({
+        user: state.user,
+        token: state.token,
+        refreshToken: state.refreshToken,
+        isAuthenticated: state.isAuthenticated,
+      }),
+    }
+  )
+);
