@@ -68,6 +68,13 @@ export const useAuthStore = create<AuthState>()(
       localStorage.setItem('refresh_token', response.refreshToken);
     }
     
+    // ✅ CRÍTICO: Salvar os dados do usuário também!
+    // Isso é essencial para restaurar o usuário ao recarregar a página
+    if (response.user) {
+      localStorage.setItem('user', JSON.stringify(response.user));
+      console.log('💾 [auth] User salvo em localStorage:', response.user.username);
+    }
+    
     // ✅ NÃO adicionar header aqui - o interceptador faz isso automaticamente!
     // Apenas atualizar o estado
     set({
@@ -87,13 +94,42 @@ export const useAuthStore = create<AuthState>()(
       // Chamar o authService que faz logout local + Keycloak
       await authService.logout();
       
+      // ✅ CRÍTICO: Limpar localStorage completamente!
+      localStorage.removeItem('access_token');
+      localStorage.removeItem('refresh_token');
+      localStorage.removeItem('user');
+      localStorage.removeItem('expires_in');
+      localStorage.removeItem('token_type');
+      localStorage.removeItem('auth_attempted_codes'); // Limpar códigos tentados
+      localStorage.removeItem('__pkce_code_verifier__'); // Limpar verifier PKCE
+      console.log('💾 [auth] localStorage limpo completamente');
+      
       // Limpar store
       set({ user: null, token: null, refreshToken: null, isAuthenticated: false });
       console.log('✅ [auth] Logout completo realizado');
+      
+      // ✅ Recarregar a página para resetar tudo e voltar ao fluxo de auth do Keycloak
+      setTimeout(() => {
+        console.log('🔄 [auth] Recarregando página...');
+        window.location.href = '/';
+      }, 100);
     } catch (error) {
       console.error('❌ [auth] Erro durante logout:', error);
-      // Mesmo com erro, limpar estado local
+      // Mesmo com erro, limpar estado local E localStorage
+      localStorage.removeItem('access_token');
+      localStorage.removeItem('refresh_token');
+      localStorage.removeItem('user');
+      localStorage.removeItem('expires_in');
+      localStorage.removeItem('token_type');
+      localStorage.removeItem('auth_attempted_codes');
+      localStorage.removeItem('__pkce_code_verifier__');
       set({ user: null, token: null, refreshToken: null, isAuthenticated: false });
+      
+      // Mesmo com erro, recarregar para voltar ao fluxo de auth
+      setTimeout(() => {
+        console.log('🔄 [auth] Recarregando página após erro...');
+        window.location.href = '/';
+      }, 100);
     }
   },
 

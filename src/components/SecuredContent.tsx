@@ -12,70 +12,46 @@ import { initializeAuth } from '@/utils/auth-init';
  * 1. Verificar se o usuário está autenticado
  * 2. Restaurar autenticação do localStorage
  * 3. Processar código de autorização do Keycloak
- * 4. Redirecionar para login se necessário
+ * 4. initializeAuth se encarrega de redirecionar para Keycloak se necessário
  */
 export const SecuredContent: React.FC = () => {
-  const [isLoading, setIsLoading] = useState(false);
+  const [isLoading, setIsLoading] = useState(true);
   const { setTokens, isAuthenticated, user, token } = useAuthStore();
 
   console.log('🔍 SecuredContent render:', { isLoading, isAuthenticated, hasUser: !!user, hasToken: !!token });
 
-  // ✅ SINCRONIZAÇÃO DE TOKENS NO BOOT
+  // ✅ INICIALIZAR AUTENTICAÇÃO EXATAMENTE UMA VEZ no mount
   useEffect(() => {
-    console.log('📌 SecuredContent montado - verificando sincronização de tokens...');
+    console.log('📌 SecuredContent montado - iniciando autenticação...');
     
-    const accessToken = localStorage.getItem('access_token');
-    const storedUser = localStorage.getItem('user');
-    
-    // Se tem token no localStorage mas não tem no Zustand, sincronizar
-    if (accessToken && storedUser && !token) {
-      console.log('🔄 [BOOT SYNC] Sincronizando tokens do localStorage...');
-      try {
-        const userData = JSON.parse(storedUser);
-        setTokens({
-          accessToken,
-          refreshToken: localStorage.getItem('refresh_token') || '',
-          expiresIn: parseInt(localStorage.getItem('expires_in') || '3600'),
-          tokenType: localStorage.getItem('token_type') || 'Bearer',
-          user: userData,
-        });
-        console.log('✅ [BOOT SYNC] Tokens sincronizados com sucesso');
-      } catch (error) {
-        console.error('❌ [BOOT SYNC] Erro ao sincronizar:', error);
-      }
-    }
-
-    // ✅ INICIALIZAR AUTENTICAÇÃO (UMA VEZ)
-    console.log('🔄 [INIT] Iniciando autenticação...');
     initializeAuth({
       setIsLoading,
       setTokens,
     });
-  }, []); // Executa APENAS UMA VEZ no mount!
+  }, []); // Dependency array vazio = executa apenas uma vez no mount
 
-  // Re-renderizar quando isAuthenticated muda
-  useEffect(() => {
-    console.log('🔄 isAuthenticated mudou para:', isAuthenticated);
-  }, [isAuthenticated]);
-
-  // Se usuário e token estão no store (persistência), não precisa carregar
+  // Se usuário e token estão no store (persistência), está autenticado
   const hasPersistedAuth = !!user && !!token;
   const hasTokenInStorage = !!localStorage.getItem('token') || !!localStorage.getItem('access_token');
 
-  if (isLoading && !hasPersistedAuth && !hasTokenInStorage) {
+  // ✅ Se está carregando, mostrar LoadingScreen
+  if (isLoading) {
+    console.log('⏳ Mostrando LoadingScreen...');
     return <LoadingScreen />;
   }
 
-  // Se não está autenticado e não tem token persistido, redirecionar para login
-  if (!isAuthenticated && !hasPersistedAuth && !hasTokenInStorage) {
-    return <LoadingScreen />;
+  // ✅ Se carregou E tem autenticação, mostrar conteúdo
+  if (isAuthenticated || hasPersistedAuth || hasTokenInStorage) {
+    console.log('✅ Usuário autenticado com sucesso');
+    return (
+      <>
+        <Outlet />
+      </>
+    );
   }
 
-  console.log('✅ Usuário autenticado com sucesso');
-
-  return (
-    <>
-      <Outlet />
-    </>
-  );
+  // Se chegou aqui sem autenticação, mostrar loading
+  // initializeAuth deveria ter redirecionado para Keycloak via window.location.href
+  console.log('⏳ Sem autenticação - mostrando loading (initializeAuth deve redirecionar para Keycloak)');
+  return <LoadingScreen />;
 };

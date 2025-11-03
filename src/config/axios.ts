@@ -42,7 +42,7 @@ api.interceptors.request.use(config => {
     console.log(`🌐 [INTERCEPTOR] ${config.method?.toUpperCase()} ${config.url}`);
     
     if (token) {
-        config.headers.Authorization = `${token}`;
+        config.headers.Authorization = `Bearer ${token}`;
         console.log('✅ [INTERCEPTOR] Authorization header adicionado');
         console.log('   Token (primeiros 50 chars):', token.substring(0, 50) + '...');
     } else {

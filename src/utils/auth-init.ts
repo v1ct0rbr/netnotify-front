@@ -20,6 +20,8 @@ export async function initializeAuth({
   setTokens,
 }: InitAuthParams): Promise<void> {
   console.log('🚀 Inicializando autenticação...');
+  console.log('📍 URL atual:', window.location.href);
+  console.log('📍 Search (query string):', window.location.search);
 
   // ✅ PRIMEIRO: Sincronizar localStorage com Zustand
   // Isso garante que o interceptador terá acesso ao token correto
@@ -27,13 +29,19 @@ export async function initializeAuth({
   const refreshToken = localStorage.getItem('refresh_token');
   const storedUser = localStorage.getItem('user');
   
+  console.log('🔐 Estado do localStorage:', {
+    hasAccessToken: !!accessToken,
+    hasRefreshToken: !!refreshToken,
+    hasStoredUser: !!storedUser,
+  });
+  
   if (accessToken && storedUser) {
-    console.log('🔄 [SYNC] Sincronizando tokens do localStorage para Zustand...');
-    console.log('🔄 [SYNC] Access Token encontrado (primeiros 50 chars):', accessToken.substring(0, 50) + '...');
+    console.log('🔄 [SYNC] Tokens encontrados no localStorage - restaurando...');
+    console.log('💾 [SYNC] storedUser JSON:', storedUser);
     
     try {
       const userData = JSON.parse(storedUser);
-      console.log('🔄 [SYNC] Usuário encontrado:', userData.username);
+      console.log('🔄 [SYNC] Usuário restaurado:', userData.username);
       
       // Restaurar o estado no Zustand com os tokens do localStorage
       setTokens({
@@ -44,9 +52,9 @@ export async function initializeAuth({
         user: userData,
       });
       
-      console.log('✅ [SYNC] Zustand sincronizado com localStorage');
+      console.log('✅ [SYNC] Zustand sincronizado - user já autenticado');
       setIsLoading(false);
-      return; // Saiu da função aqui - não precisa fazer mais nada
+      return; // Saiu da função - user já tem token válido
     } catch (error) {
       console.error('❌ [SYNC] Erro ao sincronizar:', error);
     }
@@ -63,27 +71,53 @@ export async function initializeAuth({
   });
 
   if (code) {
-    // ✅ Usar sessionStorage para persistir tentativa de exchange
-    // Isso evita loops infinitos mesmo se o componente re-renderizar
+    console.log('🔍 [CODE FOUND] Code detectado na URL:', code.substring(0, 30) + '...');
+    
+    // ✅ PRIMEIRO PASSO: Verificar se já existe token (user já logado!)
+    // Se já tem token, então o código na URL é STALE (não processar!)
+    if (accessToken && storedUser) {
+      console.log('✅ [ALREADY AUTHENTICATED] User já tem token válido, ignorando código stale na URL');
+      console.log('    Ação: Limpando URL e encerrando...');
+      
+      // Limpar a query string para evitar confusão
+      window.history.replaceState({}, document.title, '/');
+      setIsLoading(false);
+      return;
+    }
+
+    // ✅ SEGUNDO PASSO: Usar localStorage para persistir tentativa de exchange MESMO APÓS RECARREGAR
+    // sessionStorage é zerado ao recarregar, então precisa ser localStorage
     const attemptedCodesKey = 'auth_attempted_codes';
-    const attemptedCodes = JSON.parse(sessionStorage.getItem(attemptedCodesKey) || '[]');
+    const attemptedCodesJson = localStorage.getItem(attemptedCodesKey);
+    const attemptedCodes = attemptedCodesJson ? JSON.parse(attemptedCodesJson) : [];
+    
+    console.log('📋 [DEDUP CHECK] Códigos já processados:', attemptedCodes.length > 0 ? attemptedCodes.map((c: string) => c.substring(0, 20) + '...') : 'nenhum');
+    console.log('📋 [DEDUP CHECK] Código atual:', code.substring(0, 20) + '...');
     
     if (attemptedCodes.includes(code)) {
-      console.log('⚠️ Exchange deste code já foi tentado, não retentando...');
-      console.log('🧹 Limpando query string da URL...');
+      console.log('⚠️ [DEDUP] Exchange deste code já foi tentado anteriormente!');
+      console.log('    Code:', code.substring(0, 30) + '...');
+      console.log('    Razão: Proteção contra retry infinito');
+      console.log('    Ação: Limpando URL e encerrando...');
+      
       // Limpar a query string para evitar retry infinito
       window.history.replaceState({}, document.title, '/');
       setIsLoading(false);
       return;
     }
 
-    console.log('🔄 Iniciando exchange do código...');
-    // Registrar que vamos tentar este código
+    console.log('🔄 [NEW CODE] Novo código será processado agora');
+    // Registrar que vamos tentar este código (em localStorage para persistir após recarregar)
     attemptedCodes.push(code);
-    sessionStorage.setItem(attemptedCodesKey, JSON.stringify(attemptedCodes));
+    localStorage.setItem(attemptedCodesKey, JSON.stringify(attemptedCodes));
+    console.log('💾 [SAVED] Code registrado em localStorage para evitar retry');
 
     const redirectUri = window.location.origin + '/';
-    const codeVerifier = sessionStorage.getItem('pkce_code_verifier');
+    // ⚠️ Verificar localStorage PRIMEIRO (persiste após recarregar)
+    // Depois sessionStorage (caso esteja em sessão sem recarregar)
+    const codeVerifier = localStorage.getItem('__pkce_code_verifier__') 
+      || sessionStorage.getItem('__pkce_code_verifier__') 
+      || sessionStorage.getItem('pkce_code_verifier');
 
     console.log('📝 Código de autorização recebido:', code.substring(0, 30) + '...');
     console.log('🔑 Code verifier disponível:', !!codeVerifier);
@@ -162,8 +196,10 @@ export async function initializeAuth({
     const codeVerifier = generateCodeVerifier();
     const codeChallenge = await generateCodeChallenge(codeVerifier);
 
-    // Salvar code_verifier para depois
-    sessionStorage.setItem('pkce_code_verifier', codeVerifier);
+    // ⚠️ CRÍTICO: Guardar em localStorage (não sessionStorage!)
+    // sessionStorage é zerado ao recarregar, então perdemos o code_verifier
+    localStorage.setItem('__pkce_code_verifier__', codeVerifier);
+    console.log('✅ [PKCE] Code verifier salvo em localStorage para depois do redirect');
 
     const params = new URLSearchParams({
       client_id: clientId,
