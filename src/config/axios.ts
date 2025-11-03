@@ -37,17 +37,38 @@ const api = axios.create({
 });
 
 api.interceptors.request.use(config => {
-    const token = localStorage.getItem('access_token'); // Buscar access_token (não token)
+    const token = localStorage.getItem('access_token');
+    
+    console.log(`🌐 [INTERCEPTOR] ${config.method?.toUpperCase()} ${config.url}`);
+    
     if (token) {
-    config.headers.Authorization = `Bearer ${token}`;
-    console.debug('[api] request Authorization header set:', config.headers.Authorization, 'url:', config.url);
+        config.headers.Authorization = `${token}`;
+        console.log('✅ [INTERCEPTOR] Authorization header adicionado');
+        console.log('   Token (primeiros 50 chars):', token.substring(0, 50) + '...');
+    } else {
+        console.warn('⚠️ [INTERCEPTOR] ⚠️ NENHUM TOKEN ENCONTRADO EM localStorage!');
+        console.warn('   localStorage keys:', Object.keys(localStorage));
     }
+    
     return config;
 });
 
-api.interceptors.response.use(response => {
-    response.data = camelcaseKeys(response.data, { deep: true });
-    return response;
-});
+api.interceptors.response.use(
+    response => {
+        console.log(`✅ [INTERCEPTOR RESPONSE] ${response.status} ${response.config.url}`);
+        response.data = camelcaseKeys(response.data, { deep: true });
+        return response;
+    },
+    error => {
+        if (error.response?.status === 401) {
+            console.error('❌ [INTERCEPTOR RESPONSE] 401 Unauthorized:', error.response.data);
+            console.error('   URL:', error.config.url);
+            console.error('   Headers enviados:', error.config.headers);
+        } else {
+            console.error(`❌ [INTERCEPTOR RESPONSE] ${error.response?.status}:`, error.message);
+        }
+        return Promise.reject(error);
+    }
+);
 
 export default api;

@@ -104,18 +104,50 @@ class AuthService {
    * Faz logout completo via backend
    * 
    * O backend é responsável por:
-   * 1. Validar o token
+   * 1. Validar o refresh token (usando Authorization header do interceptador Axios)
    * 2. Revogar o refresh token no Keycloak
    * 3. Limpar sessões
+   * 
+   * NOTA: O Authorization header é adicionado automaticamente pelo interceptador do Axios
+   * que lê o access_token do localStorage
    */
   async logout(): Promise<void> {
     try {
-      const token = localStorage.getItem('access_token');
       const refreshToken = localStorage.getItem('refresh_token');
+      const accessToken = localStorage.getItem('access_token');
       
       console.log('🚪 [auth] Iniciando logout...');
+      console.log('📦 [DEBUG] localStorage state:');
+      console.log('   - access_token:', accessToken ? `${accessToken.substring(0, 50)}...` : 'NÃO ENCONTRADO');
+      console.log('   - refresh_token:', refreshToken ? `${refreshToken.substring(0, 50)}...` : 'NÃO ENCONTRADO');
+      console.log('   - token:', localStorage.getItem('token') ? `${localStorage.getItem('token')!.substring(0, 50)}...` : 'NÃO ENCONTRADO');
+      console.log('   - user:', localStorage.getItem('user'));
 
-      // 1. Remover dados locais imediatamente
+      // 1. Notificar backend para revogação e limpeza ANTES de limpar localmente
+      // O interceptador do Axios adiciona o Authorization header automaticamente
+      if (refreshToken) {
+        try {
+          console.log('📡 Chamando endpoint de logout no backend...');
+          console.log('📡 Enviando refresh_token (primeiros 50 chars):', refreshToken.substring(0, 50) + '...');
+          
+          const response = await api.post('/auth/logout', {            
+            refresh_token: refreshToken  // snake_case conforme @JsonProperty do backend
+          });
+          
+          console.log('✅ Backend logout realizado - Status:', response.status);
+          console.log('✅ Resposta do backend:', response.data);
+        } catch (error: any) {
+          console.warn('⚠️ Backend logout falhou:', error.message);
+          console.warn('🔴 Status:', error.response?.status);
+          console.warn('🔴 Dados:', error.response?.data);
+          console.warn('🔴 Headers da requisição:', error.config?.headers);
+          // Não impede logout local - vai ser feito mesmo assim
+        }
+      } else {
+        console.warn('⚠️ Refresh token não disponível para logout no backend');
+      }
+
+      // 2. Remover dados locais
       localStorage.removeItem('access_token');
       localStorage.removeItem('refresh_token');
       localStorage.removeItem('token');
@@ -123,23 +155,11 @@ class AuthService {
       localStorage.removeItem('expires_in');
       localStorage.removeItem('token_type');
       localStorage.removeItem('auth-storage'); // Zustand store
-      delete api.defaults.headers.common['Authorization'];
+      
+      // ✅ NÃO adicionar/remover header manualmente - o interceptador cuida disso!
+      // delete api.defaults.headers.common['Authorization'];
 
       console.log('✅ Logout local realizado');
-
-      // 2. Notificar backend para revogação e limpeza
-      if (token || refreshToken) {
-        try {
-          console.log('📡 Chamando endpoint de logout no backend...');
-          await api.post('/auth/logout', {           
-            refreshToken: refreshToken
-          });
-          console.log('✅ Backend logout realizado');
-        } catch (error: any) {
-          console.warn('⚠️ Backend logout falhou:', error.message);
-          // Não impede logout local - já foi feito
-        }
-      }
 
       // 3. Marcar timestamp de logout para evitar reautenticação imediata
       sessionStorage.setItem('logout_timestamp', Date.now().toString());

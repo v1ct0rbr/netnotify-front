@@ -10,7 +10,7 @@ import { useAuthStore } from "@/store/useAuthStore";
 import Cookies from 'js-cookie';
  
 import React, { useEffect } from "react";
-import { Outlet, useMatches } from "react-router-dom";
+import { Outlet, useMatches, useNavigate } from "react-router-dom";
 
 interface MainPageLayoutProps {
     pageTitle: string;
@@ -18,12 +18,14 @@ interface MainPageLayoutProps {
 
 export default function MainPageLayout({ pageTitle }: MainPageLayoutProps): React.ReactElement {
 
-    const {logout, user} = useAuthStore()
+    const {logout, user} = useAuthStore();
+    const navigate = useNavigate();
 
     const handleLogout = async () => {
         console.log('Iniciando logout...');
         await logout();
-        window.location.href = '/';
+        console.log('Logout concluído, redirecionando para /login');
+        navigate('/');
     };
 
     // Extrair username do token JWT armazenado (para debug)

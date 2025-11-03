@@ -16,23 +16,42 @@ import { initializeAuth } from '@/utils/auth-init';
  */
 export const SecuredContent: React.FC = () => {
   const [isLoading, setIsLoading] = useState(false);
-  const [hasAttemptedCodeExchange, setHasAttemptedCodeExchange] = useState(false);
   const { setTokens, isAuthenticated, user, token } = useAuthStore();
 
   console.log('🔍 SecuredContent render:', { isLoading, isAuthenticated, hasUser: !!user, hasToken: !!token });
 
+  // ✅ SINCRONIZAÇÃO DE TOKENS NO BOOT
   useEffect(() => {
+    console.log('📌 SecuredContent montado - verificando sincronização de tokens...');
+    
+    const accessToken = localStorage.getItem('access_token');
+    const storedUser = localStorage.getItem('user');
+    
+    // Se tem token no localStorage mas não tem no Zustand, sincronizar
+    if (accessToken && storedUser && !token) {
+      console.log('🔄 [BOOT SYNC] Sincronizando tokens do localStorage...');
+      try {
+        const userData = JSON.parse(storedUser);
+        setTokens({
+          accessToken,
+          refreshToken: localStorage.getItem('refresh_token') || '',
+          expiresIn: parseInt(localStorage.getItem('expires_in') || '3600'),
+          tokenType: localStorage.getItem('token_type') || 'Bearer',
+          user: userData,
+        });
+        console.log('✅ [BOOT SYNC] Tokens sincronizados com sucesso');
+      } catch (error) {
+        console.error('❌ [BOOT SYNC] Erro ao sincronizar:', error);
+      }
+    }
+
+    // ✅ INICIALIZAR AUTENTICAÇÃO (UMA VEZ)
+    console.log('🔄 [INIT] Iniciando autenticação...');
     initializeAuth({
       setIsLoading,
-      setHasAttemptedCodeExchange,
-      hasAttemptedCodeExchange,
       setTokens,
     });
-    // IMPORTANTE: Não adicionar setTokens como dependência!
-    // setTokens é uma função do Zustand que muda a cada render
-    // Isso causaria um loop infinito
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [hasAttemptedCodeExchange]);
+  }, []); // Executa APENAS UMA VEZ no mount!
 
   // Re-renderizar quando isAuthenticated muda
   useEffect(() => {

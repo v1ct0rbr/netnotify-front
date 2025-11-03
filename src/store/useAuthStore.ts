@@ -60,20 +60,24 @@ export const useAuthStore = create<AuthState>()(
   // Método para armazenar tokens e usuário recebidos do OAuth2 Keycloak
   setTokens: (response: KeycloakTokenResponse) => {
     console.log('💾 [auth] Armazenando tokens e dados do usuário:', response.user);
+    console.log('💾 [auth] Access Token (primeiros 50 chars):', response.accessToken.substring(0, 50) + '...');
     
+    // IMPORTANTE: localStorage com nomes EXATOS que o interceptador procura
     localStorage.setItem('access_token', response.accessToken);
     if (response.refreshToken) {
       localStorage.setItem('refresh_token', response.refreshToken);
     }
     
-    api.defaults.headers.common['Authorization'] = `Bearer ${response.accessToken}`;
-    
+    // ✅ NÃO adicionar header aqui - o interceptador faz isso automaticamente!
+    // Apenas atualizar o estado
     set({
       token: response.accessToken,
       refreshToken: response.refreshToken || null,
       user: response.user,
       isAuthenticated: true,
     });
+    
+    console.log('✅ [auth] setTokens concluído - interceptador vai adicionar header');
   },
 
 
@@ -98,22 +102,28 @@ export const useAuthStore = create<AuthState>()(
     try {
       const token = localStorage.getItem('access_token');
       if (!token) {
+        console.log('❌ [auth] Sem access_token no localStorage');
         set({ isChecking: false });
         return false;
       }
 
-      api.defaults.headers.common['Authorization'] = `Bearer ${token}`;
-
+      console.log('🔍 [auth] Verificando auth com token (primeiros 50 chars):', token.substring(0, 50) + '...');
+      
+      // ✅ NÃO adicionar header aqui - o interceptador faz isso automaticamente!
       const res = await api.get('/profile/me') as { data: { user: UserInfo } };
+      
       if (res.data?.user) {
+        console.log('✅ [auth] Usuário verificado:', res.data.user.username);
         set({ user: res.data.user, token, isAuthenticated: true, isChecking: false });
         return true;
       }
 
+      console.log('❌ [auth] checkAuth - sem dados de usuário');
       set({ isChecking: false });
       return false;
     } catch (err) {
       console.error('[auth] checkAuth failed:', err);
+      console.error('[auth] Error response:', (err as any)?.response?.status, (err as any)?.response?.data);
       localStorage.removeItem('access_token');
       set({ user: null, token: null, isAuthenticated: false, isChecking: false });
       return false;

@@ -12,81 +12,75 @@ import { generateCodeChallenge, generateCodeVerifier, generateRandomString } fro
 
 interface InitAuthParams {
   setIsLoading: (loading: boolean) => void;
-  setHasAttemptedCodeExchange: (attempted: boolean) => void;
-  hasAttemptedCodeExchange: boolean;
   setTokens: (response: any) => void;
 }
 
 export async function initializeAuth({
   setIsLoading,
-  setHasAttemptedCodeExchange,
-  hasAttemptedCodeExchange,
   setTokens,
 }: InitAuthParams): Promise<void> {
   console.log('🚀 Inicializando autenticação...');
 
-  // Verificar se já temos token no localStorage
-  const existingToken = localStorage.getItem('token') || localStorage.getItem('access_token');
-  console.log('🔑 existingToken:', existingToken ? 'presente' : 'ausente');
-
-  if (existingToken) {
-    console.log('✅ Token encontrado no localStorage');
-    api.defaults.headers.common['Authorization'] = `Bearer ${existingToken}`;
-
-    // Recuperar dados do usuário do localStorage
-    const storedUser = localStorage.getItem('user');
-    const storedRefreshToken = localStorage.getItem('refresh_token');
-    const storedExpiresIn = localStorage.getItem('expires_in');
-    const storedTokenType = localStorage.getItem('token_type');
-
-    console.log('👤 storedUser:', storedUser ? 'presente' : 'ausente');
-
-    if (storedUser) {
-      try {
-        const userData = JSON.parse(storedUser);
-        console.log('🔄 Chamando setTokens com dados:', userData);
-        // Restaurar o estado de autenticação no store
-        setTokens({
-          accessToken: existingToken,
-          refreshToken: storedRefreshToken || '',
-          expiresIn: storedExpiresIn ? parseInt(storedExpiresIn) : 3600,
-          tokenType: storedTokenType || 'Bearer',
-          user: userData,
-        });
-        console.log('✅ Estado de autenticação restaurado do localStorage');
-      } catch (e) {
-        console.error('❌ Erro ao restaurar dados do usuário:', e);
-      }
-    } else {
-      console.log('⚠️ Nenhum usuário armazenado no localStorage');
+  // ✅ PRIMEIRO: Sincronizar localStorage com Zustand
+  // Isso garante que o interceptador terá acesso ao token correto
+  const accessToken = localStorage.getItem('access_token');
+  const refreshToken = localStorage.getItem('refresh_token');
+  const storedUser = localStorage.getItem('user');
+  
+  if (accessToken && storedUser) {
+    console.log('🔄 [SYNC] Sincronizando tokens do localStorage para Zustand...');
+    console.log('🔄 [SYNC] Access Token encontrado (primeiros 50 chars):', accessToken.substring(0, 50) + '...');
+    
+    try {
+      const userData = JSON.parse(storedUser);
+      console.log('🔄 [SYNC] Usuário encontrado:', userData.username);
+      
+      // Restaurar o estado no Zustand com os tokens do localStorage
+      setTokens({
+        accessToken,
+        refreshToken: refreshToken || '',
+        expiresIn: parseInt(localStorage.getItem('expires_in') || '3600'),
+        tokenType: localStorage.getItem('token_type') || 'Bearer',
+        user: userData,
+      });
+      
+      console.log('✅ [SYNC] Zustand sincronizado com localStorage');
+      setIsLoading(false);
+      return; // Saiu da função aqui - não precisa fazer mais nada
+    } catch (error) {
+      console.error('❌ [SYNC] Erro ao sincronizar:', error);
     }
-
-    setIsLoading(false);
-    return;
   }
 
+  // ✅ SEGUNDO: Se não há dados sincronizados, continua com o flow normal
   // Verificar se há code na URL (retorno do Keycloak)
   const urlParams = new URLSearchParams(window.location.search);
   const code = urlParams.get('code');
 
-  console.log('🔍 Estado de autenticação:', {
-    token: existingToken ? '✓ Token found' : '✗ No token',
+  console.log('� Estado de autenticação:', {
+    token: accessToken ? '✓ Token found' : '✗ No token',
     code: code ? '✓ Code present' : '✗ No code',
-    hasAttemptedCodeExchange,
   });
 
-  if (code && !hasAttemptedCodeExchange) {
-    // Verificar se já tentamos fazer exchange deste code
-    const previouslyAttemptedCode = sessionStorage.getItem('attempted_code');
-    if (previouslyAttemptedCode === code) {
-      console.log('⚠️ Exchange deste code já foi tentado (pode ter falhado), não retentando...');
-      setHasAttemptedCodeExchange(true);
+  if (code) {
+    // ✅ Usar sessionStorage para persistir tentativa de exchange
+    // Isso evita loops infinitos mesmo se o componente re-renderizar
+    const attemptedCodesKey = 'auth_attempted_codes';
+    const attemptedCodes = JSON.parse(sessionStorage.getItem(attemptedCodesKey) || '[]');
+    
+    if (attemptedCodes.includes(code)) {
+      console.log('⚠️ Exchange deste code já foi tentado, não retentando...');
+      console.log('🧹 Limpando query string da URL...');
+      // Limpar a query string para evitar retry infinito
+      window.history.replaceState({}, document.title, '/');
       setIsLoading(false);
       return;
     }
 
-    setHasAttemptedCodeExchange(true);
-    sessionStorage.setItem('attempted_code', code);
+    console.log('🔄 Iniciando exchange do código...');
+    // Registrar que vamos tentar este código
+    attemptedCodes.push(code);
+    sessionStorage.setItem(attemptedCodesKey, JSON.stringify(attemptedCodes));
 
     const redirectUri = window.location.origin + '/';
     const codeVerifier = sessionStorage.getItem('pkce_code_verifier');
@@ -97,16 +91,31 @@ export async function initializeAuth({
 
     try {
       if (!codeVerifier) {
-        throw new Error('code_verifier não encontrado no sessionStorage');
+        console.warn('⚠️ code_verifier não encontrado! Backend deve ser capaz de processar sem PKCE ou...');
+        console.warn('   Isso pode acontecer se a página foi recarregada após redirect do Keycloak');
+        // Alguns backends conseguem processar sem o code_verifier, vamos tentar assim mesmo
       }
 
-      const response = await api.post('/auth/callback', {
+      const payload = {
         code,
         redirect_uri: redirectUri,
-        code_verifier: codeVerifier,
+        ...(codeVerifier && { code_verifier: codeVerifier }), // Incluir apenas se existir
+      };
+
+      console.log('📤 Enviando payload:', { 
+        code: code.substring(0, 30) + '...', 
+        redirect_uri: redirectUri,
+        hasCodeVerifier: !!codeVerifier 
       });
 
-      console.log('✅ Resposta do backend recebida:', response.data);
+      console.log('🔐 Headers que serão enviados:');
+      console.log('   - Content-Type:', 'application/json');
+      console.log('   - Authorization:', localStorage.getItem('access_token') ? 'Bearer ...' : 'NÃO ENVIADO (não tem token)');
+
+      const response = await api.post('/auth/callback', payload);
+
+      console.log('✅ Resposta do backend recebida - Status:', response.status);
+      console.log('✅ Dados da resposta:', response.data);
 
       // Axios com camelCase keys converter: access_token → accessToken
       const token = response.data.accessToken || response.data.access_token;
@@ -125,15 +134,24 @@ export async function initializeAuth({
       sessionStorage.removeItem('pkce_code_verifier');
       sessionStorage.removeItem('attempted_code');
 
+      console.log('✅ Login completo! Tokens salvos e query string limpa');
       setIsLoading(false);
     } catch (error: any) {
-      console.error('❌ Erro ao fazer exchange do código:', error.response?.data?.message || error.message);
-      console.error('Full error:', error);
+      console.error('❌ Erro ao fazer exchange do código');
+      console.error('   Status HTTP:', error.response?.status);
+      console.error('   Mensagem:', error.response?.data?.message || error.message);
+      console.error('   Resposta completa:', error.response?.data);
+      console.error('   Headers enviados:', error.config?.headers);
+      console.error('   Payload enviado:', error.config?.data);
+      
+      // Limpar query string mesmo em caso de erro para evitar retry infinito
+      window.history.replaceState({}, document.title, '/');
+      
       setIsLoading(false);
     }
-  } else if (!code && !existingToken) {
+  } else if (!code) {
     // Sem token e sem code: redirecionar para login no Keycloak
-    console.log('🔗 Redirecionando para Keycloak...');
+    console.log('❌ Sem token e sem code - redirecionando para Keycloak...');
 
     const keycloakUrl = import.meta.env.VITE_KEYCLOAK_AUTH_SERVER_URL || 'https://testes.seukeycloak.com.br';
     const realm = import.meta.env.VITE_KEYCLOAK_REALM || 'testes';
