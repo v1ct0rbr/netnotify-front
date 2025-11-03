@@ -301,11 +301,11 @@ const MessagesList: React.FC = () => {
                                 <TableCell>
                                     <Skeleton className="h-4 w-40" />
                                 </TableCell>
-                                {isAdmin && (
+                                
                                     <TableCell>
                                         <Skeleton className="h-8 w-12 rounded-md" />
                                     </TableCell>
-                                )}
+                                
                             </TableRow>
                         ))
                         : data?.data.map((msg) => (
@@ -315,8 +315,9 @@ const MessagesList: React.FC = () => {
                                 <TableCell className="text-left"> <StatusBadge level={msg.level} /></TableCell>
                                 <TableCell className="text-left">{msg.messageType}</TableCell>
                                 <TableCell className="text-left">{formatRelativeDate(msg.createdAt)}</TableCell>
-                                {isAdmin && (
+                                
                                     <TableCell className="text-left flex flex-row items-center gap-0.5">
+                                        {isAdmin && (
                                         <button
                                             aria-label="Apagar"
                                             style={{
@@ -335,6 +336,7 @@ const MessagesList: React.FC = () => {
                                         >
                                             <Trash2 size={18} />
                                         </button>
+                                        )}
                                         <button
                                             aria-label="Detalhes"
                                             style={{
@@ -370,7 +372,7 @@ const MessagesList: React.FC = () => {
                                             <Copy size={18} />
                                         </Link>
                                     </TableCell>
-                                )}
+                                
                             </TableRow>
                         ))}
                 </TableBody>

@@ -1,5 +1,6 @@
 import axios from 'axios';
 import camelcaseKeys from 'camelcase-keys';
+import { useAuthStore } from '@/store/useAuthStore';
 
 /*
 ERR_FR_TOO_MANY_REDIRECTS: Indicates that the request was redirected too many times.
@@ -36,6 +37,9 @@ const api = axios.create({
     },
 });
 
+// Evita múltiplos logouts concorrentes quando vários requests falham ao mesmo tempo
+let isHandlingAuthError = false;
+
 api.interceptors.request.use(config => {
     const token = localStorage.getItem('access_token');
     
@@ -60,12 +64,41 @@ api.interceptors.response.use(
         return response;
     },
     error => {
-        if (error.response?.status === 401) {
-            console.error('❌ [INTERCEPTOR RESPONSE] 401 Unauthorized:', error.response.data);
-            console.error('   URL:', error.config.url);
-            console.error('   Headers enviados:', error.config.headers);
+        const status = error.response?.status;
+        const url: string = error.config?.url || '';
+
+        if (status === 401 || status === 403) {
+            console.error(`❌ [INTERCEPTOR RESPONSE] ${status} Auth error em:`, url);
+            console.error('   Dados do erro:', error.response?.data);
+
+            // Ignorar endpoints de autenticação para evitar loops
+            const isAuthEndpoint = url.includes('/auth/callback') || url.includes('/auth/logout');
+
+            if (!isAuthEndpoint && !isHandlingAuthError) {
+                isHandlingAuthError = true;
+                try {
+                    console.warn('🚪 [INTERCEPTOR] Forçando logout por erro de autorização...');
+                    // Chama logout do store (sem hooks)
+                    const { logout } = useAuthStore.getState();
+                    logout()
+                        .catch((e) => console.warn('⚠️ [INTERCEPTOR] Erro ao executar logout:', e))
+                        .finally(() => {
+                            // Redireciona para raiz para reiniciar o fluxo (initializeAuth vai redirecionar ao Keycloak)
+                            console.warn('↪️ [INTERCEPTOR] Redirecionando para / ...');
+                            window.location.replace('/');
+                        });
+                } catch (e) {
+                    console.error('❌ [INTERCEPTOR] Falha ao forçar logout:', e);
+                    // fallback: limpar localmente e recarregar
+                    try {
+                        localStorage.clear();
+                        sessionStorage.clear();
+                    } catch {}
+                    window.location.replace('/');
+                }
+            }
         } else {
-            console.error(`❌ [INTERCEPTOR RESPONSE] ${error.response?.status}:`, error.message);
+            console.error(`❌ [INTERCEPTOR RESPONSE] ${status}:`, error.message);
         }
         return Promise.reject(error);
     }

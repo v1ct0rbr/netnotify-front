@@ -80,39 +80,8 @@ function TinyMceEditor({ value, onChange }: TinyMceEditorProps) {
         }
     };
 
-    // Sync incoming `value` to editor only when editor is mounted.
-    useEffect(() => {
-        const editor = editorRef.current;
-        if (!editor) return;
-
-        try {
-            const processed = unescapeServerHtml(value);
-            const current = editor.getContent({ format: 'html' }) || '';
-            if ((processed || '') === (current || '')) return;
-
-            let bookmark: any = null;
-            try {
-                if (editor.selection && typeof editor.selection.getBookmark === 'function') {
-                    bookmark = editor.selection.getBookmark(2);
-                }
-            } catch (e) {
-                // ignore
-            }
-
-            editor.setContent(processed || '');
-
-            try {
-                if (bookmark && editor.selection && typeof editor.selection.moveToBookmark === 'function') {
-                    editor.selection.moveToBookmark(bookmark);
-                    if (typeof editor.focus === 'function') editor.focus();
-                }
-            } catch (e) {
-                // ignore
-            }
-        } catch (e) {
-            // swallow sync errors
-        }
-    }, [value]);
+    // When using the Editor's `value` prop (controlled mode), we don't need to manually setContent here.
+    // We keep this effect removed to avoid race conditions between React updates and TinyMCE init.
 
     const openVideoModalWithBookmark = () => {
         const editor = editorRef.current;
@@ -231,17 +200,10 @@ function TinyMceEditor({ value, onChange }: TinyMceEditorProps) {
                     } catch (e) {
                         // ignore registration errors
                     }
-
-                    if (!mountedRef.current) {
-                        try {
-                            editor.setContent(unescapeServerHtml(value) || '');
-                        } catch (e) {
-                            // ignore
-                        }
-                        mountedRef.current = true;
-                    }
+                    mountedRef.current = true;
                 }}
                 onEditorChange={(newValue) => onChange(newValue)}
+                value={unescapeServerHtml(value) || ''}
                 init={{
                     height: 500,
                     menubar: false,
