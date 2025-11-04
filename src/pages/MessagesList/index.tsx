@@ -28,7 +28,7 @@ const PAGE_SIZE = 10;
 const MessagesList: React.FC = () => {
     const { filterMessages, deleteMessage} = useMessagesApi();
     const { user } = useAuthStore();
-    const isAdmin = user?.roles?.includes("SYSTEM_ADMIN");
+    const isAdmin = user?.roles?.includes(import.meta.env.VITE_ROLE_ADMIN || 'admin');
 
     const [searchParams, setSearchParams] = useSearchParams();
 
