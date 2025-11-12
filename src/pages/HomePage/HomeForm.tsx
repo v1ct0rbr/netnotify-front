@@ -1,3 +1,4 @@
+import useDepartmentsApi from '@/api/departments';
 import { useMessagesApi } from '@/api/messages';
 import ConfirmationDialog from '@/components/ConfirmationDialog';
 import TinyMceEditor from '@/components/TinyMceEditor';
@@ -18,7 +19,13 @@ const FormSchema = z.object({
   title: z.string().min(1, 'O título é obrigatório').max(100, 'O título deve ter no máximo 100 caracteres').optional(),
   content: z.string().min(1, 'O conteúdo é obrigatório'),
   level: z.number().min(1, 'O nível é obrigatório'),
-  type: z.number().min(1, 'O tipo é obrigatório')
+  type: z.number().min(1, 'O tipo é obrigatório'),
+  departments: z.array(z.string()).optional(),
+  sendToSubdivisions: z.boolean().optional(),
+  repeatIntervalMinutes: z.number().min(0, 'O intervalo de repetição deve ser maior ou igual a 0').optional(),
+  expireAt: z.string().optional(),
+  
+
 });
 
 type FormData = z.infer<typeof FormSchema>;
@@ -30,10 +37,11 @@ interface HomeFormProps {
 export const HomeForm: React.FC<HomeFormProps> = ({ id }: HomeFormProps) => {
 
   const [isDialogOpen, setIsDialogOpen] = React.useState(false);
+  const {getDepartments} = useDepartmentsApi();
 
   const { handleSubmit, control, reset, formState: { errors } } = useForm<FormData>({
     resolver: zodResolver(FormSchema),
-    defaultValues: { title: '', content: '', level: 0, type: 0 }
+    defaultValues: { title: '', content: '', level: 0, type: 0, departments: [], sendToSubdivisions: false, repeatIntervalMinutes: 0, expireAt: '' },
   });
 
   const { createMessage, getCreateMessageDtoById } = useMessagesApi();
@@ -63,7 +71,16 @@ export const HomeForm: React.FC<HomeFormProps> = ({ id }: HomeFormProps) => {
     staleTime: 10 * 60 * 1000,
   });
 
-  const isLoading = msgLoading || levelsLoading || typesLoading;
+  const { data: departmentsData, isLoading: departmentsLoading } = useQuery({
+    queryKey: ['departments'],
+    queryFn: async () => {
+      const res = await getDepartments();
+      return res;
+    },
+    staleTime: 10 * 60 * 1000,
+  });
+
+  const isLoading = msgLoading || levelsLoading || typesLoading || departmentsLoading;
 
   React.useEffect(() => {
     if (!msg) return;
@@ -74,6 +91,10 @@ export const HomeForm: React.FC<HomeFormProps> = ({ id }: HomeFormProps) => {
         content: msg.content ?? '',
         level: msg.level ?? 0,
         type: msg.type ?? 0,
+        departments: msg.departments ?? [],
+        sendToSubdivisions: msg.sendToSubdivisions ?? false,
+        repeatIntervalMinutes: msg.repeatIntervalMinutes ?? 0,
+        expireAt: msg.expireAt ?? '',
       });
     } catch (err) {
       console.error('Error resetting form values from message DTO:', err);
@@ -81,9 +102,9 @@ export const HomeForm: React.FC<HomeFormProps> = ({ id }: HomeFormProps) => {
   }, [msg, reset]);
 
   const submitForm = (data: FormData) => {
-    createMessage({ title: data.title, content: htmlToString(data.content), level: data.level, type: data.type }).then(() => {
+    createMessage({ title: data.title, content: htmlToString(data.content), level: data.level, type: data.type, departments: data.departments, sendToSubdivisions: data.sendToSubdivisions, repeatIntervalMinutes: data.repeatIntervalMinutes, expireAt: data.expireAt }).then(() => {
       toast.success('Mensagem criada com sucesso.');
-      reset({ title: '', content: '', level: 0, type: 0 });
+      reset({ title: '', content: '', level: 0, type: 0, departments: [], sendToSubdivisions: false, repeatIntervalMinutes: 0, expireAt: '' });
     }).catch(err => {
       toast.error('Erro ao criar mensagem.' + (err?.response?.data?.message ? ` ${err.response.data.message}` : ''));
     });
@@ -173,6 +194,60 @@ export const HomeForm: React.FC<HomeFormProps> = ({ id }: HomeFormProps) => {
                       onChange={(e) => field.onChange(Number(e.target.value))}
                     />
                     {errors.type && <p className="text-red-500 text-sm mt-1">{errors.type.message}</p>}
+                  </div>
+                )}
+              />
+            </div>
+            <div>
+              <label className="block text-sm font-medium mb-1">Departments</label>
+              <Controller
+                control={control}
+                name="departments"
+                render={({ field }) => (
+                  <div>
+                    <StyledSelect
+                      options={((departmentsData || []).map((d: any) => ({ label: d.name, value: d.id })))}
+                      value={(field.value ?? []).map(String)}
+                      onChange={(e: any) => field.onChange(Array.isArray(e) ? e.map(Number) : e.map((item: any) => Number(item.value)))}
+                      multiple
+                    />
+                    {errors.departments && <p className="text-red-500 text-sm mt-1">{errors.departments.message}</p>}
+                  </div>
+                )}
+              />
+            </div>
+            <div>
+              <label className="block text-sm font-medium mb-1">Repeat Interval (Minutes)</label>
+              <Controller
+                control={control}
+                name="repeatIntervalMinutes"
+                render={({ field }) => (
+                  <div>
+                    <input
+                      type="number"
+                      {...field}
+                      className={`w-full border rounded px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500 ${errors.repeatIntervalMinutes ? 'border-red-500' : 'border-gray-300'}`}
+                      placeholder="Enter repeat interval in minutes"
+                      min={0}
+                    />
+                    {errors.repeatIntervalMinutes && <p className="text-red-500 text-sm mt-1">{errors.repeatIntervalMinutes.message}</p>}
+                  </div>
+                )}
+              />
+            </div>
+            <div>
+              <label className="block text-sm font-medium mb-1">Expire At</label>
+              <Controller
+                control={control}
+                name="expireAt"
+                render={({ field }) => (
+                  <div>
+                    <input
+                      type="datetime-local"
+                      {...field}
+                      className={`w-full border rounded px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500 ${errors.expireAt ? 'border-red-500' : 'border-gray-300'}`}
+                    />
+                    {errors.expireAt && <p className="text-red-500 text-sm mt-1">{errors.expireAt.message}</p>}
                   </div>
                 )}
               />

@@ -2,12 +2,17 @@ import api from "@/config/axios";
 import type { ApiPageResponse } from "@/utils/ApiPageResponse";
 import type { SimpleResponse } from "@/utils/SimpleResponse";
 import { toast } from "sonner";
+import type { DepartmentDTO } from "./departments";
 
 export type CreateMessageDTO = {
     title?: string;
     content: string;
     level: number;
     type: number;
+    departments?: string[];
+    sendToSubdivisions?: boolean;
+    repeatIntervalMinutes?: number;
+    expireAt?: string;
 }
 
 export type MessageResponseDTO = {
@@ -19,6 +24,11 @@ export type MessageResponseDTO = {
     user: string;
     createdAt: string;
     updatedAt: string;
+    sendToSubdivisions: boolean;
+    repeatIntervalMinutes: number | null;
+    expireAt: string | null;
+    lastSentAt: string | null;
+    departments: DepartmentDTO[];
 }
 
 interface MessagesFilterParams {

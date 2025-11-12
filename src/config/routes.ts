@@ -14,6 +14,7 @@ import MessagesList from "@/pages/MessagesList";
 
 import { createBrowserRouter } from "react-router-dom";
 import Profile from "@/pages/Profile";
+import DepartmentsPage from "@/pages/Departments";
 
 export const router = createBrowserRouter([
     {
@@ -46,6 +47,11 @@ export const router = createBrowserRouter([
                         path: "profile",
                         Component: Profile,
                         handle: { pageTitle: "Perfil" },
+                    },
+                    {
+                        path: "departments",
+                        Component: DepartmentsPage,
+                        handle: { pageTitle: "Departamentos" },
                     },
 
                 ],

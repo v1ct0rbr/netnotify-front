@@ -187,6 +187,17 @@ class AuthService {
   isAuthenticated(): boolean {
     return !!localStorage.getItem('token');
   }
+
+  isAdmin(): boolean {
+    try {
+      const userStr = localStorage.getItem('user');
+      if (!userStr) return false;
+      const user = JSON.parse(userStr);
+      return user.roles && user.roles.includes('admin');
+    } catch {
+      return false;
+    }
+  }
 }
 
 // Instância única do serviço
