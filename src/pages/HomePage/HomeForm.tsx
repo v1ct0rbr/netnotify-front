@@ -1,6 +1,7 @@
 import useDepartmentsApi from '@/api/departments';
 import { useMessagesApi } from '@/api/messages';
 import ConfirmationDialog from '@/components/ConfirmationDialog';
+import { MultiSelect } from '@/components/multi-select';
 import TinyMceEditor from '@/components/TinyMceEditor';
 import { Button } from '@/components/ui/button';
 import { Skeleton } from '@/components/ui/skeleton';
@@ -205,11 +206,11 @@ export const HomeForm: React.FC<HomeFormProps> = ({ id }: HomeFormProps) => {
                 name="departments"
                 render={({ field }) => (
                   <div>
-                    <StyledSelect
-                      options={((departmentsData || []).map((d: any) => ({ label: d.name, value: d.id })))}
-                      value={(field.value ?? []).map(String)}
-                      onChange={(e: any) => field.onChange(Array.isArray(e) ? e.map(Number) : e.map((item: any) => Number(item.value)))}
-                      multiple
+                    <MultiSelect
+                      options={(departmentsData || []).map((d: any) => ({ label: d.name, value: d.id }))}
+                      value={field.value || []}
+                      onValueChange={field.onChange}
+                      placeholder="Select departments"
                     />
                     {errors.departments && <p className="text-red-500 text-sm mt-1">{errors.departments.message}</p>}
                   </div>

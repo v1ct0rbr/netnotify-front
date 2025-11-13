@@ -1,12 +1,18 @@
 import type { DepartmentDTO } from "@/api/departments";
+import useDepartmentsApi from "@/api/departments";
+import ConfirmationDialog from "@/components/ConfirmationDialog";
+import { queryClient } from "@/lib/react-query";
 import { zodResolver } from "@hookform/resolvers/zod";
 
-import React from "react";
+import React, { use } from "react";
 import { Controller, useForm } from "react-hook-form";
+import { toast } from "sonner";
 import z from "zod";
 
 interface formDepartmentProps {
   departments: DepartmentDTO[] | undefined;
+  selectedDepartment: DepartmentDTO | null;
+  
 }
 
 const FormSchema = z.object({
@@ -17,36 +23,127 @@ const FormSchema = z.object({
 
 type FormDepartmentData = z.infer<typeof FormSchema>;
 
-const FormDepartment = ({ departments }: formDepartmentProps) => {
+const FormDepartment = ({ departments, selectedDepartment }: formDepartmentProps) => {
+
+  const { createDepartment } = useDepartmentsApi();
   const [isDialogOpen, setIsDialogOpen] = React.useState(false);
      const { handleSubmit, control, reset, formState: { errors } } = useForm<FormDepartmentData>({
        resolver: zodResolver(FormSchema),
        defaultValues: { id: '', name: '', parentDepartmentId: undefined },
      });
-  return <div>
+
+     React.useEffect(() => {
+       if (selectedDepartment) {
+         reset({
+           id: selectedDepartment.id,
+           name: selectedDepartment.name,
+           parentDepartmentId: selectedDepartment.parentDepartmentId || undefined,
+         });
+       } else {
+         reset({
+           id: '',
+           name: '',
+           parentDepartmentId: undefined,
+         });
+       }
+     }, [selectedDepartment, reset]);
+     const openDialog = handleSubmit(() => setIsDialogOpen(true));
+
+      const handleConfirmSend = () => {
+    setIsDialogOpen(false);
+    handleSubmit(handleCreateDepartment)();
+  };
+
+   const handleCreateDepartment = (department: FormDepartmentData) => {
+    // Lógica para criar departamento
+    let deparmentDto = {
+      name: department.name,
+      parentDepartmentId: department.parentDepartmentId || null,
+    } as DepartmentDTO;
+    createDepartment(deparmentDto).then((res) => {
+      if(res.status === 'SUCCESS'){
+        // Refetch departments after successful creation
+        queryClient.invalidateQueries({ queryKey: ['departments'] });
+        toast.success('Departamento criado com sucesso!');
+      }
+      else {
+        toast.error('Erro ao criar departamento: ' + res.message);
+      }
+
+    });
+  }
+  return <>
     
+    <div>
     <form onSubmit={(e) => e.preventDefault()} className="space-y-4">
       <div>
-                  <label className="block text-sm font-medium mb-1">Title</label>
+        {/* id hidden */}
+        <Controller
+          control={control}
+          name="id"
+          render={({ field }) => (
+            <input type="hidden" {...field} />
+          )}
+        />
+        
+      </div>
+       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+      <div>
+                  <label className="block text-sm font-medium mb-1">Nome</label>
                   <Controller
                     control={control}
-                    name="title"
+                    name="name"
                     render={({ field }) => (
                       <div>
                         <input
                           type="text"
                           {...field}
-                          className={`w-full border rounded px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500 ${errors.title ? 'border-red-500' : 'border-gray-300'}`}
-                          placeholder="Enter title"
+                          className={`w-full border rounded px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500 ${errors.name ? 'border-red-500' : 'border-gray-300'}`}
+                          placeholder="Enter name"
                         />
-                        {errors.title && <p className="text-red-500 text-sm mt-1">{errors.title.message}</p>}
+                        {errors.name && <p className="text-red-500 text-sm mt-1">{errors.name.message}</p>}
                       </div>
                     )}
                   />
                 </div>
-      <button type="submit" className="btn btn-primary">Salvar</button>
+                <div>
+                  <label className="block text-sm font-medium mb-1">Departamento Pai</label>
+                  <Controller
+                    control={control}
+                    name="parentDepartmentId" 
+                    render={({ field }) => (
+                      <div>
+                        <select
+                          {...field}
+                          className={`w-full border rounded px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500 ${errors.parentDepartmentId ? 'border-red-500' : 'border-gray-300'}`}
+                        >
+                          <option value="">Nenhum</option>
+                          {departments && departments.map((dept) => (
+                            <option key={dept.id} value={dept.id}>{dept.name}</option>
+                          ))}
+                        </select>
+                        {errors.parentDepartmentId && <p className="text-red-500 text-sm mt-1">{errors.parentDepartmentId.message}</p>}
+                      </div>
+                    )}
+                  />
+                </div>
+                </div>
+      <button type="submit" className="btn btn-primary" onClick={openDialog}>
+        {selectedDepartment && selectedDepartment.id ? 'Atualizar' : 'Salvar'}
+        </button>
     </form>
-  </div>;
+     <ConfirmationDialog
+            isOpen={isDialogOpen}
+            title="Confirmar envio"
+            description="Você tem certeza que deseja enviar esta mensagem?"
+            confirmText="Enviar"
+            cancelText="Cancelar"
+            onClose={() => setIsDialogOpen(false)}
+            callback={handleConfirmSend}
+          />
+   
+    </div>
+  </>;
 }
 
 export default FormDepartment;

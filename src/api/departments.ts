@@ -1,4 +1,5 @@
 import api from "@/config/axios";
+import type { SimpleResponse } from "@/utils/SimpleResponse";
 
 export type DepartmentDTO = {
     id: string;
@@ -6,10 +7,24 @@ export type DepartmentDTO = {
     parentDepartmentId?: string;
 }
 
+type DepartmentInfo = {
+    id: string;
+    name: string;
+}
+
+export type DepartmentResponseDTO = {
+    id: string;
+    name: string;
+    parentDepartment?: DepartmentInfo;
+    
+}
+
 const useDepartmentsApi = () => {
-    const getDepartments = async (): Promise<DepartmentDTO[]> => {
+    const getDepartments = async (): Promise<DepartmentResponseDTO[]> => {
         try {
-            const response = await api.get<DepartmentDTO[]>('/aux/departments');
+            console.log('🔍 Buscando departamentos...');
+            const response = await api.get<DepartmentResponseDTO[]>('/aux/departments');
+            console.log('✅ Departamentos recebidos:', response.data);
             const data = response.data;
             return data;
         } catch (error) {
@@ -17,10 +32,28 @@ const useDepartmentsApi = () => {
         }
     };
     
-    const createDepartment = async (departmentDto: DepartmentDTO): Promise<DepartmentDTO> => {
+    const createDepartment = async (departmentDto: DepartmentDTO): Promise<SimpleResponse<String>> => {
         try {
-            const response = await api.post<DepartmentDTO>('/departments', departmentDto);
-            return response.data;
+            
+            const response = await api.post<String>('/departments/create', departmentDto);
+            return {
+                object: response.data,
+                message: 'Departamento criado com sucesso.',
+                status: 'SUCCESS'
+            };
+        } catch (error) {
+            throw error;
+        }
+    };
+
+    const deleteDepartment = async (departmentId: string): Promise<SimpleResponse<String>> => {
+        try {
+            const response = await api.delete<String>(`/departments/${departmentId}`);
+            return {
+                object: response.data,
+                message: 'Departamento deletado com sucesso.',
+                status: response.status === 200 ? 'SUCCESS' : 'ERROR'
+            };
         } catch (error) {
             throw error;
         }
@@ -29,6 +62,7 @@ const useDepartmentsApi = () => {
     return {
         getDepartments,
         createDepartment,
+        deleteDepartment
     };
 };
 

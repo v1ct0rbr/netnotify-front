@@ -4,6 +4,7 @@ import './App.css';
 import { ThemeProvider } from './components/theme-provider';
 import { queryClient } from './lib/react-query';
 import { SecuredContent } from './components/SecuredContent';
+import { PrimeReactProvider } from 'primereact/api';
 
 /**
  * App
@@ -20,10 +21,12 @@ function App() {
 
   return (
     <ThemeProvider defaultTheme="dark" storageKey="vite-ui-theme">
+      <PrimeReactProvider>
       <Toaster richColors closeButton />
       <QueryClientProvider client={queryClient}>
         <SecuredContent />
       </QueryClientProvider>
+      </PrimeReactProvider>
     </ThemeProvider>
   );
 }

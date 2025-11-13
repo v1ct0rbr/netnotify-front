@@ -8,6 +8,29 @@
   </head>
   <body>
     <div id="root"></div>
+    
+    <!-- ✅ Aplicar tema ANTES do React renderizar para evitar flash -->
+    <script>
+      (function() {
+        const storageKey = 'vite-ui-theme';
+        const root = document.documentElement;
+        
+        // Ler tema do localStorage (ou usar 'system' como padrão)
+        const theme = localStorage.getItem(storageKey) || 'system';
+        
+        // Remover classes antigas
+        root.classList.remove('light', 'dark');
+        
+        // Determinar qual tema aplicar
+        if (theme === 'system') {
+          const systemTheme = window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light';
+          root.classList.add(systemTheme);
+        } else {
+          root.classList.add(theme);
+        }
+      })();
+    </script>
+    
     <script type="module" src="/src/main.tsx"></script>
   </body>
 </html>
