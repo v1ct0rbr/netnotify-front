@@ -190,10 +190,11 @@ class AuthService {
 
   isAdmin(): boolean {
     try {
+      console.log('🔍 Verificando se usuário é admin...');
       const userStr = localStorage.getItem('user');
       if (!userStr) return false;
       const user = JSON.parse(userStr);
-      return user.roles && user.roles.includes('admin');
+      return user.roles && user.roles.includes(import.meta.env.VITE_ROLE_ADMIN || 'admin');
     } catch {
       return false;
     }

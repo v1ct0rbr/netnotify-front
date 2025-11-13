@@ -1,5 +1,5 @@
 import { Button } from "@/components/ui/button";
-import { Inbox, LogOut, Send, User } from "lucide-react";
+import { Building, Inbox, LogOut, Send, User } from "lucide-react";
 
 import {
   Sidebar,
@@ -35,6 +35,11 @@ const items = [
     url: "/profile",
     icon: User,
   },
+  {
+    title: "Departamentos",
+    url: "/departments",
+    icon: Building,
+  }
 
 ]
 
