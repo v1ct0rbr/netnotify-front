@@ -2,7 +2,7 @@ import api from "@/config/axios";
 import type { ApiPageResponse } from "@/utils/ApiPageResponse";
 import type { SimpleResponse } from "@/utils/SimpleResponse";
 import { toast } from "sonner";
-import type { DepartmentDTO } from "./departments";
+import type { DepartmentResponseDTO } from "./departments";
 
 export type CreateMessageDTO = {
     title?: string;
@@ -28,7 +28,7 @@ export type MessageResponseDTO = {
     repeatIntervalMinutes: number | null;
     expireAt: string | null;
     lastSentAt: string | null;
-    departments: DepartmentDTO[];
+    departments: DepartmentResponseDTO[];
 }
 
 interface MessagesFilterParams {

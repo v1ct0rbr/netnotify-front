@@ -27,7 +27,12 @@ export function ThemeProvider({
     ...props
 }: ThemeProviderProps) {
     const [theme, setTheme] = useState<Theme>(
-        () => (localStorage.getItem(storageKey) as Theme) || defaultTheme
+        () => {
+            // Prefer new storageKey, but fall back to legacy 'theme' key for compatibility
+            const fromNewKey = localStorage.getItem(storageKey) as Theme | null;
+            const fromLegacy = localStorage.getItem('theme') as Theme | null;
+            return fromNewKey || fromLegacy || defaultTheme;
+        }
     )
 
     useEffect(() => {
@@ -54,9 +59,15 @@ export function ThemeProvider({
 
     const value = {
         theme,
-        setTheme: (theme: Theme) => {
-            localStorage.setItem(storageKey, theme)
-            setTheme(theme)
+        setTheme: (t: Theme) => {
+            try {
+                // Persist under both the configured key and legacy 'theme' key
+                localStorage.setItem(storageKey, t)
+                localStorage.setItem('theme', t)
+            } catch (e) {
+                // ignore storage errors
+            }
+            setTheme(t)
         },
     }
 

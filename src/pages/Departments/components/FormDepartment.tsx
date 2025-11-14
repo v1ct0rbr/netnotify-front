@@ -3,6 +3,7 @@ import useDepartmentsApi from "@/api/departments";
 import ConfirmationDialog from "@/components/ConfirmationDialog";
 import { queryClient } from "@/lib/react-query";
 import { zodResolver } from "@hookform/resolvers/zod";
+import { FilePlus2Icon } from "lucide-react";
 
 import React, { use } from "react";
 import { Controller, useForm } from "react-hook-form";
@@ -27,6 +28,7 @@ const FormDepartment = ({ departments, selectedDepartment }: formDepartmentProps
 
   const { createDepartment } = useDepartmentsApi();
   const [isDialogOpen, setIsDialogOpen] = React.useState(false);
+  const [updating, setUpdating] = React.useState(false);
      const { handleSubmit, control, reset, formState: { errors } } = useForm<FormDepartmentData>({
        resolver: zodResolver(FormSchema),
        defaultValues: { id: '', name: '', parentDepartmentId: undefined },
@@ -39,6 +41,7 @@ const FormDepartment = ({ departments, selectedDepartment }: formDepartmentProps
            name: selectedDepartment.name,
            parentDepartmentId: selectedDepartment.parentDepartmentId || undefined,
          });
+          setUpdating(true);
        } else {
          reset({
            id: '',
@@ -54,17 +57,27 @@ const FormDepartment = ({ departments, selectedDepartment }: formDepartmentProps
     handleSubmit(handleCreateDepartment)();
   };
 
+  const handleNewDepartment = () => {
+    reset({
+      id: '',
+      name: '',
+      parentDepartmentId: undefined,
+    });
+    setUpdating(false);
+  }
+
    const handleCreateDepartment = (department: FormDepartmentData) => {
     // Lógica para criar departamento
-    let deparmentDto = {
+    let departmentDto = {
+      id: department.id || undefined,
       name: department.name,
       parentDepartmentId: department.parentDepartmentId || null,
     } as DepartmentDTO;
-    createDepartment(deparmentDto).then((res) => {
+    createDepartment(departmentDto).then((res) => {
       if(res.status === 'SUCCESS'){
         // Refetch departments after successful creation
         queryClient.invalidateQueries({ queryKey: ['departments'] });
-        toast.success('Departamento criado com sucesso!');
+        toast.success(department.id != '' ? 'Departamento atualizado com sucesso!' : 'Departamento criado com sucesso!');
       }
       else {
         toast.error('Erro ao criar departamento: ' + res.message);
@@ -98,7 +111,7 @@ const FormDepartment = ({ departments, selectedDepartment }: formDepartmentProps
                         <input
                           type="text"
                           {...field}
-                          className={`w-full border rounded px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500 ${errors.name ? 'border-red-500' : 'border-gray-300'}`}
+                          className={`w-full border rounded px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 ${errors.name ? 'border-red-500' : 'border-gray-300 dark:border-gray-600'}`}
                           placeholder="Enter name"
                         />
                         {errors.name && <p className="text-red-500 text-sm mt-1">{errors.name.message}</p>}
@@ -115,12 +128,14 @@ const FormDepartment = ({ departments, selectedDepartment }: formDepartmentProps
                       <div>
                         <select
                           {...field}
-                          className={`w-full border rounded px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500 ${errors.parentDepartmentId ? 'border-red-500' : 'border-gray-300'}`}
+                          className={`w-full border rounded px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 ${errors.parentDepartmentId ? 'border-red-500' : 'border-gray-300 dark:border-gray-600'}`}
                         >
                           <option value="">Nenhum</option>
-                          {departments && departments.map((dept) => (
-                            <option key={dept.id} value={dept.id}>{dept.name}</option>
-                          ))}
+                            {departments && departments.map((dept) => (
+                            dept.id !== selectedDepartment?.id && (
+                              <option key={dept.id} value={dept.id}>{dept.name}</option>
+                            )
+                            ))}
                         </select>
                         {errors.parentDepartmentId && <p className="text-red-500 text-sm mt-1">{errors.parentDepartmentId.message}</p>}
                       </div>
@@ -128,11 +143,18 @@ const FormDepartment = ({ departments, selectedDepartment }: formDepartmentProps
                   />
                 </div>
                 </div>
+                <div className="flex items-center justify-center">
       <button type="submit" className="btn btn-primary" onClick={openDialog}>
-        {selectedDepartment && selectedDepartment.id ? 'Atualizar' : 'Salvar'}
+        {updating ? 'Atualizar' : 'Salvar'}
         </button>
+      <button type="button" className="btn btn-secondary ml-2 flex items-center" onClick={handleNewDepartment} >
+        <FilePlus2Icon className="mr-2" />
+        Novo Departamento
+      </button>
+    </div>
     </form>
-     <ConfirmationDialog
+     <ConfirmationDialog 
+
             isOpen={isDialogOpen}
             title="Confirmar envio"
             description="Você tem certeza que deseja enviar esta mensagem?"

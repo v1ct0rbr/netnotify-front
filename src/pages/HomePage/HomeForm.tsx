@@ -218,6 +218,23 @@ export const HomeForm: React.FC<HomeFormProps> = ({ id }: HomeFormProps) => {
               />
             </div>
             <div>
+              <label className="block text-sm font-medium mb-1">Send to Subdivisions</label>
+              <Controller
+                control={control}
+                name="sendToSubdivisions"
+                render={({ field }) => (
+                  <div>
+                    <StyledSelect
+                      options={[{ label: 'Não', value: 'false' }, { label: 'Sim', value: 'true' }]}
+                      value={field.value ? 'true' : 'false'}
+                      onChange={(e) => field.onChange(e.target.value === 'true')}
+                    />
+                    {errors.sendToSubdivisions && <p className="text-red-500 text-sm mt-1">{errors.sendToSubdivisions.message}</p>}
+                  </div>
+                )}
+              />
+            </div>
+            <div>
               <label className="block text-sm font-medium mb-1">Repeat Interval (Minutes)</label>
               <Controller
                 control={control}
@@ -227,6 +244,8 @@ export const HomeForm: React.FC<HomeFormProps> = ({ id }: HomeFormProps) => {
                     <input
                       type="number"
                       {...field}
+                      value={field.value || ''}
+                      onChange={(e) => field.onChange(e.target.value === '' ? undefined : Number(e.target.value))}
                       className={`w-full border rounded px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500 ${errors.repeatIntervalMinutes ? 'border-red-500' : 'border-gray-300'}`}
                       placeholder="Enter repeat interval in minutes"
                       min={0}

@@ -32,8 +32,10 @@ const MultiSelect = React.forwardRef<HTMLDivElement, MultiSelectProps>(
   ) => {
     const [isOpen, setIsOpen] = React.useState(false)
     const [searchTerm, setSearchTerm] = React.useState('')
+    const [highlightedIndex, setHighlightedIndex] = React.useState(-1)
     const containerRef = React.useRef<HTMLDivElement>(null)
     const inputRef = React.useRef<HTMLInputElement>(null)
+    const optionsRef = React.useRef<HTMLDivElement>(null)
 
     // Fechar dropdown ao clicar fora
     React.useEffect(() => {
@@ -53,8 +55,53 @@ const MultiSelect = React.forwardRef<HTMLDivElement, MultiSelectProps>(
     React.useEffect(() => {
       if (isOpen && inputRef.current) {
         inputRef.current.focus()
+        setHighlightedIndex(-1)
       }
     }, [isOpen])
+
+    // Handler de teclado para navegação com setas
+    const handleKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
+      if (!isOpen) {
+        if (e.key === 'ArrowDown' || e.key === 'ArrowUp') {
+          e.preventDefault()
+          setIsOpen(true)
+        }
+        return
+      }
+
+      switch (e.key) {
+        case 'ArrowDown':
+          e.preventDefault()
+          setHighlightedIndex((prev) =>
+            prev < filteredOptions.length - 1 ? prev + 1 : 0
+          )
+          break
+
+        case 'ArrowUp':
+          e.preventDefault()
+          setHighlightedIndex((prev) =>
+            prev > 0 ? prev - 1 : filteredOptions.length - 1
+          )
+          break
+
+        case 'Enter':
+          e.preventDefault()
+          if (highlightedIndex >= 0 && highlightedIndex < filteredOptions.length) {
+            toggleOption(filteredOptions[highlightedIndex].value)
+            setHighlightedIndex(-1)
+          }
+          break
+
+        case 'Escape':
+          e.preventDefault()
+          setIsOpen(false)
+          setHighlightedIndex(-1)
+          break
+
+        default:
+          break
+      }
+    }
 
     // Filtrar opções baseado no termo de busca
     const filteredOptions = options.filter(
@@ -171,6 +218,7 @@ const MultiSelect = React.forwardRef<HTMLDivElement, MultiSelectProps>(
               placeholder="Buscar..."
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
+              onKeyDown={handleKeyDown}
               className={cn(
                 'w-full px-3 py-2 border-b border-input bg-background text-sm',
                 'placeholder:text-muted-foreground focus:outline-none'
@@ -178,9 +226,9 @@ const MultiSelect = React.forwardRef<HTMLDivElement, MultiSelectProps>(
             />
 
             {/* Lista de opções */}
-            <div className="max-h-64 overflow-y-auto">
+            <div ref={optionsRef} className="max-h-64 overflow-y-auto">
               {filteredOptions.length > 0 ? (
-                filteredOptions.map((option) => (
+                filteredOptions.map((option, idx) => (
                   <button
                     key={option.value}
                     type="button"
@@ -188,6 +236,7 @@ const MultiSelect = React.forwardRef<HTMLDivElement, MultiSelectProps>(
                     className={cn(
                       'w-full text-left px-3 py-2 text-sm transition-colors',
                       'hover:bg-accent hover:text-accent-foreground',
+                      highlightedIndex === idx && 'bg-blue-100 dark:bg-blue-900',
                       value.includes(option.value) &&
                         'bg-accent text-accent-foreground font-medium'
                     )}

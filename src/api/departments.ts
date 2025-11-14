@@ -1,5 +1,6 @@
 import api from "@/config/axios";
 import type { SimpleResponse } from "@/utils/SimpleResponse";
+import { toast } from "sonner";
 
 export type DepartmentDTO = {
     id: string;
@@ -35,13 +36,30 @@ const useDepartmentsApi = () => {
     const createDepartment = async (departmentDto: DepartmentDTO): Promise<SimpleResponse<String>> => {
         try {
             
+            
             const response = await api.post<String>('/departments/create', departmentDto);
+
             return {
                 object: response.data,
                 message: 'Departamento criado com sucesso.',
                 status: 'SUCCESS'
             };
         } catch (error) {
+            toast.error(`Erro ao criar departamento. ${error}`);
+            throw error;
+        }
+    };
+
+    const updateDepartment = async (departmentDto: DepartmentDTO): Promise<SimpleResponse<String>> => {
+        try {
+            const response = await api.put<String>(`/departments/update`, departmentDto);
+            return {
+                object: response.data,
+                message: 'Departamento atualizado com sucesso.',
+                status: 'SUCCESS'
+            };
+        } catch (error) {
+            toast.error(`Erro ao atualizar departamento. ${error}`);
             throw error;
         }
     };

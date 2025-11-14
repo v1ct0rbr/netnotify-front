@@ -12,7 +12,12 @@ interface ListDepartmentsProps {
 const ListDepartments = ({ departments, onDeleteDepartment, setSelectedDepartment }: ListDepartmentsProps) => {
 
   const handleEdit = (department: DepartmentResponseDTO) => {
-    setSelectedDepartment(department);
+    const departmentDto: DepartmentDTO = {
+      id: department.id,
+      name: department.name,
+      parentDepartmentId: department.parentDepartment?.id || undefined,
+    }
+    setSelectedDepartment(departmentDto);
   }
 
   return (

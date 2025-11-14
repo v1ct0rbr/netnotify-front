@@ -44,6 +44,7 @@ api.interceptors.request.use(config => {
     const token = localStorage.getItem('access_token');
     
     console.log(`🌐 [INTERCEPTOR] ${config.method?.toUpperCase()} ${config.url}`);
+    console.log(`   Payload enviado:`, config.data);
     
     if (token) {
         config.headers.Authorization = `Bearer ${token}`;
@@ -53,6 +54,9 @@ api.interceptors.request.use(config => {
         console.warn('⚠️ [INTERCEPTOR] ⚠️ NENHUM TOKEN ENCONTRADO EM localStorage!');
         console.warn('   localStorage keys:', Object.keys(localStorage));
     }
+    
+    // ✅ NÃO converter request para camelCase
+    // Enviamos os dados exatamente como estão para o backend (em snake_case)
     
     return config;
 });

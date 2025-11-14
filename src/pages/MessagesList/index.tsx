@@ -274,7 +274,8 @@ const MessagesList: React.FC = () => {
             <Table>
                 <TableHeader>
                     <TableRow>
-                        <TableHead>Título</TableHead>                        
+                        <TableHead>Título</TableHead>   
+                        <TableHead>Setores</TableHead>                     
                         <TableHead>Usuário</TableHead>
                         <TableHead>Level</TableHead>
                         <TableHead>Tipo</TableHead>
@@ -288,6 +289,9 @@ const MessagesList: React.FC = () => {
                             <TableRow key={`skeleton-${i}`}>
                                 <TableCell>
                                     <Skeleton className="h-4 max-w-[300px]" />
+                                </TableCell>
+                                <TableCell>
+                                    <Skeleton className="h-4 w-32" />
                                 </TableCell>
                                 <TableCell>
                                     <Skeleton className="h-4 w-32" />
@@ -311,6 +315,9 @@ const MessagesList: React.FC = () => {
                         : data?.data.map((msg) => (
                             <TableRow key={msg.id}>
                                 <TableCell className="max-w-[300px] overflow-hidden text-ellipsis whitespace-nowrap text-left">{msg.title}</TableCell>
+                                <TableCell className="text-left">
+                                    {msg.departments.map((dept) => dept.name).join(", ")}
+                                </TableCell>
                                 <TableCell className="text-left">{msg.user}</TableCell>
                                 <TableCell className="text-left"> <StatusBadge level={msg.level} /></TableCell>
                                 <TableCell className="text-left">{msg.messageType}</TableCell>
