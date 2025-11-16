@@ -16,30 +16,37 @@ import {
 import { type UserInfo } from "@/store/useAuthStore";
 import { Link } from "react-router";
 import { toast } from "sonner";
+import { authService } from "@/services/AuthService";
 
 // Menu items.
 const items = [
   {
-    title: "Nova Mensagem",
-    url: "/",
-    icon: Send,
+    title: "Departamentos",
+    url: "/departments",
+    icon: Building,
+    adminOnly: true,
   },
+
   {
     title: "Mensagens",
     url: "/messages",
     icon: Inbox,
+    adminOnly: false,
+  },
+  {
+    title: "Nova Mensagem",
+    url: "/new-message",
+    icon: Send,
+    adminOnly: false,
   },
 
   {
     title: "Perfil",
     url: "/profile",
     icon: User,
-  },
-  {
-    title: "Departamentos",
-    url: "/departments",
-    icon: Building,
+    adminOnly: false,
   }
+
 
 ]
 
@@ -48,6 +55,8 @@ interface AppSidebarProps {
   logout?: () => void;
 }
 export function AppSidebar({ userInfo, logout: onLogout }: AppSidebarProps) {
+
+  const isAdmin = authService.isAdmin?.() ?? false;
 
   return (
     <Sidebar>
@@ -64,10 +73,12 @@ export function AppSidebar({ userInfo, logout: onLogout }: AppSidebarProps) {
                 <SidebarMenuItem key={item.title}>
                   <SidebarMenuButton asChild>
 
-                    <Link to={item.url} className="flex items-center gap-3 text-sidebar-foreground hover:text-sidebar-primary dark:hover:text-sidebar-primary">
-                      <item.icon className="w-4 h-4 text-inherit" />
-                      <span className="text-sm font-medium">{item.title}</span>
-                    </Link>
+                    {(!item.adminOnly || isAdmin) ? (
+                      <Link to={item.url} className="flex items-center gap-3 text-sidebar-foreground hover:text-sidebar-primary dark:hover:text-sidebar-primary">
+                        <item.icon className="w-4 h-4 text-inherit" />
+                        <span className="text-sm font-medium">{item.title}</span>
+                      </Link>
+                    ) : null}
                   </SidebarMenuButton>
                 </SidebarMenuItem>
               ))}

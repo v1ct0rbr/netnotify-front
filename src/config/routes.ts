@@ -4,7 +4,7 @@ import React from "react";
 import { AuthLayout } from "@/layouts/AuthLayout";
 import MainPageLayout from "@/layouts/MainPageLayout";
 import { About } from "@/pages/About";
-import { HomePage } from "@/pages/HomePage";
+import { NewMessage } from "@/pages/NewMessage";
 import LoginPage from "@/pages/Login";
 import MessagesList from "@/pages/MessagesList";
 
@@ -15,6 +15,7 @@ import MessagesList from "@/pages/MessagesList";
 import { createBrowserRouter } from "react-router-dom";
 import Profile from "@/pages/Profile";
 import DepartmentsPage from "@/pages/Departments";
+import Dashboard from "@/pages/Dashboard";
 
 export const router = createBrowserRouter([
     {
@@ -30,8 +31,13 @@ export const router = createBrowserRouter([
                 children: [
                     {
                         index: true,
-                        Component: HomePage,
+                        Component: Dashboard,
                         handle: { pageTitle: "Home" },
+                    },
+                    {
+                        path: "new-message",
+                        Component: NewMessage,
+                        handle: { pageTitle: "New Message" },
                     },
                     {
                         path: "about",

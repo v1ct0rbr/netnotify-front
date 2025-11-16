@@ -1,6 +1,6 @@
 import { useSearchParams } from 'react-router-dom';
-import { HomeForm } from './HomeForm';
-export function HomePage() {
+import { MessageForm } from './components/MessageForm';
+export function NewMessage() {
   const [searchParams] = useSearchParams();
   const id = searchParams.get("id");
 
@@ -9,7 +9,7 @@ export function HomePage() {
 
   return (
     <div className="container mx-auto p-4">
-      <HomeForm id={id} />
+      <MessageForm id={id} />
     </div>
   );
 }

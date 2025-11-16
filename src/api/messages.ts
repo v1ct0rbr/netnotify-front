@@ -13,6 +13,7 @@ export type CreateMessageDTO = {
     sendToSubdivisions?: boolean;
     repeatIntervalMinutes?: number;
     expireAt?: string;
+    publishedAt?: string;
 }
 
 export type MessageResponseDTO = {
@@ -29,6 +30,7 @@ export type MessageResponseDTO = {
     expireAt: string | null;
     lastSentAt: string | null;
     departments: DepartmentResponseDTO[];
+    publishedAt: string | null;
 }
 
 interface MessagesFilterParams {
@@ -83,6 +85,7 @@ export const useMessagesApi = () => {
                 sendToSubdivisions: data.sendToSubdivisions,
                 repeatIntervalMinutes: data.repeatIntervalMinutes,
                 expireAt: data.expireAt,
+                publishedAt: data.publishedAt,
             });
             toast.success('Mensagem criada com sucesso.');
 

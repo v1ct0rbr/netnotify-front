@@ -22,11 +22,13 @@ import { Copy, Eraser, Eye, Search, Trash2 } from "lucide-react";
 import React, { useEffect, useState } from "react";
 import { Link, useSearchParams } from "react-router";
 import { AlertMessageDetails } from "./components/AlertMessageDetails";
+import { Tooltip, TooltipContent } from "@/components/ui/tooltip";
+import { TooltipTrigger } from "@radix-ui/react-tooltip";
 
 const PAGE_SIZE = 10;
 
 const MessagesList: React.FC = () => {
-    const { filterMessages, deleteMessage} = useMessagesApi();
+    const { filterMessages, deleteMessage } = useMessagesApi();
     const { user } = useAuthStore();
     const isAdmin = user?.roles?.includes(import.meta.env.VITE_ROLE_ADMIN || 'admin');
 
@@ -38,7 +40,7 @@ const MessagesList: React.FC = () => {
     const [isAlertOpen, setIsAlertOpen] = useState(false);
     const [selectedMessageId, setSelectedMessageId] = useState<string | null>(null);
 
-    
+
 
     const openAlert = (id: string) => {
         setSelectedMessageId(id);
@@ -99,7 +101,7 @@ const MessagesList: React.FC = () => {
         staleTime: 10 * 60 * 1000,  // Cache por 10min
     });
 
-    
+
 
     // NOTE: initialization above reads URL params synchronously so the first
     // query will use them immediately (no mount effect required).
@@ -147,7 +149,7 @@ const MessagesList: React.FC = () => {
 
     const mutation = useMutation({
         mutationFn: (id: string) => deleteMessage(id),
-        onSuccess: () => {            
+        onSuccess: () => {
             queryClient.invalidateQueries({ queryKey: ["messages"] });
         },
         onError: () => setToast({ type: "error", message: "Erro ao apagar mensagem." }),
@@ -274,8 +276,8 @@ const MessagesList: React.FC = () => {
             <Table>
                 <TableHeader>
                     <TableRow>
-                        <TableHead>Título</TableHead>   
-                        <TableHead>Setores</TableHead>                     
+                        <TableHead>Título</TableHead>
+                        <TableHead>Setores</TableHead>
                         <TableHead>Usuário</TableHead>
                         <TableHead>Level</TableHead>
                         <TableHead>Tipo</TableHead>
@@ -305,11 +307,11 @@ const MessagesList: React.FC = () => {
                                 <TableCell>
                                     <Skeleton className="h-4 w-40" />
                                 </TableCell>
-                                
-                                    <TableCell>
-                                        <Skeleton className="h-8 w-12 rounded-md" />
-                                    </TableCell>
-                                
+
+                                <TableCell>
+                                    <Skeleton className="h-8 w-12 rounded-md" />
+                                </TableCell>
+
                             </TableRow>
                         ))
                         : data?.data.map((msg) => (
@@ -322,9 +324,9 @@ const MessagesList: React.FC = () => {
                                 <TableCell className="text-left"> <StatusBadge level={msg.level} /></TableCell>
                                 <TableCell className="text-left">{msg.messageType}</TableCell>
                                 <TableCell className="text-left">{formatRelativeDate(msg.createdAt)}</TableCell>
-                                
-                                    <TableCell className="text-left flex flex-row items-center gap-0.5">
-                                        {isAdmin && (
+
+                                <TableCell className="text-left flex flex-row items-center gap-0.5">
+                                    {isAdmin && (
                                         <button
                                             aria-label="Apagar"
                                             style={{
@@ -343,43 +345,59 @@ const MessagesList: React.FC = () => {
                                         >
                                             <Trash2 size={18} />
                                         </button>
-                                        )}
-                                        <button
-                                            aria-label="Detalhes"
-                                            style={{
-                                                background: "var(--btn-primary-bg, #4299e1)",
-                                                border: "none",
-                                                borderRadius: 4,
-                                                padding: 6,
-                                                cursor: "pointer",
-                                                color: "var(--btn-primary-foreground, #fff)",
-                                                display: "flex",
-                                                alignItems: "center",
-                                                marginLeft: 8,
-                                            }}
-                                            onClick={() => openAlert(msg.id)}
-                                        >
-                                            <Eye size={18} />
-                                        </button>
-                                        <Link
-                                            aria-label="Clonar"
-                                            style={{
-                                                background: "var(--btn-success-bg, #68d391)",
-                                                border: "none",
-                                                borderRadius: 4,
-                                                padding: 6,
-                                                cursor: "pointer",
-                                                color: "var(--btn-success-foreground, #fff)",
-                                                display: "flex",
-                                                alignItems: "center",
-                                                marginLeft: 8,
-                                            }}
-                                            to={{ pathname: `/`, search: `?id=${msg.id}` }}
-                                        >
-                                            <Copy size={18} />
-                                        </Link>
-                                    </TableCell>
-                                
+                                    )}
+
+                                    <Tooltip>
+                                        <TooltipTrigger asChild>
+
+                                            <button
+                                                aria-label="Detalhes"
+                                                style={{
+                                                    background: "var(--btn-primary-bg, #4299e1)",
+                                                    border: "none",
+                                                    borderRadius: 4,
+                                                    padding: 6,
+                                                    cursor: "pointer",
+                                                    color: "var(--btn-primary-foreground, #fff)",
+                                                    display: "flex",
+                                                    alignItems: "center",
+                                                    marginLeft: 8,
+                                                }}
+                                                onClick={() => openAlert(msg.id)}
+                                            >
+                                                <Eye size={18} />
+                                            </button>
+                                        </TooltipTrigger>
+                                        <TooltipContent>
+                                            <div className="tooltip-content">Ver detalhes</div>
+                                        </TooltipContent>
+                                    </Tooltip>
+                                    <Tooltip>
+                                        <TooltipTrigger asChild>
+                                            <Link
+                                                aria-label="Clonar"
+                                                style={{
+                                                    background: "var(--btn-success-bg, #68d391)",
+                                                    border: "none",
+                                                    borderRadius: 4,
+                                                    padding: 6,
+                                                    cursor: "pointer",
+                                                    color: "var(--btn-success-foreground, #fff)",
+                                                    display: "flex",
+                                                    alignItems: "center",
+                                                    marginLeft: 8,
+                                                }}
+                                                to={{ pathname: `/new-message`, search: `?id=${msg.id}` }}
+                                            >
+                                                <Copy size={18} />
+                                            </Link>
+                                        </TooltipTrigger>
+                                        <TooltipContent>
+                                            <div className="tooltip-content">Clonar mensagem</div>
+                                        </TooltipContent>
+                                    </Tooltip>
+                                </TableCell>
+
                             </TableRow>
                         ))}
                 </TableBody>

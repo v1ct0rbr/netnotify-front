@@ -71,12 +71,12 @@ export function AlertMessageDetails({ id, open, onClose }: AlertMessageDetailsPr
     }, [open, id, refetch]);
     return (
         <Dialog open={open} onOpenChange={(v) => { if (!v) onClose(); }}>
-            <DialogContent className="max-w-2xl" showCloseButton={false}>
+            <DialogContent className="max-w-2xl max-h-[80vh] flex flex-col" showCloseButton={false}>
                 <DialogHeader>
                     <DialogTitle>Detalhes da Mensagem</DialogTitle>
                 </DialogHeader>
 
-                <div className="mt-2">
+                <div className="mt-2 flex-1 overflow-y-auto">
                     {isLoading ? (
                         <div className="space-y-3">
                             <Skeleton className="h-6 w-3/4" />
@@ -86,7 +86,7 @@ export function AlertMessageDetails({ id, open, onClose }: AlertMessageDetailsPr
                     ) : isError ? (
                         <div className="text-sm text-destructive">Falha ao carregar detalhes da mensagem.</div>
                     ) : data ? (
-                        <div className="space-y-4 text-sm">
+                        <div className="space-y-4 text-sm pr-4">
                             <div>
                                 <div className="text-xs text-muted-foreground">Título</div>
                                 <div className="mt-1">{data.title}</div>
@@ -95,7 +95,7 @@ export function AlertMessageDetails({ id, open, onClose }: AlertMessageDetailsPr
                                 <div className="text-xs text-muted-foreground">Conteúdo</div>
                                                                {/* render only sanitized HTML */}
                                 <div
-                                    className="mt-1 prose max-w-none"
+                                    className="mt-1 prose dark:prose-invert max-w-none max-h-64 overflow-y-auto border rounded p-3 bg-slate-50 dark:bg-slate-900"
                                     dangerouslySetInnerHTML={{ __html: sanitizedHtml || "" }}
                                 />
                             </div>
