@@ -1,5 +1,5 @@
 import { Button } from "@/components/ui/button";
-import { Building, Inbox, LogOut, Send, User } from "lucide-react";
+import { Building, Home, Inbox, LogOut, Send, User } from "lucide-react";
 
 import {
   Sidebar,
@@ -13,20 +13,25 @@ import {
   SidebarMenuButton,
   SidebarMenuItem
 } from "@/components/ui/sidebar";
+import { authService } from "@/services/AuthService";
 import { type UserInfo } from "@/store/useAuthStore";
 import { Link } from "react-router";
 import { toast } from "sonner";
-import { authService } from "@/services/AuthService";
 
 // Menu items.
 const items = [
+  {
+    title: "Dashboard",
+    url: "/",
+    icon: Home,
+    adminOnly: false,
+  },
   {
     title: "Departamentos",
     url: "/departments",
     icon: Building,
     adminOnly: true,
   },
-
   {
     title: "Mensagens",
     url: "/messages",

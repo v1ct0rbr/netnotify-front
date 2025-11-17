@@ -37,7 +37,7 @@ export const router = createBrowserRouter([
                     {
                         path: "new-message",
                         Component: NewMessage,
-                        handle: { pageTitle: "New Message" },
+                        handle: { pageTitle: "Nova Mensagem" },
                     },
                     {
                         path: "about",
