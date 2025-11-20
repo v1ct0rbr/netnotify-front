@@ -152,7 +152,7 @@ export const MessageForm: React.FC<HomeFormProps> = ({ id }: HomeFormProps) => {
 
   const submitForm = (data: FormData) => {
     createMessage({ title: data.title, content: htmlToString(data.content), level: data.level, type: data.type, departments: data.departments, sendToSubdivisions: data.sendToSubdivisions, repeatIntervalMinutes: data.repeatIntervalMinutes, expireAt: data.expireAt, publishedAt: data.publishedAt }).then(() => {
-      toast.success('Mensagem criada com sucesso.');
+     
       reset({ title: '', content: '', level: 0, type: 0, departments: [], sendToSubdivisions: false, repeatIntervalMinutes: 0, expireAt: '', publishedAt: '' });
     }).catch(err => {
       toast.error('Erro ao criar mensagem.' + (err?.response?.data?.message ? ` ${err.response.data.message}` : ''));
@@ -298,6 +298,9 @@ export const MessageForm: React.FC<HomeFormProps> = ({ id }: HomeFormProps) => {
                   </div>
                 )}
               />
+              <button type="button" className="text-sm text-blue-500 mt-1 underline" onClick={() => {
+                reset({ ...watch(), publishedAt: '' });
+              }}>Limpar data</button>
             </div>
 
             <div>
@@ -316,6 +319,9 @@ export const MessageForm: React.FC<HomeFormProps> = ({ id }: HomeFormProps) => {
                   </div>
                 )}
               />
+              <button type="button" className="text-sm text-blue-500 mt-1 underline" onClick={() => {
+                reset({ ...watch(), expireAt: '' });
+              }}>Limpar data</button>
             </div>
 
             <div>

@@ -80,7 +80,7 @@ export const useMessagesApi = () => {
                 title: data.title,
                 content: data.content,
                 level: data.level,
-                type: data.type, 
+                type: data.type,
                 departments: data.departments,
                 sendToSubdivisions: data.sendToSubdivisions,
                 repeatIntervalMinutes: data.repeatIntervalMinutes,
