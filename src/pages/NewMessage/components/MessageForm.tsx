@@ -8,6 +8,7 @@ import { Skeleton } from '@/components/ui/skeleton';
 import { StyledSelect } from '@/components/ui/styled-select';
 import api from '@/config/axios';
 import { htmlToString, unescapeServerHtml } from '@/utils/StringUtils';
+import { useFormStore } from '@/store/useFormStore';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { useQuery } from '@tanstack/react-query';
 
@@ -82,6 +83,7 @@ export const MessageForm: React.FC<HomeFormProps> = ({ id }: HomeFormProps) => {
 
   const [isDialogOpen, setIsDialogOpen] = React.useState(false);
   const { getDepartments } = useDepartmentsApi();
+  const { saveFormData, getFormData, clearFormData } = useFormStore();
 
   const { handleSubmit, control, reset, formState: { errors }, watch } = useForm<FormData>({
     resolver: zodResolver(FormSchema),
@@ -150,9 +152,51 @@ export const MessageForm: React.FC<HomeFormProps> = ({ id }: HomeFormProps) => {
     }
   }, [msg, reset]);
 
+  // ✅ NOVO: Limpar dados do formulário se parâmetro new=true na URL
+  React.useEffect(() => {
+    const urlParams = new URLSearchParams(window.location.search);
+    const isNew = urlParams.get('new') === 'true';
+    
+    if (isNew) {
+      console.log('✨ [MessageForm] Parâmetro new=true detectado - limpando formulário');
+      clearFormData();
+      reset({ title: '', content: '', level: 0, type: 0, departments: [], sendToSubdivisions: false, repeatIntervalMinutes: 0, expireAt: '', publishedAt: '' });
+    }
+  }, []);
+
+  // ✅ NOVO: Recuperar dados salvos ao montar o componente
+  React.useEffect(() => {
+    const savedData = getFormData();
+    if (savedData && !id) { // Só restaura se não estiver editando uma mensagem existente
+      console.log('Restaurando dados do formulário:', savedData);
+      reset(savedData);
+    }
+  }, []);
+
+  // ✅ NOVO: Salvar dados do formulário automaticamente quando mudam
+  React.useEffect(() => {
+    const subscription = watch(() => {
+      // Salva a cada mudança
+      const data = watch();
+      saveFormData({
+        title: data.title ?? '',
+        content: data.content ?? '',
+        level: data.level ?? 0,
+        type: data.type ?? 0,
+        departments: data.departments ?? [],
+        sendToSubdivisions: data.sendToSubdivisions ?? false,
+        repeatIntervalMinutes: data.repeatIntervalMinutes,
+        expireAt: data.expireAt ?? '',
+        publishedAt: data.publishedAt ?? '',
+      });
+    });
+    return () => subscription.unsubscribe();
+  }, [watch, saveFormData]);
+
   const submitForm = (data: FormData) => {
     createMessage({ title: data.title, content: htmlToString(data.content), level: data.level, type: data.type, departments: data.departments, sendToSubdivisions: data.sendToSubdivisions, repeatIntervalMinutes: data.repeatIntervalMinutes, expireAt: data.expireAt, publishedAt: data.publishedAt }).then(() => {
-     
+      // ✅ NOVO: Limpar dados salvos após envio bem-sucedido
+      clearFormData();
       reset({ title: '', content: '', level: 0, type: 0, departments: [], sendToSubdivisions: false, repeatIntervalMinutes: 0, expireAt: '', publishedAt: '' });
     }).catch(err => {
       toast.error('Erro ao criar mensagem.' + (err?.response?.data?.message ? ` ${err.response.data.message}` : ''));

@@ -9,6 +9,7 @@
 
 import api from '@/config/axios';
 import { generateCodeChallenge, generateCodeVerifier, generateRandomString } from './pkce';
+import { useNavigationStore } from '@/store/useNavigationStore';
 
 interface InitAuthParams {
   setIsLoading: (loading: boolean) => void;
@@ -161,14 +162,24 @@ export async function initializeAuth({
       console.log('📦 Salvando no Zustand store...');
       setTokens(response.data);
 
-      // Limpa a query string
-      window.history.replaceState({}, document.title, '/');
+      // ✅ NOVO: Redirecionar para a página onde o usuário estava
+      const { getRedirectUrl, clearRedirectUrl } = useNavigationStore.getState();
+      const redirectUrl = getRedirectUrl();
+      
+      if (redirectUrl) {
+        console.log('📍 [Navigation] Redirecionando para URL salva:', redirectUrl);
+        clearRedirectUrl();
+        window.history.replaceState({}, document.title, redirectUrl);
+      } else {
+        console.log('📍 [Navigation] Nenhuma URL salva, limpando query string');
+        window.history.replaceState({}, document.title, '/');
+      }
 
       // Limpar dados da sessão após sucesso
       sessionStorage.removeItem('pkce_code_verifier');
       sessionStorage.removeItem('attempted_code');
 
-      console.log('✅ Login completo! Tokens salvos e query string limpa');
+      console.log('✅ Login completo! Tokens salvos e navegação processada');
       setIsLoading(false);
     } catch (error: any) {
       console.error('❌ Erro ao fazer exchange do código');

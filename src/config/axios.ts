@@ -1,6 +1,7 @@
 import axios from 'axios';
 import camelcaseKeys from 'camelcase-keys';
 import { useAuthStore } from '@/store/useAuthStore';
+import { useNavigationStore } from '@/store/useNavigationStore';
 
 /*
 ERR_FR_TOO_MANY_REDIRECTS: Indicates that the request was redirected too many times.
@@ -82,6 +83,14 @@ api.interceptors.response.use(
                 isHandlingAuthError = true;
                 try {
                     console.warn('🚪 [INTERCEPTOR] Forçando logout por erro de autorização...');
+                    
+                    // ✅ NOVO: Salvar URL atual para redirecionar depois da reautenticação
+                    const currentPath = window.location.pathname + window.location.search + window.location.hash;
+                    if (currentPath !== '/auth/login' && currentPath !== '/') {
+                        const { setRedirectUrl } = useNavigationStore.getState();
+                        setRedirectUrl(currentPath);
+                    }
+                    
                     // Chama logout do store (sem hooks)
                     const { logout } = useAuthStore.getState();
                     logout()

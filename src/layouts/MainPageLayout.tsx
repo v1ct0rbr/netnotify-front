@@ -2,13 +2,14 @@
 
 
 import { AppSidebar } from "@/components/app-sidebar";
+import { Footer } from "@/components/footer";
 import Header from "@/components/header";
 import {
     SidebarProvider,
 } from '@/components/ui/sidebar';
 import { useAuthStore } from "@/store/useAuthStore";
 import Cookies from 'js-cookie';
- 
+
 import React, { useEffect } from "react";
 import { Outlet, useMatches, useNavigate } from "react-router-dom";
 
@@ -18,7 +19,7 @@ interface MainPageLayoutProps {
 
 export default function MainPageLayout({ pageTitle }: MainPageLayoutProps): React.ReactElement {
 
-    const {logout, user} = useAuthStore();
+    const { logout, user } = useAuthStore();
     const navigate = useNavigate();
 
     const handleLogout = async () => {
@@ -42,7 +43,7 @@ export default function MainPageLayout({ pageTitle }: MainPageLayoutProps): Reac
         }
     }, []);
 
- 
+
 
     const [isDark] = React.useState<boolean>(() => {
         try {
@@ -68,8 +69,8 @@ export default function MainPageLayout({ pageTitle }: MainPageLayoutProps): Reac
     }, [isDark]);
 
     // Chama checkAuth apenas uma vez ao montar
-  
-        // read the matched routes and prefer the innermost handle.pageTitle when available
+
+    // read the matched routes and prefer the innermost handle.pageTitle when available
     const matches = useMatches();
     const routeTitle = React.useMemo(() => {
         // iterate from last (most specific) to first
@@ -85,7 +86,7 @@ export default function MainPageLayout({ pageTitle }: MainPageLayoutProps): Reac
 
     const titleToShow = routeTitle ?? pageTitle;
 
-        // update the document title to match the route's pageTitle
+    // update the document title to match the route's pageTitle
     React.useEffect(() => {
         try {
             if (typeof document !== "undefined") {
@@ -96,17 +97,19 @@ export default function MainPageLayout({ pageTitle }: MainPageLayoutProps): Reac
         }
     }, [titleToShow]);
 
-    
-        return (
-            <SidebarProvider>
-                <AppSidebar userInfo={user} logout={handleLogout} />
-                <main className="w-full">
+
+    return (
+        <SidebarProvider>
+            <AppSidebar userInfo={user} logout={handleLogout} />
+            <main className="w-full">
                 <Header title={titleToShow} />
-                    
-                    {/* Header will contain the SidebarTrigger and ModeToggle */}
-                    <Outlet />
-                </main>
-            </SidebarProvider>
+
+                {/* Header will contain the SidebarTrigger and ModeToggle */}
+                <Outlet />
+                <Footer />
+            </main>
+
+        </SidebarProvider>
     );
 }
 //  

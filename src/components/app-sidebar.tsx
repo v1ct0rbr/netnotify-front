@@ -40,7 +40,7 @@ const items = [
   },
   {
     title: "Nova Mensagem",
-    url: "/new-message",
+    url: "/new-message?new=true",
     icon: Send,
     adminOnly: false,
   },
