@@ -220,7 +220,7 @@ export const MessageForm: React.FC<HomeFormProps> = ({ id }: HomeFormProps) => {
         </>
         :
         // prevent default submit so we control submission via the button click (which validates before opening dialog)
-        <form onSubmit={(e) => e.preventDefault()} className="space-y-4">
+        <form onSubmit={(e) => e.preventDefault()} className="space-y-4 pb-16">
           <div>
             <label className="block text-sm font-medium mb-1">Title</label>
             <Controller
