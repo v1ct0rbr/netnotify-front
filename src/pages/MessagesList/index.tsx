@@ -18,7 +18,7 @@ import { useAuthStore } from "@/store/useAuthStore";
 import type { ApiPageResponse } from "@/utils/ApiPageResponse";
 import { formatRelativeDate } from "@/utils/DateUtils";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { Copy, Eraser, Eye, Search, Trash2, Filter, FileText, Zap, AlertCircle, Tag } from "lucide-react";
+import { Copy, Eraser, Eye, Search, Trash2, Filter, FileText, Zap, AlertCircle, Tag, Plus } from "lucide-react";
 import React, { useEffect, useState } from "react";
 import { Link, useSearchParams } from "react-router";
 import { AlertMessageDetails } from "./components/AlertMessageDetails";
@@ -205,10 +205,16 @@ const MessagesList: React.FC = () => {
             <div className="bg-gradient-to-r from-blue-50 to-cyan-50 dark:from-slate-900 dark:to-slate-800 rounded-xl p-6 border border-blue-200 dark:border-slate-700 mb-6">
                 <div className="flex items-center gap-2 mb-6">
                     <div className="w-1 h-6 bg-gradient-to-b from-blue-500 to-cyan-500 rounded"></div>
-                    <h3 className="text-lg font-semibold text-foreground flex items-center gap-2">
-                        <Filter size={20} className="text-blue-500" />
-                        Filtrar Mensagens
-                    </h3>
+                    <div className="flex items-center justify-between w-full">
+                        <h3 className="text-lg font-semibold text-foreground flex items-center gap-2">
+                            <Filter size={20} className="text-blue-500" />
+                            Filtrar Mensagens
+                        </h3>
+                        <Link to="/new-message" className=" flex items-center gap-2 text-blue-950">
+                            <Plus size={18} />
+                            Nova Mensagem
+                        </Link>
+                    </div>
                 </div>
 
                 <form
@@ -301,134 +307,134 @@ const MessagesList: React.FC = () => {
             {/* Tabela */}
             <div className="bg-white dark:bg-slate-950 rounded-xl border border-gray-200 dark:border-slate-700 overflow-hidden shadow-sm">
                 <Table>
-                <TableHeader>
-                    <TableRow>
-                        <TableHead>Título</TableHead>
-                        <TableHead>Setores</TableHead>
-                        <TableHead>Usuário</TableHead>
-                        <TableHead>Level</TableHead>
-                        <TableHead>Tipo</TableHead>
-                        <TableHead>Data</TableHead>
-                        <TableHead>Ações</TableHead>
-                    </TableRow>
-                </TableHeader>
-                <TableBody>
-                    {isLoading
-                        ? Array.from({ length: 3 }).map((_, i) => (
-                            <TableRow key={`skeleton-${i}`}>
-                                <TableCell>
-                                    <Skeleton className="h-4 max-w-[300px]" />
-                                </TableCell>
-                                <TableCell>
-                                    <Skeleton className="h-4 w-32" />
-                                </TableCell>
-                                <TableCell>
-                                    <Skeleton className="h-4 w-32" />
-                                </TableCell>
-                                <TableCell>
-                                    <Skeleton className="h-4 w-24" />
-                                </TableCell>
-                                <TableCell>
-                                    <Skeleton className="h-4 w-24" />
-                                </TableCell>
-                                <TableCell>
-                                    <Skeleton className="h-4 w-40" />
-                                </TableCell>
+                    <TableHeader>
+                        <TableRow>
+                            <TableHead>Título</TableHead>
+                            <TableHead>Setores</TableHead>
+                            <TableHead>Usuário</TableHead>
+                            <TableHead>Level</TableHead>
+                            <TableHead>Tipo</TableHead>
+                            <TableHead>Data</TableHead>
+                            <TableHead>Ações</TableHead>
+                        </TableRow>
+                    </TableHeader>
+                    <TableBody>
+                        {isLoading
+                            ? Array.from({ length: 3 }).map((_, i) => (
+                                <TableRow key={`skeleton-${i}`}>
+                                    <TableCell>
+                                        <Skeleton className="h-4 max-w-[300px]" />
+                                    </TableCell>
+                                    <TableCell>
+                                        <Skeleton className="h-4 w-32" />
+                                    </TableCell>
+                                    <TableCell>
+                                        <Skeleton className="h-4 w-32" />
+                                    </TableCell>
+                                    <TableCell>
+                                        <Skeleton className="h-4 w-24" />
+                                    </TableCell>
+                                    <TableCell>
+                                        <Skeleton className="h-4 w-24" />
+                                    </TableCell>
+                                    <TableCell>
+                                        <Skeleton className="h-4 w-40" />
+                                    </TableCell>
 
-                                <TableCell>
-                                    <Skeleton className="h-8 w-12 rounded-md" />
-                                </TableCell>
+                                    <TableCell>
+                                        <Skeleton className="h-8 w-12 rounded-md" />
+                                    </TableCell>
 
-                            </TableRow>
-                        ))
-                        : data?.data.map((msg) => (
-                            <TableRow key={msg.id}>
-                                <TableCell className="max-w-[300px] overflow-hidden text-ellipsis whitespace-nowrap text-left">{msg.title}</TableCell>
-                                <TableCell className="text-left">
-                                    {msg.departments.map((dept) => dept.name).join(", ")}
-                                </TableCell>
-                                <TableCell className="text-left">{msg.user}</TableCell>
-                                <TableCell className="text-left"> <StatusBadge level={msg.level} /></TableCell>
-                                <TableCell className="text-left">{msg.messageType}</TableCell>
-                                <TableCell className="text-left">{formatRelativeDate(msg.createdAt)}</TableCell>
+                                </TableRow>
+                            ))
+                            : data?.data.map((msg) => (
+                                <TableRow key={msg.id}>
+                                    <TableCell className="max-w-[300px] overflow-hidden text-ellipsis whitespace-nowrap text-left">{msg.title}</TableCell>
+                                    <TableCell className="text-left">
+                                        {msg.departments.map((dept) => dept.name).join(", ")}
+                                    </TableCell>
+                                    <TableCell className="text-left">{msg.user}</TableCell>
+                                    <TableCell className="text-left"> <StatusBadge level={msg.level} /></TableCell>
+                                    <TableCell className="text-left">{msg.messageType}</TableCell>
+                                    <TableCell className="text-left">{formatRelativeDate(msg.createdAt)}</TableCell>
 
-                                <TableCell className="text-left flex flex-row items-center gap-0.5">
-                                    {isAdmin && (
-                                        <button
-                                            aria-label="Apagar"
-                                            style={{
-                                                background: "var(--btn-destructive-bg, #f56565)",
-                                                border: "none",
-                                                borderRadius: 4,
-                                                padding: 6,
-                                                cursor: mutation.isPending ? "not-allowed" : "pointer",
-                                                color: "var(--btn-destructive-foreground, #fff)",
-                                                display: "flex",
-                                                alignItems: "center",
-                                                opacity: mutation.isPending ? 0.6 : 1,
-                                            }}
-                                            onClick={() => handleDelete(msg.id)}
-                                            disabled={mutation.isPending}
-                                        >
-                                            <Trash2 size={18} />
-                                        </button>
-                                    )}
-
-                                    <Tooltip>
-                                        <TooltipTrigger asChild>
-
+                                    <TableCell className="text-left flex flex-row items-center gap-0.5">
+                                        {isAdmin && (
                                             <button
-                                                aria-label="Detalhes"
+                                                aria-label="Apagar"
                                                 style={{
-                                                    background: "var(--btn-primary-bg, #4299e1)",
+                                                    background: "var(--btn-destructive-bg, #f56565)",
                                                     border: "none",
                                                     borderRadius: 4,
                                                     padding: 6,
-                                                    cursor: "pointer",
-                                                    color: "var(--btn-primary-foreground, #fff)",
+                                                    cursor: mutation.isPending ? "not-allowed" : "pointer",
+                                                    color: "var(--btn-destructive-foreground, #fff)",
                                                     display: "flex",
                                                     alignItems: "center",
-                                                    marginLeft: 8,
+                                                    opacity: mutation.isPending ? 0.6 : 1,
                                                 }}
-                                                onClick={() => openAlert(msg.id)}
+                                                onClick={() => handleDelete(msg.id)}
+                                                disabled={mutation.isPending}
                                             >
-                                                <Eye size={18} />
+                                                <Trash2 size={18} />
                                             </button>
-                                        </TooltipTrigger>
-                                        <TooltipContent>
-                                            <div className="tooltip-content">Ver detalhes</div>
-                                        </TooltipContent>
-                                    </Tooltip>
-                                    <Tooltip>
-                                        <TooltipTrigger asChild>
-                                            <Link
-                                                aria-label="Clonar"
-                                                style={{
-                                                    background: "var(--btn-success-bg, #68d391)",
-                                                    border: "none",
-                                                    borderRadius: 4,
-                                                    padding: 6,
-                                                    cursor: "pointer",
-                                                    color: "var(--btn-success-foreground, #fff)",
-                                                    display: "flex",
-                                                    alignItems: "center",
-                                                    marginLeft: 8,
-                                                }}
-                                                to={{ pathname: `/new-message`, search: `?id=${msg.id}` }}
-                                            >
-                                                <Copy size={18} />
-                                            </Link>
-                                        </TooltipTrigger>
-                                        <TooltipContent>
-                                            <div className="tooltip-content">Clonar mensagem</div>
-                                        </TooltipContent>
-                                    </Tooltip>
-                                </TableCell>
+                                        )}
 
-                            </TableRow>
-                        ))}
-                </TableBody>
-            </Table>
+                                        <Tooltip>
+                                            <TooltipTrigger asChild>
+
+                                                <button
+                                                    aria-label="Detalhes"
+                                                    style={{
+                                                        background: "var(--btn-primary-bg, #4299e1)",
+                                                        border: "none",
+                                                        borderRadius: 4,
+                                                        padding: 6,
+                                                        cursor: "pointer",
+                                                        color: "var(--btn-primary-foreground, #fff)",
+                                                        display: "flex",
+                                                        alignItems: "center",
+                                                        marginLeft: 8,
+                                                    }}
+                                                    onClick={() => openAlert(msg.id)}
+                                                >
+                                                    <Eye size={18} />
+                                                </button>
+                                            </TooltipTrigger>
+                                            <TooltipContent>
+                                                <div className="tooltip-content">Ver detalhes</div>
+                                            </TooltipContent>
+                                        </Tooltip>
+                                        <Tooltip>
+                                            <TooltipTrigger asChild>
+                                                <Link
+                                                    aria-label="Clonar"
+                                                    style={{
+                                                        background: "var(--btn-success-bg, #68d391)",
+                                                        border: "none",
+                                                        borderRadius: 4,
+                                                        padding: 6,
+                                                        cursor: "pointer",
+                                                        color: "var(--btn-success-foreground, #fff)",
+                                                        display: "flex",
+                                                        alignItems: "center",
+                                                        marginLeft: 8,
+                                                    }}
+                                                    to={{ pathname: `/new-message`, search: `?id=${msg.id}` }}
+                                                >
+                                                    <Copy size={18} />
+                                                </Link>
+                                            </TooltipTrigger>
+                                            <TooltipContent>
+                                                <div className="tooltip-content">Clonar mensagem</div>
+                                            </TooltipContent>
+                                        </Tooltip>
+                                    </TableCell>
+
+                                </TableRow>
+                            ))}
+                    </TableBody>
+                </Table>
             </div>
             <AlertMessageDetails open={isAlertOpen} id={selectedMessageId} onClose={closeAlert} />
 
@@ -442,10 +448,10 @@ const MessagesList: React.FC = () => {
 
             {toast && (
                 <div className="mt-6">
-                    <div className={`p-4 rounded-lg border ${toast.type === "success" 
-                        ? "bg-green-50 dark:bg-green-900/20 border-green-200 dark:border-green-800 text-green-800 dark:text-green-200" 
+                    <div className={`p-4 rounded-lg border ${toast.type === "success"
+                        ? "bg-green-50 dark:bg-green-900/20 border-green-200 dark:border-green-800 text-green-800 dark:text-green-200"
                         : "bg-red-50 dark:bg-red-900/20 border-red-200 dark:border-red-800 text-red-800 dark:text-red-200"
-                    } font-medium`}>
+                        } font-medium`}>
                         {toast.message}
                     </div>
                 </div>
