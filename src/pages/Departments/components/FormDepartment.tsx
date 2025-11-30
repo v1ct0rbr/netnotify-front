@@ -1,9 +1,10 @@
 import type { DepartmentDTO } from "@/api/departments";
 import useDepartmentsApi from "@/api/departments";
 import ConfirmationDialog from "@/components/ConfirmationDialog";
+import { Button } from "@/components/ui/button";
 import { queryClient } from "@/lib/react-query";
 import { zodResolver } from "@hookform/resolvers/zod";
-import { FilePlus2Icon } from "lucide-react";
+import { Building2, Plus, FileText, Edit } from "lucide-react";
 
 import React, { use } from "react";
 import { Controller, useForm } from "react-hook-form";
@@ -87,83 +88,121 @@ const FormDepartment = ({ departments, selectedDepartment }: formDepartmentProps
   }
   return <>
     
-    <div>
-    <form onSubmit={(e) => e.preventDefault()} className="space-y-4">
-      <div>
-        {/* id hidden */}
-        <Controller
-          control={control}
-          name="id"
-          render={({ field }) => (
-            <input type="hidden" {...field} />
-          )}
-        />
-        
+    <div className="bg-gradient-to-r from-blue-50 to-cyan-50 dark:from-slate-900 dark:to-slate-800 rounded-xl p-6 border border-blue-200 dark:border-slate-700">
+      <div className="flex items-center gap-2 mb-6">
+        <div className="w-1 h-6 bg-gradient-to-b from-blue-500 to-cyan-500 rounded"></div>
+        <h3 className="text-lg font-semibold text-foreground flex items-center gap-2">
+          <Building2 size={20} className="text-blue-500" />
+          {updating ? 'Atualizar Departamento' : 'Novo Departamento'}
+        </h3>
       </div>
-       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-      <div>
-                  <label className="block text-sm font-medium mb-1">Nome</label>
-                  <Controller
-                    control={control}
-                    name="name"
-                    render={({ field }) => (
-                      <div>
-                        <input
-                          type="text"
-                          {...field}
-                          className={`w-full border rounded px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 ${errors.name ? 'border-red-500' : 'border-gray-300 dark:border-gray-600'}`}
-                          placeholder="Enter name"
-                        />
-                        {errors.name && <p className="text-red-500 text-sm mt-1">{errors.name.message}</p>}
-                      </div>
-                    )}
-                  />
-                </div>
-                <div>
-                  <label className="block text-sm font-medium mb-1">Departamento Pai</label>
-                  <Controller
-                    control={control}
-                    name="parentDepartmentId" 
-                    render={({ field }) => (
-                      <div>
-                        <select
-                          {...field}
-                          className={`w-full border rounded px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 ${errors.parentDepartmentId ? 'border-red-500' : 'border-gray-300 dark:border-gray-600'}`}
-                        >
-                          <option value="">Nenhum</option>
-                            {departments && departments.map((dept) => (
-                            dept.id !== selectedDepartment?.id && (
-                              <option key={dept.id} value={dept.id}>{dept.name}</option>
-                            )
-                            ))}
-                        </select>
-                        {errors.parentDepartmentId && <p className="text-red-500 text-sm mt-1">{errors.parentDepartmentId.message}</p>}
-                      </div>
-                    )}
-                  />
-                </div>
-                </div>
-                <div className="flex items-center justify-center">
-      <button type="submit" className="btn btn-primary" onClick={openDialog}>
-        {updating ? 'Atualizar' : 'Salvar'}
-        </button>
-      <button type="button" className="btn btn-secondary ml-2 flex items-center" onClick={handleNewDepartment} >
-        <FilePlus2Icon className="mr-2" />
-        Novo Departamento
-      </button>
-    </div>
-    </form>
-     <ConfirmationDialog 
 
-            isOpen={isDialogOpen}
-            title="Confirmar envio"
-            description="Você tem certeza que deseja enviar esta mensagem?"
-            confirmText="Enviar"
-            cancelText="Cancelar"
-            onClose={() => setIsDialogOpen(false)}
-            callback={handleConfirmSend}
+      <form onSubmit={(e) => e.preventDefault()} className="space-y-6">
+        <div>
+          {/* id hidden */}
+          <Controller
+            control={control}
+            name="id"
+            render={({ field }) => (
+              <input type="hidden" {...field} />
+            )}
           />
-   
+        </div>
+
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
+          {/* Nome */}
+          <div className="space-y-3">
+            <div className="flex items-center gap-2">
+              <FileText size={18} className="text-blue-500" />
+              <label className="block text-sm font-medium">Nome do Departamento</label>
+            </div>
+            <Controller
+              control={control}
+              name="name"
+              render={({ field }) => (
+                <div>
+                  <input
+                    type="text"
+                    {...field}
+                    className={`w-full border rounded-lg px-4 py-3 focus:outline-none focus:ring-2 focus:ring-blue-500 dark:bg-slate-950 dark:text-white dark:border-slate-700 transition-all ${errors.name ? 'border-red-500' : 'border-gray-300'}`}
+                    placeholder="Digite o nome do departamento"
+                  />
+                  {errors.name && <p className="text-red-500 text-xs mt-1">{errors.name.message}</p>}
+                  <p className="text-xs text-muted-foreground italic">Obrigatório: Identifique o departamento</p>
+                </div>
+              )}
+            />
+          </div>
+
+          {/* Departamento Pai */}
+          <div className="space-y-3">
+            <div className="flex items-center gap-2">
+              <Building2 size={18} className="text-cyan-500" />
+              <label className="block text-sm font-medium">Departamento Pai</label>
+            </div>
+            <Controller
+              control={control}
+              name="parentDepartmentId" 
+              render={({ field }) => (
+                <div>
+                  <select
+                    {...field}
+                    className={`w-full border rounded-lg px-4 py-3 focus:outline-none focus:ring-2 focus:ring-blue-500 dark:bg-slate-950 dark:text-white dark:border-slate-700 transition-all ${errors.parentDepartmentId ? 'border-red-500' : 'border-gray-300'}`}
+                  >
+                    <option value="">Nenhum</option>
+                    {departments && departments.map((dept) => (
+                      dept.id !== selectedDepartment?.id && (
+                        <option key={dept.id} value={dept.id}>{dept.name}</option>
+                      )
+                    ))}
+                  </select>
+                  {errors.parentDepartmentId && <p className="text-red-500 text-xs mt-1">{errors.parentDepartmentId.message}</p>}
+                  <p className="text-xs text-muted-foreground italic">Opcional: Crie uma hierarquia de departamentos</p>
+                </div>
+              )}
+            />
+          </div>
+        </div>
+
+        <div className="flex flex-col md:flex-row md:justify-end gap-3 pt-3 border-t border-blue-200 dark:border-slate-700">
+          <Button 
+            type="button" 
+            variant="outline" 
+            onClick={handleNewDepartment}
+            className="w-full md:w-auto"
+          >
+            <Plus size={18} className="mr-2" />
+            Novo Departamento
+          </Button>
+          <Button 
+            type="button" 
+            onClick={openDialog} 
+            className='btn-primary w-full md:w-auto'
+          >
+            {updating ? (
+              <>
+                <Edit size={18} className="mr-2" />
+                Atualizar
+              </>
+            ) : (
+              <>
+                <Plus size={18} className="mr-2" />
+                Salvar
+              </>
+            )}
+          </Button>
+        </div>
+      </form>
+
+      <ConfirmationDialog 
+        isOpen={isDialogOpen}
+        title="Confirmar envio"
+        description="Você tem certeza que deseja enviar esta mensagem?"
+        confirmText="Enviar"
+        cancelText="Cancelar"
+        onClose={() => setIsDialogOpen(false)}
+        callback={handleConfirmSend}
+      />
     </div>
   </>;
 }

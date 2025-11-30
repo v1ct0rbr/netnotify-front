@@ -18,7 +18,7 @@ import { useAuthStore } from "@/store/useAuthStore";
 import type { ApiPageResponse } from "@/utils/ApiPageResponse";
 import { formatRelativeDate } from "@/utils/DateUtils";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { Copy, Eraser, Eye, Search, Trash2 } from "lucide-react";
+import { Copy, Eraser, Eye, Search, Trash2, Filter, FileText, Zap, AlertCircle, Tag } from "lucide-react";
 import React, { useEffect, useState } from "react";
 import { Link, useSearchParams } from "react-router";
 import { AlertMessageDetails } from "./components/AlertMessageDetails";
@@ -199,55 +199,81 @@ const MessagesList: React.FC = () => {
     }, [appliedFilters]);
 
     return (
-        <div style={{ padding: 24 }}>
+        <div className="p-6">
 
-            {/* Filter form */}
-            <div className="mb-4">
+            {/* Filtros Section */}
+            <div className="bg-gradient-to-r from-blue-50 to-cyan-50 dark:from-slate-900 dark:to-slate-800 rounded-xl p-6 border border-blue-200 dark:border-slate-700 mb-6">
+                <div className="flex items-center gap-2 mb-6">
+                    <div className="w-1 h-6 bg-gradient-to-b from-blue-500 to-cyan-500 rounded"></div>
+                    <h3 className="text-lg font-semibold text-foreground flex items-center gap-2">
+                        <Filter size={20} className="text-blue-500" />
+                        Filtrar Mensagens
+                    </h3>
+                </div>
+
                 <form
                     onSubmit={(e) => { e.preventDefault(); setPage(1); applyFilters(); }}
-                    className="grid grid-cols-1 md:grid-cols-12 gap-4 items-end"
+                    className="space-y-5"
                 >
-                    <div className="md:col-span-4">
-                        <label className="block text-sm font-medium mb-1">Título</label>
-                        <input
-                            value={titleFilter}
-                            onChange={(e) => setTitleFilter(e.target.value)}
-                            onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); setPage(1); applyFilters(); } }}
-                            className="w-full border rounded-md px-3 py-2 text-sm"
-                            placeholder="Buscar por título"
-                        />
+                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-5">
+                        {/* Título */}
+                        <div className="space-y-3">
+                            <div className="flex items-center gap-2">
+                                <FileText size={18} className="text-blue-500" />
+                                <label className="block text-sm font-medium">Título</label>
+                            </div>
+                            <input
+                                value={titleFilter}
+                                onChange={(e) => setTitleFilter(e.target.value)}
+                                onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); setPage(1); applyFilters(); } }}
+                                className="w-full border rounded-lg px-4 py-3 focus:outline-none focus:ring-2 focus:ring-blue-500 dark:bg-slate-950 dark:text-white dark:border-slate-700 transition-all text-sm"
+                                placeholder="Buscar por título"
+                            />
+                        </div>
+
+                        {/* Conteúdo */}
+                        <div className="space-y-3">
+                            <div className="flex items-center gap-2">
+                                <Zap size={18} className="text-cyan-500" />
+                                <label className="block text-sm font-medium">Conteúdo</label>
+                            </div>
+                            <input
+                                value={contentFilter}
+                                onChange={(e) => setContentFilter(e.target.value)}
+                                onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); setPage(1); applyFilters(); } }}
+                                className="w-full border rounded-lg px-4 py-3 focus:outline-none focus:ring-2 focus:ring-cyan-500 dark:bg-slate-950 dark:text-white dark:border-slate-700 transition-all text-sm"
+                                placeholder="Buscar por conteúdo"
+                            />
+                        </div>
+
+                        {/* Level */}
+                        <div className="space-y-3">
+                            <div className="flex items-center gap-2">
+                                <AlertCircle size={18} className="text-amber-500" />
+                                <label className="block text-sm font-medium">Nível</label>
+                            </div>
+                            <StyledSelect
+                                options={[{ label: "Todos", value: "" }, ...(levels ?? []).map((l) => ({ label: l.name, value: String(l.id) }))]}
+                                value={levelIdFilter}
+                                onChange={(e) => setLevelIdFilter(e.target.value)}
+                            />
+                        </div>
+
+                        {/* Tipo */}
+                        <div className="space-y-3">
+                            <div className="flex items-center gap-2">
+                                <Tag size={18} className="text-orange-500" />
+                                <label className="block text-sm font-medium">Tipo</label>
+                            </div>
+                            <StyledSelect
+                                options={[{ label: "Todos", value: "" }, ...(types ?? []).map((t) => ({ label: t.name, value: String(t.id) }))]}
+                                value={messageTypeIdFilter}
+                                onChange={(e) => setMessageTypeIdFilter(e.target.value)}
+                            />
+                        </div>
                     </div>
 
-                    <div className="md:col-span-4">
-                        <label className="block text-sm font-medium mb-1">Conteúdo</label>
-                        <input
-                            value={contentFilter}
-                            onChange={(e) => setContentFilter(e.target.value)}
-                            onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); setPage(1); applyFilters(); } }}
-                            className="w-full border rounded-md px-3 py-2 text-sm"
-                            placeholder="Buscar por conteúdo"
-                        />
-                    </div>
-
-                    <div className="md:col-span-2">
-                        <label className="block text-sm font-medium mb-1">Level</label>
-                        <StyledSelect
-                            options={[{ label: "Todos", value: "" }, ...(levels ?? []).map((l) => ({ label: l.name, value: String(l.id) }))]}
-                            value={levelIdFilter}
-                            onChange={(e) => setLevelIdFilter(e.target.value)}
-                        />
-                    </div>
-
-                    <div className="md:col-span-2">
-                        <label className="block text-sm font-medium mb-1">Tipo</label>
-                        <StyledSelect
-                            options={[{ label: "Todos", value: "" }, ...(types ?? []).map((t) => ({ label: t.name, value: String(t.id) }))]}
-                            value={messageTypeIdFilter}
-                            onChange={(e) => setMessageTypeIdFilter(e.target.value)}
-                        />
-                    </div>
-
-                    <div className="md:col-span-12 flex flex-col md:flex-row md:justify-end gap-2">
+                    <div className="flex flex-col md:flex-row md:justify-end gap-3 pt-3 border-t border-blue-200 dark:border-slate-700">
                         <Button
                             size="sm"
                             variant="outline"
@@ -255,7 +281,7 @@ const MessagesList: React.FC = () => {
                             type="button"
                             className="w-full md:w-auto"
                         >
-                            <Eraser className="mr-1" />
+                            <Eraser size={18} className="mr-2" />
                             Limpar
                         </Button>
 
@@ -263,17 +289,18 @@ const MessagesList: React.FC = () => {
                             size="sm"
                             onClick={() => { setPage(1); applyFilters(); }}
                             type="button"
-                            className="w-full md:w-auto"
+                            className="w-full md:w-auto btn-primary"
                         >
-                            <Search className="mr-1" />
+                            <Search size={18} className="mr-2" />
                             Aplicar
                         </Button>
                     </div>
                 </form>
             </div>
 
-            {/* Table */}
-            <Table>
+            {/* Tabela */}
+            <div className="bg-white dark:bg-slate-950 rounded-xl border border-gray-200 dark:border-slate-700 overflow-hidden shadow-sm">
+                <Table>
                 <TableHeader>
                     <TableRow>
                         <TableHead>Título</TableHead>
@@ -282,7 +309,7 @@ const MessagesList: React.FC = () => {
                         <TableHead>Level</TableHead>
                         <TableHead>Tipo</TableHead>
                         <TableHead>Data</TableHead>
-                        {isAdmin && <TableHead>Ações</TableHead>}
+                        <TableHead>Ações</TableHead>
                     </TableRow>
                 </TableHeader>
                 <TableBody>
@@ -402,9 +429,10 @@ const MessagesList: React.FC = () => {
                         ))}
                 </TableBody>
             </Table>
+            </div>
             <AlertMessageDetails open={isAlertOpen} id={selectedMessageId} onClose={closeAlert} />
 
-            <div style={{ display: "flex", justifyContent: "center", marginTop: 24 }}>
+            <div className="flex justify-center mt-8">
                 {isLoading ? (
                     <Skeleton className="h-9 w-64" />
                 ) : (
@@ -413,8 +441,11 @@ const MessagesList: React.FC = () => {
             </div>
 
             {toast && (
-                <div style={{ marginTop: 12 }}>
-                    <div style={{ padding: 8, borderRadius: 6, background: toast.type === "success" ? "#e6ffed" : "#ffe6e6" }}>
+                <div className="mt-6">
+                    <div className={`p-4 rounded-lg border ${toast.type === "success" 
+                        ? "bg-green-50 dark:bg-green-900/20 border-green-200 dark:border-green-800 text-green-800 dark:text-green-200" 
+                        : "bg-red-50 dark:bg-red-900/20 border-red-200 dark:border-red-800 text-red-800 dark:text-red-200"
+                    } font-medium`}>
                         {toast.message}
                     </div>
                 </div>

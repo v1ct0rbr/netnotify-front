@@ -59,12 +59,23 @@ const MultiSelect = React.forwardRef<HTMLDivElement, MultiSelectProps>(
       }
     }, [isOpen])
 
+    // Scroll para item destacado
+    React.useEffect(() => {
+      if (highlightedIndex >= 0 && optionsRef.current) {
+        const highlightedElement = optionsRef.current.children[highlightedIndex] as HTMLElement
+        if (highlightedElement) {
+          highlightedElement.scrollIntoView({ behavior: 'smooth', block: 'nearest' })
+        }
+      }
+    }, [highlightedIndex])
+
     // Handler de teclado para navegação com setas
     const handleKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
       if (!isOpen) {
         if (e.key === 'ArrowDown' || e.key === 'ArrowUp') {
           e.preventDefault()
           setIsOpen(true)
+          setHighlightedIndex(0)
         }
         return
       }
@@ -94,6 +105,11 @@ const MultiSelect = React.forwardRef<HTMLDivElement, MultiSelectProps>(
 
         case 'Escape':
           e.preventDefault()
+          setIsOpen(false)
+          setHighlightedIndex(-1)
+          break
+
+        case 'Tab':
           setIsOpen(false)
           setHighlightedIndex(-1)
           break
@@ -150,19 +166,24 @@ const MultiSelect = React.forwardRef<HTMLDivElement, MultiSelectProps>(
         {...props}
       >
         {/* Botão/Container principal */}
-        <button
-          type="button"
+        <div
           onClick={() => !disabled && setIsOpen(!isOpen)}
-          disabled={disabled}
+          role="button"
+          tabIndex={0}
+          onKeyDown={(e) => {
+            if (e.key === 'Enter' || e.key === ' ') {
+              e.preventDefault()
+              !disabled && setIsOpen(!isOpen)
+            }
+          }}
           className={cn(
             'w-full h-auto min-h-10 px-3 py-2 rounded-md border border-input bg-background',
             'text-sm ring-offset-background placeholder:text-muted-foreground',
             'flex flex-wrap items-center gap-2',
-            'hover:bg-accent hover:text-accent-foreground',
+            'hover:bg-accent hover:text-accent-foreground cursor-pointer',
             'focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2',
-            'disabled:cursor-not-allowed disabled:opacity-50',
-            isOpen && 'ring-2 ring-ring ring-offset-2',
-            disabled && 'bg-muted cursor-not-allowed'
+            disabled && 'bg-muted cursor-not-allowed opacity-50',
+            isOpen && 'ring-2 ring-ring ring-offset-2'
           )}
         >
           {/* Tags com valores selecionados */}
@@ -174,17 +195,25 @@ const MultiSelect = React.forwardRef<HTMLDivElement, MultiSelectProps>(
               >
                 {label}
                 {!disabled && (
-                  <button
-                    type="button"
+                  <span
                     onClick={(e) => {
                       e.preventDefault()
                       e.stopPropagation()
                       removeTag(value[idx])
                     }}
-                    className="ml-1 inline-flex items-center rounded-full hover:bg-muted-foreground/20"
+                    role="button"
+                    tabIndex={0}
+                    onKeyDown={(e) => {
+                      if (e.key === 'Enter') {
+                        e.preventDefault()
+                        e.stopPropagation()
+                        removeTag(value[idx])
+                      }
+                    }}
+                    className="ml-1 inline-flex items-center rounded-full hover:bg-muted-foreground/20 cursor-pointer"
                   >
                     <X className="h-3 w-3" />
-                  </button>
+                  </span>
                 )}
               </span>
             ))
@@ -194,34 +223,42 @@ const MultiSelect = React.forwardRef<HTMLDivElement, MultiSelectProps>(
 
           {/* Botão clear */}
           {!disabled && value.length > 0 && (
-            <button
-              type="button"
+            <span
               onClick={(e) => {
                 e.preventDefault()
                 e.stopPropagation()
-                clearAll(e)
+                clearAll(e as React.MouseEvent)
               }}
-              className="ml-auto inline-flex h-5 w-5 items-center justify-center rounded-full hover:bg-muted"
+              role="button"
+              tabIndex={0}
+              onKeyDown={(e) => {
+                if (e.key === 'Enter') {
+                  e.preventDefault()
+                  e.stopPropagation()
+                  clearAll(e as any)
+                }
+              }}
+              className="ml-auto inline-flex h-5 w-5 items-center justify-center rounded-full hover:bg-muted cursor-pointer"
             >
               <X className="h-4 w-4 opacity-50 hover:opacity-100" />
-            </button>
+            </span>
           )}
-        </button>
+        </div>
 
         {/* Dropdown de opções */}
         {isOpen && (
-          <div className="absolute z-50 top-full left-0 right-0 mt-1 bg-popover border border-input rounded-md shadow-md">
+          <div className="absolute z-50 top-full left-0 right-0 mt-1 bg-popover border border-input rounded-md shadow-lg">
             {/* Input de busca */}
             <input
               ref={inputRef}
               type="text"
-              placeholder="Buscar..."
+              placeholder="Buscar... (Use ↑ ↓ para navegar, Enter para selecionar)"
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
               onKeyDown={handleKeyDown}
               className={cn(
-                'w-full px-3 py-2 border-b border-input bg-background text-sm',
-                'placeholder:text-muted-foreground focus:outline-none'
+                'w-full px-3 py-3 border-b border-input bg-background text-sm',
+                'placeholder:text-muted-foreground focus:outline-none focus:ring-1 focus:ring-blue-500'
               )}
             />
 
@@ -229,20 +266,29 @@ const MultiSelect = React.forwardRef<HTMLDivElement, MultiSelectProps>(
             <div ref={optionsRef} className="max-h-64 overflow-y-auto">
               {filteredOptions.length > 0 ? (
                 filteredOptions.map((option, idx) => (
-                  <button
+                  <div
                     key={option.value}
-                    type="button"
                     onClick={() => toggleOption(option.value)}
                     className={cn(
-                      'w-full text-left px-3 py-2 text-sm transition-colors',
-                      'hover:bg-accent hover:text-accent-foreground',
-                      highlightedIndex === idx && 'bg-blue-100 dark:bg-blue-900',
+                      'w-full text-left px-3 py-2.5 text-sm cursor-pointer transition-all duration-150',
+                      'hover:bg-blue-50 dark:hover:bg-blue-900/30',
+                      highlightedIndex === idx && 'bg-blue-100 dark:bg-blue-900 font-semibold',
                       value.includes(option.value) &&
-                        'bg-accent text-accent-foreground font-medium'
+                        'bg-green-50 dark:bg-green-900/20 text-green-700 dark:text-green-400 font-medium',
+                      highlightedIndex === idx && value.includes(option.value) &&
+                        'bg-blue-100 dark:bg-blue-900'
                     )}
                   >
-                    {option.label}
-                  </button>
+                    <div className="flex items-center gap-2">
+                      <div className={cn(
+                        'w-4 h-4 rounded border',
+                        value.includes(option.value) 
+                          ? 'bg-blue-500 border-blue-500' 
+                          : 'border-gray-300 dark:border-gray-600'
+                      )} />
+                      <span>{option.label}</span>
+                    </div>
+                  </div>
                 ))
               ) : (
                 <div className="px-3 py-6 text-center text-sm text-muted-foreground">

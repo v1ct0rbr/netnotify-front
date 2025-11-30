@@ -2,7 +2,7 @@
 
 
 import { AppSidebar } from "@/components/app-sidebar";
-import { Footer } from "@/components/footer";
+import { Footer } from "@/components/Footer";
 import Header from "@/components/header";
 import {
     SidebarProvider,
@@ -101,16 +101,16 @@ export default function MainPageLayout({ pageTitle }: MainPageLayoutProps): Reac
     return (
         <SidebarProvider>
             <AppSidebar userInfo={user} logout={handleLogout} />
-            <main className="w-full">
+            <main className="w-full pb-12">
                 <Header title={titleToShow} />
 
                 {/* Header will contain the SidebarTrigger and ModeToggle */}
                 <Outlet />
-                <Footer />
+                <Footer  />
             </main>
 
         </SidebarProvider>
     );
 }
 //  
-
+ 

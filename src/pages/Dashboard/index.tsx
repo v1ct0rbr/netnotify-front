@@ -86,45 +86,53 @@ const Dashboard = () => {
 
   return (
     <div className="p-8 space-y-8">
-      {/* Cards de resumo */}
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-        <Card className="p-6">
-          <div className="flex flex-col">
-            <span className="text-sm font-medium text-muted-foreground">
+      {/* Cards de resumo com efeitos melhorados */}
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+        <Card className="stat-card">
+          <div className="flex flex-col relative z-10">
+            <span className="text-sm font-medium text-muted-foreground uppercase tracking-wide">
               Total de Mensagens
             </span>
-            <span className="text-3xl font-bold mt-2">{data.totalMessages}</span>
+            <span className="text-4xl font-bold mt-3" style={{background: 'linear-gradient(135deg, #3b82f6 0%, #8b5cf6 100%)', WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent', backgroundClip: 'text'}}>
+              {data.totalMessages}
+            </span>
           </div>
         </Card>
 
-        <Card className="p-6">
-          <div className="flex flex-col">
-            <span className="text-sm font-medium text-muted-foreground">
+        <Card className="stat-card">
+          <div className="flex flex-col relative z-10">
+            <span className="text-sm font-medium text-muted-foreground uppercase tracking-wide">
               Níveis
             </span>
-            <span className="text-3xl font-bold mt-2">{levelData.length}</span>
+            <span className="text-4xl font-bold mt-3" style={{background: 'linear-gradient(135deg, #10b981 0%, #06b6d4 100%)', WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent', backgroundClip: 'text'}}>
+              {levelData.length}
+            </span>
           </div>
         </Card>
 
-        <Card className="p-6">
-          <div className="flex flex-col">
-            <span className="text-sm font-medium text-muted-foreground">
+        <Card className="stat-card">
+          <div className="flex flex-col relative z-10">
+            <span className="text-sm font-medium text-muted-foreground uppercase tracking-wide">
               Tipos
             </span>
-            <span className="text-3xl font-bold mt-2">{typeData.length}</span>
+            <span className="text-4xl font-bold mt-3" style={{background: 'linear-gradient(135deg, #f59e0b 0%, #ec4899 100%)', WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent', backgroundClip: 'text'}}>
+              {typeData.length}
+            </span>
           </div>
         </Card>
       </div>
 
-      {/* Gráficos */}
+      {/* Gráficos com cards melhorados */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
         {/* Gráfico de Barras - Por Nível */}
-        <Card className="p-6">
-          <h3 className="text-lg font-semibold mb-4">Mensagens por Nível</h3>
+        <Card className="p-8">
+          <h3 className="text-xl font-bold mb-6" style={{background: 'linear-gradient(135deg, #3b82f6 0%, #8b5cf6 100%)', WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent', backgroundClip: 'text'}}>
+            Mensagens por Nível
+          </h3>
           {levelData.length > 0 ? (
-            <ResponsiveContainer width="100%" height={300}>
+            <ResponsiveContainer width="100%" height={320}>
               <BarChart data={levelData}>
-                <CartesianGrid strokeDasharray="3 3" className="dark:opacity-20" />
+                <CartesianGrid strokeDasharray="3 3" className="dark:opacity-20" stroke="#3b82f6" opacity={0.1} />
                 <XAxis
                   dataKey="name"
                   className="text-xs dark:text-gray-400"
@@ -133,12 +141,14 @@ const Dashboard = () => {
                 <Tooltip
                   contentStyle={{
                     backgroundColor: "hsl(var(--background))",
-                    border: "1px solid hsl(var(--border))",
-                    borderRadius: "0.5rem",
+                    border: "2px solid #3b82f6",
+                    borderRadius: "0.75rem",
+                    boxShadow: "0 10px 25px rgba(59, 130, 246, 0.2)",
                   }}
                   labelStyle={{ color: "hsl(var(--foreground))" }}
+                  cursor={{ fill: 'rgba(59, 130, 246, 0.1)' }}
                 />
-                <Bar dataKey="value" fill="#3b82f6" radius={[8, 8, 0, 0]} />
+                <Bar dataKey="value" fill="#3b82f6" radius={[12, 12, 0, 0]} />
               </BarChart>
             </ResponsiveContainer>
           ) : (
@@ -149,10 +159,12 @@ const Dashboard = () => {
         </Card>
 
         {/* Gráfico de Pizza - Por Tipo */}
-        <Card className="p-6">
-          <h3 className="text-lg font-semibold mb-4">Mensagens por Tipo</h3>
+        <Card className="p-8">
+          <h3 className="text-xl font-bold mb-6" style={{background: 'linear-gradient(135deg, #f59e0b 0%, #ec4899 100%)', WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent', backgroundClip: 'text'}}>
+            Mensagens por Tipo
+          </h3>
           {typeData.length > 0 ? (
-            <ResponsiveContainer width="100%" height={300}>
+            <ResponsiveContainer width="100%" height={320}>
               <PieChart>
                 <Pie
                   data={typeData}
@@ -160,7 +172,7 @@ const Dashboard = () => {
                   cy="50%"
                   labelLine={false}
                   label={({ name, value }: any) => `${name}: ${value}`}
-                  outerRadius={80}
+                  outerRadius={100}
                   fill="#8884d8"
                   dataKey="value"
                 >
@@ -171,8 +183,9 @@ const Dashboard = () => {
                 <Tooltip
                   contentStyle={{
                     backgroundColor: "hsl(var(--background))",
-                    border: "1px solid hsl(var(--border))",
-                    borderRadius: "0.5rem",
+                    border: "2px solid #ec4899",
+                    borderRadius: "0.75rem",
+                    boxShadow: "0 10px 25px rgba(236, 72, 153, 0.2)",
                   }}
                   labelStyle={{ color: "hsl(var(--foreground))" }}
                 />

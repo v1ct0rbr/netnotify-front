@@ -13,6 +13,16 @@
     --sidebar-accent-foreground: oklch(0.205 0 0);
     --sidebar-border: oklch(0.922 0 0);
     --sidebar-ring: oklch(0.708 0 0);
+    
+    /* Cores vibrantes adicionais */
+    --primary-bright: #3b82f6;
+    --primary-light: #60a5fa;
+    --secondary: #8b5cf6;
+    --tertiary: #ec4899;
+    --success: #10b981;
+    --warning: #f59e0b;
+    --danger: #ef4444;
+    --info: #06b6d4;
   }
 
   .dark {
@@ -21,7 +31,8 @@
     --sidebar-primary: oklch(0.488 0.243 264.376);
     --sidebar-primary-foreground: oklch(0.985 0 0);
     --sidebar-accent: oklch(0.269 0 0);
-    --sidebar-accent-foreground: oklch(0.985 0 0);    --sidebar-border: oklch(1 0 0 / 10%);
+    --sidebar-accent-foreground: oklch(0.985 0 0);    
+    --sidebar-border: oklch(1 0 0 / 10%);
     --sidebar-ring: oklch(0.439 0 0);
   }
 }
@@ -204,24 +215,75 @@
     transition: background-color 300ms ease, color 200ms ease;
   }
 
-  /* Card styles for elevated panels */
+  /* Card styles with enhanced shadows and effects */
   .card {
-    @apply rounded-xl p-6 bg-card text-card-foreground border border-border shadow-md;
-    transition: background-color 300ms ease, box-shadow 250ms ease, transform 150ms ease;
+    @apply rounded-xl p-6 bg-card text-card-foreground border border-border;
+    box-shadow: 0 4px 6px rgba(0, 0, 0, 0.07), 0 10px 20px rgba(0, 0, 0, 0.05);
+    transition: all 300ms cubic-bezier(0.4, 0, 0.2, 1);
+    position: relative;
+    overflow: hidden;
   }
 
-  /* Primary button with accent gradient and gentle lift on hover */
-  .btn-primary {
-    @apply inline-flex items-center gap-2 px-4 py-2 rounded-lg font-semibold;
-    background-color: var(--primary);
-    color: var(--primary-foreground);
-    box-shadow: 0 8px 20px rgba(16,24,40,0.06);
-    border: 1px solid rgba(0,0,0,0.06);
-    transition: transform .12s ease, box-shadow .12s ease, opacity .12s ease;
+  .card::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: -100%;
+    width: 100%;
+    height: 100%;
+    background: linear-gradient(90deg, transparent, rgba(255,255,255,0.05), transparent);
+    transition: left 500ms cubic-bezier(0.4, 0, 0.2, 1);
+    z-index: 1;
+    pointer-events: none;
   }
+
+  .card:hover {
+    transform: translateY(-4px);
+    box-shadow: 0 12px 24px rgba(0, 0, 0, 0.15), 0 20px 40px rgba(0, 0, 0, 0.1);
+  }
+
+  .card:hover::before {
+    left: 100%;
+  }
+
+  /* Primary button with gradient and effects */
+  .btn-primary {
+    @apply inline-flex items-center gap-2 px-6 py-3 rounded-lg font-semibold text-white;
+    background: linear-gradient(135deg, #3b82f6 0%, #8b5cf6 100%);
+    box-shadow: 0 4px 15px rgba(59, 130, 246, 0.3), 0 0 30px rgba(139, 92, 246, 0.2);
+    border: 1px solid rgba(255, 255, 255, 0.2);
+    transition: all 200ms cubic-bezier(0.4, 0, 0.2, 1);
+    position: relative;
+    overflow: hidden;
+  }
+
+  .btn-primary::before {
+    content: '';
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    width: 0;
+    height: 0;
+    border-radius: 50%;
+    background: rgba(255, 255, 255, 0.4);
+    transform: translate(-50%, -50%);
+    transition: width 600ms cubic-bezier(0.4, 0, 0.2, 1), height 600ms cubic-bezier(0.4, 0, 0.2, 1);
+    z-index: 0;
+  }
+
   .btn-primary:hover {
     transform: translateY(-2px);
-    box-shadow: 0 10px 26px rgba(16,24,40,0.08);
+    box-shadow: 0 8px 25px rgba(59, 130, 246, 0.4), 0 0 40px rgba(139, 92, 246, 0.3);
+    letter-spacing: 0.5px;
+  }
+
+  .btn-primary:active {
+    transform: translateY(0);
+  }
+
+  .btn-primary:active::before {
+    width: 300px;
+    height: 300px;
   }
 
   /* Muted element style */
@@ -236,5 +298,110 @@
   }
   .text-primary {
     color: var(--primary) !important;
+  }
+
+  /* Stat cards for dashboard */
+  .stat-card {
+    @apply p-6 rounded-xl border border-border relative overflow-hidden;
+    background: linear-gradient(135deg, rgba(59, 130, 246, 0.1) 0%, rgba(139, 92, 246, 0.05) 100%);
+    transition: all 300ms cubic-bezier(0.4, 0, 0.2, 1);
+  }
+
+  .stat-card:hover {
+    transform: translateY(-8px);
+    background: linear-gradient(135deg, rgba(59, 130, 246, 0.15) 0%, rgba(139, 92, 246, 0.1) 100%);
+    box-shadow: 0 12px 24px rgba(59, 130, 246, 0.1);
+  }
+
+  .stat-card::after {
+    content: '';
+    position: absolute;
+    top: -50%;
+    right: -50%;
+    width: 200px;
+    height: 200px;
+    border-radius: 50%;
+    background: radial-gradient(circle, rgba(139, 92, 246, 0.3) 0%, transparent 70%);
+    pointer-events: none;
+  }
+
+  /* Improved inputs */
+  input, textarea, select {
+    @apply px-4 py-3 rounded-lg border border-border;
+    background: hsl(var(--input));
+    transition: all 200ms cubic-bezier(0.4, 0, 0.2, 1);
+    font-size: 1rem;
+  }
+
+  input:focus, textarea:focus, select:focus {
+    outline: none;
+    border-color: var(--primary-bright);
+    box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.1);
+  }
+
+  input::placeholder {
+    color: var(--muted-foreground);
+    opacity: 0.7;
+  }
+
+  /* Improved tables */
+  table {
+    @apply w-full border-collapse;
+  }
+
+  thead {
+    background: linear-gradient(90deg, rgba(59, 130, 246, 0.1) 0%, rgba(139, 92, 246, 0.05) 100%);
+    border-bottom: 2px solid var(--primary-bright);
+  }
+
+  th {
+    @apply px-6 py-4 text-left font-semibold;
+    color: var(--primary-bright);
+    text-transform: uppercase;
+    font-size: 0.875rem;
+    letter-spacing: 0.05em;
+  }
+
+  td {
+    @apply px-6 py-4 border-b border-border;
+  }
+
+  tbody tr {
+    transition: all 200ms cubic-bezier(0.4, 0, 0.2, 1);
+  }
+
+  tbody tr:hover {
+    background: rgba(59, 130, 246, 0.05);
+  }
+
+  /* Dialog animations */
+  [role="dialog"] {
+    animation: slideUp 300ms cubic-bezier(0.4, 0, 0.2, 1);
+  }
+
+  @keyframes slideUp {
+    from {
+      opacity: 0;
+      transform: translateY(20px);
+    }
+    to {
+      opacity: 1;
+      transform: translateY(0);
+    }
+  }
+
+  /* Headings with improved typography */
+  h1 {
+    @apply font-bold tracking-tight;
+    letter-spacing: -0.02em;
+  }
+
+  h2 {
+    @apply font-bold tracking-tight;
+    letter-spacing: -0.01em;
+  }
+
+  h3 {
+    @apply font-semibold tracking-tight;
   }
 }

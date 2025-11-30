@@ -16,6 +16,7 @@ import React from 'react';
 import { Controller, useForm } from 'react-hook-form';
 import { toast } from 'sonner';
 import * as z from 'zod';
+import { AlertCircle, FileText, Zap, Tag, Building2, GitBranch, Calendar, Clock, RefreshCw, Mail, Plus, MessageSquare, MessageSquareCode, MessageSquareMore, MessageSquareDashed, MessageSquareQuote, MessageSquareText } from 'lucide-react';
 
 const FormSchema = z.object({
   title: z.string().min(1, 'O título é obrigatório').max(100, 'O título deve ter no máximo 100 caracteres').optional(),
@@ -25,8 +26,8 @@ const FormSchema = z.object({
   departments: z.array(z.string()).optional(),
   sendToSubdivisions: z.boolean().optional(),
   repeatIntervalMinutes: z.number().min(0, 'O intervalo de repetição deve ser maior ou igual a 0').optional(),
-    expireAt: z.string().optional(),
-    publishedAt: z.string().optional(),
+  expireAt: z.string().optional(),
+  publishedAt: z.string().optional(),
 }).superRefine((data, ctx) => {
   // Se expireAt está preenchido, repeatIntervalMinutes é obrigatório e deve ser > 0
   if (data.expireAt && data.expireAt.trim()) {
@@ -156,7 +157,7 @@ export const MessageForm: React.FC<HomeFormProps> = ({ id }: HomeFormProps) => {
   React.useEffect(() => {
     const urlParams = new URLSearchParams(window.location.search);
     const isNew = urlParams.get('new') === 'true';
-    
+
     if (isNew) {
       console.log('✨ [MessageForm] Parâmetro new=true detectado - limpando formulário');
       clearFormData();
@@ -220,185 +221,298 @@ export const MessageForm: React.FC<HomeFormProps> = ({ id }: HomeFormProps) => {
         </>
         :
         // prevent default submit so we control submission via the button click (which validates before opening dialog)
-        <form onSubmit={(e) => e.preventDefault()} className="space-y-4 pb-16">
-          <div>
-            <label className="block text-sm font-medium mb-1">Title</label>
-            <Controller
-              control={control}
-              name="title"
-              render={({ field }) => (
-                <div>
-                  <input
-                    type="text"
-                    {...field}
-                    className={`w-full border rounded px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500 ${errors.title ? 'border-red-500' : 'border-gray-300'}`}
-                    placeholder="Enter title"
-                  />
-                  {errors.title && <p className="text-red-500 text-sm mt-1">{errors.title.message}</p>}
+        <form onSubmit={(e) => e.preventDefault()} className="space-y-6 pb-16">
+          {/* Informações Básicas */}
+          <div className="bg-gradient-to-r from-blue-50 to-cyan-50 dark:from-slate-900 dark:to-slate-800 rounded-xl p-6 border border-blue-200 dark:border-slate-700">
+            <div className="flex items-center gap-2 mb-6">
+              <div className="w-1 h-6 bg-gradient-to-b from-blue-500 to-cyan-500 rounded"></div>
+              <div className='w-full flex justify-between items-center'>
+                <h3 className="text-lg font-semibold text-foreground justify-between">Informações Básicas
+
+
+                </h3>
+                <div className='flex items-center'>
+                  <button type="button" onClick={() => reset()} className="ml-4 text-sm text-blue-600 hover:text-blue-800 hover:bg-blue-50 dark:hover:bg-blue-900/20 rounded px-2 py-1 flex items-center gap-1">
+                    <RefreshCw size={16} />
+                    Restaurar
+                  </button>
+                  <button type="button" onClick={() => reset({ title: '', content: '', level: 0, type: 0, departments: [], sendToSubdivisions: false, repeatIntervalMinutes: 0, expireAt: '', publishedAt: '' })} className="ml-4 text-sm text-blue-600 hover:text-blue-800 hover:bg-blue-50 dark:hover:bg-blue-900/20 rounded px-2 py-1 flex items-center gap-1">
+                    <Plus size={16} />
+                    Novo Formulário
+                  </button>
                 </div>
-              )}
-            />
-          </div>
+              </div>
+            </div>
 
-          <div>
-            <label className="block text-sm font-medium mb-1">Content</label>
-            <Controller
-              control={control}
-              name="content"
-              render={({ field }) => (
-                <div>
-
-                  <TinyMceEditor key={msg ? `msg-content-${unescapeServerHtml(msg.content)}` : 'tinymce-initial'} value={field.value} onChange={field.onChange} />
-                  {errors.content && <p className="text-red-500 text-sm mt-1">{errors.content.message}</p>}
+            <div className="space-y-5">
+              {/* Título */}
+              <div className="space-y-3">
+                <div className="flex items-center gap-2">
+                  <FileText size={18} className="text-blue-500" />
+                  <label className="block text-sm font-medium">Título</label>
                 </div>
-              )}
-            />
+                <Controller
+                  control={control}
+                  name="title"
+                  render={({ field }) => (
+                    <div>
+                      <input
+                        type="text"
+                        {...field}
+                        className={`w-full border rounded-lg px-4 py-3 focus:outline-none focus:ring-2 focus:ring-blue-500 dark:bg-slate-950 dark:text-white dark:border-slate-700 transition-all ${errors.title ? 'border-red-500' : 'border-gray-300'}`}
+                        placeholder="Digite o título da mensagem"
+
+                      />
+                      {errors.title && <p className="text-red-500 text-xs mt-1">{errors.title.message}</p>}
+                      <p className="text-xs text-muted-foreground italic">Obrigatório: Identifique a mensagem com um título</p>
+                    </div>
+                  )}
+                />
+              </div>
+
+              {/* Conteúdo */}
+              <div className="space-y-3">
+                <div className="flex items-center gap-2">
+                  <Zap size={18} className="text-cyan-500" />
+                  <label className="block text-sm font-medium">Conteúdo</label>
+                </div>
+                <Controller
+                  control={control}
+                  name="content"
+                  render={({ field }) => (
+                    <div>
+                      <TinyMceEditor key={msg ? `msg-content-${unescapeServerHtml(msg.content)}` : 'tinymce-initial'} value={field.value} onChange={field.onChange} />
+                      {errors.content && <p className="text-red-500 text-xs mt-1">{errors.content.message}</p>}
+                      <p className="text-xs text-muted-foreground italic">Obrigatório: Use o editor para formatar o conteúdo</p>
+                    </div>
+                  )}
+                />
+              </div>
+            </div>
           </div>
 
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            <div>
-              <label className="block text-sm font-medium mb-1">Level</label>
-              <Controller
-                control={control}
-                name="level"
-                render={({ field }) => (
-                  <div>
-                    <StyledSelect
-                      options={[{ label: 'Selecione', value: '' }, ...((levelsData || []).map((l: any) => ({ label: l.name, value: String(l.id) })))]}
-                      value={field.value === 0 ? '' : String(field.value)}
-                      onChange={(e) => field.onChange(Number(e.target.value))}
-                    />
-                    {errors.level && <p className="text-red-500 text-sm mt-1">{errors.level.message}</p>}
-                  </div>
-                )}
-              />
+          {/* Configuração da Mensagem */}
+          <div className="bg-gradient-to-r from-amber-50 to-orange-50 dark:from-slate-900 dark:to-slate-800 rounded-xl p-6 border border-amber-200 dark:border-slate-700">
+            <div className="flex items-center gap-2 mb-6">
+              <div className="w-1 h-6 bg-gradient-to-b from-amber-500 to-orange-500 rounded"></div>
+              <h3 className="text-lg font-semibold text-foreground">Configuração da Mensagem</h3>
             </div>
 
-            <div>
-              <label className="block text-sm font-medium mb-1">Type</label>
-              <Controller
-                control={control}
-                name="type"
-                render={({ field }) => (
-                  <div>
-                    <StyledSelect
-                      options={[{ label: 'Selecione', value: '' }, ...((typesData || []).map((t: any) => ({ label: t.name, value: String(t.id) })))]}
-                      value={field.value === 0 ? '' : String(field.value)}
-                      onChange={(e) => field.onChange(Number(e.target.value))}
-                    />
-                    {errors.type && <p className="text-red-500 text-sm mt-1">{errors.type.message}</p>}
-                  </div>
-                )}
-              />
-            </div>
-            <div>
-              <label className="block text-sm font-medium mb-1">Departamentos</label>
-              <Controller
-                control={control}
-                name="departments"
-                render={({ field }) => (
-                  <div>
-                    <MultiSelect
-                      options={(departmentsData || []).map((d: any) => ({ label: d.name, value: d.id }))}
-                      value={field.value || []}
-                      onValueChange={field.onChange}
-                      placeholder="Select departments"
-                    />
-                    {errors.departments && <p className="text-red-500 text-sm mt-1">{errors.departments.message}</p>}
-                  </div>
-                )}
-              />
-            </div>
-            <div>
-              <label className="block text-sm font-medium mb-1">Enviar para Subdivisões</label>
-              <Controller
-                control={control}
-                name="sendToSubdivisions"
-                render={({ field }) => (
-                  <div>
-                    <StyledSelect
-                      options={[{ label: 'Não', value: 'false' }, { label: 'Sim', value: 'true' }]}
-                      value={field.value ? 'true' : 'false'}
-                      onChange={(e) => field.onChange(e.target.value === 'true')}
-                    />
-                    {errors.sendToSubdivisions && <p className="text-red-500 text-sm mt-1">{errors.sendToSubdivisions.message}</p>}
-                  </div>
-                )}
-              />
-            </div>
-            <div>
-              <label className="block text-sm font-medium mb-1">Published At</label>
-              <Controller
-                control={control}
-                name="publishedAt"
-                render={({ field }) => (
-                  <div>
-                    <input
-                      type="datetime-local"
-                      {...field}
-                      className={`w-full border rounded px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500 dark:bg-slate-950 dark:text-white dark:border-slate-700 ${errors.publishedAt ? 'border-red-500' : 'border-gray-300'}`}
-                    />
-                    {errors.publishedAt && <p className="text-red-500 text-sm mt-1">{errors.publishedAt.message}</p>}
-                  </div>
-                )}
-              />
-              <button type="button" className="text-sm text-blue-500 mt-1 underline" onClick={() => {
-                reset({ ...watch(), publishedAt: '' });
-              }}>Limpar data</button>
-            </div>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
+              {/* Nível */}
+              <div className="space-y-3">
+                <div className="flex items-center gap-2">
+                  <AlertCircle size={18} className="text-amber-500" />
+                  <label className="block text-sm font-medium">Nível de Severidade</label>
+                </div>
+                <Controller
+                  control={control}
+                  name="level"
+                  render={({ field }) => (
+                    <div>
+                      <StyledSelect
+                        options={[{ label: 'Selecione', value: '' }, ...((levelsData || []).map((l: any) => ({ label: l.name, value: String(l.id) })))]}
+                        value={field.value === 0 ? '' : String(field.value)}
+                        onChange={(e) => field.onChange(Number(e.target.value))}
+                      />
+                      {errors.level && <p className="text-red-500 text-xs mt-1">{errors.level.message}</p>}
+                      <p className="text-xs text-muted-foreground italic">Obrigatório: Define a importância da mensagem</p>
+                    </div>
+                  )}
+                />
+              </div>
 
-            <div>
-              <label className="block text-sm font-medium mb-1">Expire At</label>
-              <Controller
-                control={control}
-                name="expireAt"
-                render={({ field }) => (
-                  <div>
-                    <input
-                      type="datetime-local"
-                      {...field}
-                      className={`w-full border rounded px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500 dark:bg-slate-950 dark:text-white dark:border-slate-700 ${errors.expireAt ? 'border-red-500' : 'border-gray-300'}`}
-                    />
-                    {errors.expireAt && <p className="text-red-500 text-sm mt-1">{errors.expireAt.message}</p>}
-                  </div>
-                )}
-              />
-              <button type="button" className="text-sm text-blue-500 mt-1 underline" onClick={() => {
-                reset({ ...watch(), expireAt: '' });
-              }}>Limpar data</button>
-            </div>
+              {/* Tipo */}
+              <div className="space-y-3">
+                <div className="flex items-center gap-2">
+                  <Tag size={18} className="text-orange-500" />
+                  <label className="block text-sm font-medium">Tipo de Mensagem</label>
+                </div>
+                <Controller
+                  control={control}
+                  name="type"
+                  render={({ field }) => (
+                    <div>
+                      <StyledSelect
+                        options={[{ label: 'Selecione', value: '' }, ...((typesData || []).map((t: any) => ({ label: t.name, value: String(t.id) })))]}
+                        value={field.value === 0 ? '' : String(field.value)}
+                        onChange={(e) => field.onChange(Number(e.target.value))}
+                      />
+                      {errors.type && <p className="text-red-500 text-xs mt-1">{errors.type.message}</p>}
+                      <p className="text-xs text-muted-foreground italic">Obrigatório: Categorize a mensagem</p>
+                    </div>
+                  )}
+                />
+              </div>
 
-            <div>
-              <label className="block text-sm font-medium mb-1">
-                Repeat Interval (Minutes)
-                {hasExpireDate && <span className="text-red-500">*</span>}
-              </label>
-              <Controller
-                control={control}
-                name="repeatIntervalMinutes"
-                render={({ field }) => (
-                  <div>
-                    <input
-                      type="number"
-                      {...field}
-                      value={field.value || ''}
-                      onChange={(e) => field.onChange(e.target.value === '' ? undefined : Number(e.target.value))}
-                      disabled={!hasExpireDate}
-                      className={`w-full border rounded px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500 disabled:bg-gray-100 disabled:cursor-not-allowed ${errors.repeatIntervalMinutes ? 'border-red-500' : 'border-gray-300'}`}
-                      placeholder={hasExpireDate ? 'Obrigatório quando data de expiração é definida' : 'Desabilitado - defina uma data de expiração primeiro'}
-                      min={0}
-                    />
-                    {errors.repeatIntervalMinutes && <p className="text-red-500 text-sm mt-1">{errors.repeatIntervalMinutes.message}</p>}
-                    {!hasExpireDate && <p className="text-gray-500 text-sm mt-1">Este campo é opcional. Ative preenchendo a data de expiração.</p>}
-                  </div>
-                )}
-              />
-            </div>
+              {/* Departamentos */}
+              <div className="space-y-3">
+                <div className="flex items-center gap-2">
+                  <Building2 size={18} className="text-orange-500" />
+                  <label className="block text-sm font-medium">Departamentos</label>
+                </div>
+                <Controller
+                  control={control}
+                  name="departments"
+                  render={({ field }) => (
+                    <div>
+                      <MultiSelect
+                        options={(departmentsData || []).map((d: any) => ({ label: d.name, value: d.id }))}
+                        value={field.value || []}
+                        onValueChange={field.onChange}
+                        placeholder="Selecione os departamentos"
+                      />
+                      {errors.departments && <p className="text-red-500 text-xs mt-1">{errors.departments.message}</p>}
+                      <p className="text-xs text-muted-foreground italic">Opcional: Deixe vazio para enviar a todos</p>
+                    </div>
+                  )}
+                />
+              </div>
 
+              {/* Enviar para Subdivisões */}
+              <div className="space-y-3">
+                <div className="flex items-center gap-2">
+                  <GitBranch size={18} className="text-amber-500" />
+                  <label className="block text-sm font-medium">Incluir Subdivisões</label>
+                </div>
+                <Controller
+                  control={control}
+                  name="sendToSubdivisions"
+                  render={({ field }) => (
+                    <div>
+                      <StyledSelect
+                        options={[{ label: 'Não', value: 'false' }, { label: 'Sim', value: 'true' }]}
+                        value={field.value ? 'true' : 'false'}
+                        onChange={(e) => field.onChange(e.target.value === 'true')}
+                      />
+                      {errors.sendToSubdivisions && <p className="text-red-500 text-xs mt-1">{errors.sendToSubdivisions.message}</p>}
+                      <p className="text-xs text-muted-foreground italic">Ativa a propagação para subdivisões</p>
+                    </div>
+                  )}
+                />
+              </div>
+            </div>
           </div>
 
-          {/* validate and open confirmation dialog on click */}
-          <Button type="button" onClick={openDialog} className='btn-primary'>Enviar</Button>
+          {/* Agendamento e Repetição */}
+          <div className="bg-gradient-to-r from-purple-50 to-pink-50 dark:from-slate-900 dark:to-slate-800 rounded-xl p-6 border border-purple-200 dark:border-slate-700">
+            <div className="flex items-center gap-2 mb-6">
+              <div className="w-1 h-6 bg-gradient-to-b from-purple-500 to-pink-500 rounded"></div>
+              <h3 className="text-lg font-semibold text-foreground">Agendamento e Repetição</h3>
+            </div>
+
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+              {/* Publicar em */}
+              <div className="space-y-3">
+                <div className="flex items-center gap-2">
+                  <Calendar size={18} className="text-purple-500" />
+                  <label className="block text-sm font-medium">Publicar em</label>
+                </div>
+                <Controller
+                  control={control}
+                  name="publishedAt"
+                  render={({ field }) => (
+                    <div>
+                      <input
+                        type="datetime-local"
+                        {...field}
+                        className={`w-full border rounded-lg px-4 py-3 focus:outline-none focus:ring-2 focus:ring-blue-500 dark:bg-slate-950 dark:text-white dark:border-slate-700 transition-all ${errors.publishedAt ? 'border-red-500' : 'border-gray-300'}`}
+                      />
+                      {errors.publishedAt && <p className="text-red-500 text-xs mt-1">{errors.publishedAt.message}</p>}
+                    </div>
+                  )}
+                />
+                <button
+                  type="button"
+                  className="text-xs text-blue-500 hover:text-blue-700 font-medium transition-colors"
+                  onClick={() => {
+                    reset({ ...watch(), publishedAt: '' });
+                  }}
+                >
+                  ✕ Limpar data
+                </button>
+                <p className="text-xs text-muted-foreground italic">Opcional: data de publicação futura</p>
+              </div>
+
+              {/* Expirar em */}
+              <div className="space-y-3">
+                <div className="flex items-center gap-2">
+                  <Clock size={18} className="text-pink-500" />
+                  <label className="block text-sm font-medium">Expirar em</label>
+                </div>
+                <Controller
+                  control={control}
+                  name="expireAt"
+                  render={({ field }) => (
+                    <div>
+                      <input
+                        type="datetime-local"
+                        {...field}
+                        className={`w-full border rounded-lg px-4 py-3 focus:outline-none focus:ring-2 focus:ring-purple-500 dark:bg-slate-950 dark:text-white dark:border-slate-700 transition-all ${errors.expireAt ? 'border-red-500' : 'border-gray-300'}`}
+                      />
+                      {errors.expireAt && <p className="text-red-500 text-xs mt-1">{errors.expireAt.message}</p>}
+                    </div>
+                  )}
+                />
+                <button
+                  type="button"
+                  className="text-xs text-purple-500 hover:text-purple-700 font-medium transition-colors"
+                  onClick={() => {
+                    reset({ ...watch(), expireAt: '' });
+                  }}
+                >
+                  ✕ Limpar data
+                </button>
+                <p className="text-xs text-muted-foreground italic">Opcional: data de expiração da mensagem</p>
+              </div>
+
+              {/* Intervalo de Repetição */}
+              <div className="space-y-3">
+                <div className="flex items-center gap-2">
+                  <RefreshCw size={18} className="text-pink-500" />
+                  <label className="block text-sm font-medium">
+                    Repetir (min)
+                    {hasExpireDate && <span className="text-red-500 ml-1">*</span>}
+                  </label>
+                </div>
+                <Controller
+                  control={control}
+                  name="repeatIntervalMinutes"
+                  render={({ field }) => (
+                    <div>
+                      <input
+                        type="number"
+                        {...field}
+                        value={field.value || ''}
+                        onChange={(e) => field.onChange(e.target.value === '' ? undefined : Number(e.target.value))}
+                        disabled={!hasExpireDate}
+                        className={`w-full border rounded-lg px-4 py-3 focus:outline-none focus:ring-2 focus:ring-pink-500 dark:bg-slate-950 dark:text-white dark:border-slate-700 transition-all disabled:opacity-50 disabled:cursor-not-allowed ${errors.repeatIntervalMinutes ? 'border-red-500' : 'border-gray-300'}`}
+                        placeholder={hasExpireDate ? 'ex: 60' : 'Defina expiração primeiro'}
+                        min={0}
+                      />
+                      {errors.repeatIntervalMinutes && <p className="text-red-500 text-xs mt-1">{errors.repeatIntervalMinutes.message}</p>}
+                      {!hasExpireDate && <p className="text-xs text-amber-600 dark:text-amber-400 italic font-medium">⚠️ Ative preenchendo "Expirar em"</p>}
+                      {hasExpireDate && <p className="text-xs text-green-600 dark:text-green-400 italic">✓ Obrigatório quando expiração ativa</p>}
+                    </div>
+                  )}
+                />
+              </div>
+            </div>
+
+            <div className="mt-6 pt-4 border-t border-purple-200 dark:border-slate-700">
+              <p className="text-xs text-muted-foreground">
+                <span className="font-semibold">💡 Dica:</span> Configure quando a mensagem será publicada, expirada e repetida automaticamente
+              </p>
+            </div>
+          </div>
+
+          {/* Botão de Envio */}
+          <div className="flex justify-end gap-3 pt-4">
+            <Button type="button" onClick={openDialog} className='btn-primary min-w-32'>
+              <MessageSquareText size={18} className="mr-2" />
+              Enviar Mensagem
+            </Button>
+          </div>
         </form>
       }
 

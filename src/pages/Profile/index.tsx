@@ -88,7 +88,7 @@ function Profile() {
                     </CardHeader>
                     <CardContent>
                         <p className="text-sm font-mono bg-slate-50 dark:bg-slate-900 p-3 rounded-lg">
-                            {user.username}
+                            {user.fullName}
                         </p>
                     </CardContent>
                 </Card>
