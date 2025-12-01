@@ -1,4 +1,4 @@
-import { Outlet } from 'react-router';
+import { Outlet, useNavigate } from 'react-router';
 import { useEffect, useState } from 'react';
 import { useAuthStore } from '@/store/useAuthStore';
 import { LoadingScreen } from './LoadingScreen';
@@ -17,6 +17,7 @@ import { initializeAuth } from '@/utils/auth-init';
 export const SecuredContent: React.FC = () => {
   const [isLoading, setIsLoading] = useState(true);
   const { setTokens, isAuthenticated, user, token } = useAuthStore();
+  const navigate = useNavigate();
 
   console.log('🔍 SecuredContent render:', { isLoading, isAuthenticated, hasUser: !!user, hasToken: !!token });
 
@@ -29,6 +30,29 @@ export const SecuredContent: React.FC = () => {
       setTokens,
     });
   }, []); // Dependency array vazio = executa apenas uma vez no mount
+
+  // ✅ NOVO: Efeito para redirecionar após reautenticação bem-sucedida
+  useEffect(() => {
+    // Só executar quando NÃO estamos carregando e há autenticação
+    if (!isLoading && isAuthenticated && user && token) {
+      console.log('✅ [SecuredContent] Autenticação confirmada após reauth');
+      
+      // Verificar se há URL salva para redirecionamento
+      const redirectUrl = localStorage.getItem('redirect_url_after_reauth');
+      if (redirectUrl && redirectUrl !== '/' && redirectUrl !== window.location.pathname) {
+        console.log('📍 [SecuredContent] Redirecionando para URL salva:', redirectUrl);
+        localStorage.removeItem('redirect_url_after_reauth');
+        
+        // Usar navigate ao invés de window.location para evitar recarregar
+        // Mas primeiro, dar um pequeno delay para garantir que o estado está sincronizado
+        const timeout = setTimeout(() => {
+          navigate(redirectUrl, { replace: true });
+        }, 100);
+        
+        return () => clearTimeout(timeout);
+      }
+    }
+  }, [isLoading, isAuthenticated, user, token, navigate]);
 
   // Se usuário e token estão no store (persistência), está autenticado
   const hasPersistedAuth = !!user && !!token;

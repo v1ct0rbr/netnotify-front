@@ -16,7 +16,7 @@ import React from 'react';
 import { Controller, useForm } from 'react-hook-form';
 import { toast } from 'sonner';
 import * as z from 'zod';
-import { AlertCircle, FileText, Zap, Tag, Building2, GitBranch, Calendar, Clock, RefreshCw, Mail, Plus, MessageSquare, MessageSquareCode, MessageSquareMore, MessageSquareDashed, MessageSquareQuote, MessageSquareText } from 'lucide-react';
+import { AlertCircle, FileText, Zap, Tag, Building2, GitBranch, Calendar, Clock, RefreshCw, Plus, MessageSquareText } from 'lucide-react';
 
 const FormSchema = z.object({
   title: z.string().min(1, 'O título é obrigatório').max(100, 'O título deve ter no máximo 100 caracteres').optional(),
@@ -169,7 +169,11 @@ export const MessageForm: React.FC<HomeFormProps> = ({ id }: HomeFormProps) => {
   React.useEffect(() => {
     const savedData = getFormData();
     if (savedData && !id) { // Só restaura se não estiver editando uma mensagem existente
-      console.log('Restaurando dados do formulário:', savedData);
+      console.log('✅ [MessageForm] Dados do formulário restaurados após reauth:', savedData);
+      
+      // Mostrar toast informando que o formulário foi recuperado
+      toast.success('✅ Formulário restaurado! Seus dados foram preservados durante a reautenticação.');
+      
       reset(savedData);
     }
   }, []);
@@ -197,9 +201,14 @@ export const MessageForm: React.FC<HomeFormProps> = ({ id }: HomeFormProps) => {
   const submitForm = (data: FormData) => {
     createMessage({ title: data.title, content: htmlToString(data.content), level: data.level, type: data.type, departments: data.departments, sendToSubdivisions: data.sendToSubdivisions, repeatIntervalMinutes: data.repeatIntervalMinutes, expireAt: data.expireAt, publishedAt: data.publishedAt }).then(() => {
       // ✅ NOVO: Limpar dados salvos após envio bem-sucedido
+      console.log('✅ [MessageForm] Mensagem enviada com sucesso - limpando dados salvos');
       clearFormData();
       reset({ title: '', content: '', level: 0, type: 0, departments: [], sendToSubdivisions: false, repeatIntervalMinutes: 0, expireAt: '', publishedAt: '' });
+      toast.success('✅ Mensagem enviada com sucesso!');
     }).catch(err => {
+      // ✅ NOVO: NÃO limpar dados se houver erro
+      // Os dados são preservados para que o usuário possa tentar novamente
+      console.warn('⚠️ [MessageForm] Erro ao enviar - dados preservados para novo envio');
       toast.error('Erro ao criar mensagem.' + (err?.response?.data?.message ? ` ${err.response.data.message}` : ''));
     });
   }

@@ -82,11 +82,16 @@ api.interceptors.response.use(
             if (!isAuthEndpoint && !isHandlingAuthError) {
                 isHandlingAuthError = true;
                 try {
-                    console.warn('🚪 [INTERCEPTOR] Forçando logout por erro de autorização...');
+                    console.warn('🚪 [INTERCEPTOR] Token expirado durante operação...');
                     
                     // ✅ NOVO: Salvar URL atual para redirecionar depois da reautenticação
+                    // Persistir no localStorage para sobreviver ao reload
                     const currentPath = window.location.pathname + window.location.search + window.location.hash;
-                    if (currentPath !== '/auth/login' && currentPath !== '/') {
+                    if (currentPath !== '/login' && currentPath !== '/') {
+                        console.log('💾 [INTERCEPTOR] Salvando URL de redirecionamento para após reauth:', currentPath);
+                        localStorage.setItem('redirect_url_after_reauth', currentPath);
+                        
+                        // Também salvar no store para consistência
                         const { setRedirectUrl } = useNavigationStore.getState();
                         setRedirectUrl(currentPath);
                     }

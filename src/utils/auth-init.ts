@@ -163,11 +163,19 @@ export async function initializeAuth({
       setTokens(response.data);
 
       // ✅ NOVO: Redirecionar para a página onde o usuário estava
-      const { getRedirectUrl, clearRedirectUrl } = useNavigationStore.getState();
-      const redirectUrl = getRedirectUrl();
+      // Verificar primeiro localStorage (persiste após reauth), depois store
+      let redirectUrl = localStorage.getItem('redirect_url_after_reauth');
+      
+      if (!redirectUrl) {
+        // Fallback para o store Zustand
+        const { getRedirectUrl } = useNavigationStore.getState();
+        redirectUrl = getRedirectUrl();
+      }
       
       if (redirectUrl) {
         console.log('📍 [Navigation] Redirecionando para URL salva:', redirectUrl);
+        localStorage.removeItem('redirect_url_after_reauth'); // Limpar após usar
+        const { clearRedirectUrl } = useNavigationStore.getState();
         clearRedirectUrl();
         window.history.replaceState({}, document.title, redirectUrl);
       } else {
