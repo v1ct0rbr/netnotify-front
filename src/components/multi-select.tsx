@@ -28,8 +28,7 @@ const MultiSelect = React.forwardRef<HTMLDivElement, MultiSelectProps>(
       className,
       ...props
     },
-    ref
-  ) => {
+     ) => {
     const [isOpen, setIsOpen] = React.useState(false)
     const [searchTerm, setSearchTerm] = React.useState('')
     const [highlightedIndex, setHighlightedIndex] = React.useState(-1)

@@ -50,19 +50,7 @@ const useDepartmentsApi = () => {
         }
     };
 
-    const updateDepartment = async (departmentDto: DepartmentDTO): Promise<SimpleResponse<String>> => {
-        try {
-            const response = await api.put<String>(`/departments/update`, departmentDto);
-            return {
-                object: response.data,
-                message: 'Departamento atualizado com sucesso.',
-                status: 'SUCCESS'
-            };
-        } catch (error) {
-            toast.error(`Erro ao atualizar departamento. ${error}`);
-            throw error;
-        }
-    };
+    
 
     const deleteDepartment = async (departmentId: string): Promise<SimpleResponse<String>> => {
         try {

@@ -12,7 +12,7 @@ const DepartmentsPage = () => {
 
   // usuário precisa ser admin para acessar a página de departamentos
   const { isAdmin } = authService;
-  const { getDepartments, createDepartment, deleteDepartment } = useDepartmentsApi();
+  const { getDepartments, deleteDepartment } = useDepartmentsApi();
   const [selectedDepartment, setSelectedDepartment] = React.useState<DepartmentDTO | null>(null);
   
   
