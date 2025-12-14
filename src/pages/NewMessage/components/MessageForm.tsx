@@ -7,7 +7,7 @@ import { Button } from '@/components/ui/button';
 import { Skeleton } from '@/components/ui/skeleton';
 import { StyledSelect } from '@/components/ui/styled-select';
 import api from '@/config/axios';
-import { htmlToString, unescapeServerHtml } from '@/utils/StringUtils';
+import { unescapeServerHtml } from '@/utils/StringUtils';
 import { useFormStore } from '@/store/useFormStore';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { useQuery } from '@tanstack/react-query';
@@ -199,7 +199,7 @@ export const MessageForm: React.FC<HomeFormProps> = ({ id }: HomeFormProps) => {
   }, [watch, saveFormData]);
 
   const submitForm = (data: FormData) => {
-    createMessage({ title: data.title, content: htmlToString(data.content), level: data.level, type: data.type, departments: data.departments, sendToSubdivisions: data.sendToSubdivisions, repeatIntervalMinutes: data.repeatIntervalMinutes, expireAt: data.expireAt, publishedAt: data.publishedAt }).then(() => {
+    createMessage({ title: data.title, content: data.content, level: data.level, type: data.type, departments: data.departments, sendToSubdivisions: data.sendToSubdivisions, repeatIntervalMinutes: data.repeatIntervalMinutes, expireAt: data.expireAt, publishedAt: data.publishedAt }).then(() => {
       // ✅ NOVO: Limpar dados salvos após envio bem-sucedido
       console.log('✅ [MessageForm] Mensagem enviada com sucesso - limpando dados salvos');
       clearFormData();
