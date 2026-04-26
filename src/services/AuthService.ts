@@ -61,12 +61,15 @@ class AuthService {
         user: response.data.user
       });
       
-      // Armazena tokens e dados do usuário no localStorage
-      localStorage.setItem('token', response.data.access_token);
-      localStorage.setItem('access_token', response.data.access_token); // Compatibilidade
-      localStorage.setItem('refresh_token', response.data.refresh_token);
-      localStorage.setItem('expires_in', response.data.expires_in?.toString() || '3600');
-      localStorage.setItem('token_type', response.data.token_type || 'Bearer');
+      // Normalizar resposta: backend pode retornar accessToken, access_token ou acessToken (typo)
+      const accessToken = response.data.accessToken || response.data.access_token || response.data.acessToken;
+      const refreshTokenVal = response.data.refreshToken || response.data.refresh_token;
+      const expiresIn = response.data.expiresIn || response.data.expires_in;
+
+      localStorage.setItem('access_token', accessToken);
+      localStorage.setItem('refresh_token', refreshTokenVal);
+      localStorage.setItem('expires_in', String(expiresIn || '3600'));
+      localStorage.setItem('token_type', response.data.tokenType || response.data.token_type || 'Bearer');
       if (response.data.user) {
         localStorage.setItem('user', JSON.stringify(response.data.user));
       }
@@ -178,14 +181,11 @@ class AuthService {
    * Retorna token atual
    */
   getAccessToken(): string | null {
-    return localStorage.getItem('token');
+    return localStorage.getItem('access_token');
   }
 
-  /**
-   * Verifica se está autenticado
-   */
   isAuthenticated(): boolean {
-    return !!localStorage.getItem('token');
+    return !!localStorage.getItem('access_token');
   }
 
   isAdmin(): boolean {

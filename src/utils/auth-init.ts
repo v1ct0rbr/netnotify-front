@@ -10,6 +10,7 @@
 import api from '@/config/axios';
 import { generateCodeChallenge, generateCodeVerifier, generateRandomString } from './pkce';
 import { useNavigationStore } from '@/store/useNavigationStore';
+import { useAuthStore } from '@/store/useAuthStore';
 
 interface InitAuthParams {
   setIsLoading: (loading: boolean) => void;
@@ -37,14 +38,15 @@ export async function initializeAuth({
   });
   
   if (accessToken && storedUser) {
-    console.log('🔄 [SYNC] Tokens encontrados no localStorage - restaurando...');
-    console.log('💾 [SYNC] storedUser JSON:', storedUser);
-    
     try {
       const userData = JSON.parse(storedUser);
-      console.log('🔄 [SYNC] Usuário restaurado:', userData.username);
-      
-      // Restaurar o estado no Zustand com os tokens do localStorage
+
+      const authState = useAuthStore.getState();
+      if (authState.isAuthenticated && authState.user && authState.token === accessToken) {
+        setIsLoading(false);
+        return;
+      }
+
       setTokens({
         accessToken,
         refreshToken: refreshToken || '',
@@ -52,10 +54,9 @@ export async function initializeAuth({
         tokenType: localStorage.getItem('token_type') || 'Bearer',
         user: userData,
       });
-      
-      console.log('✅ [SYNC] Zustand sincronizado - user já autenticado');
+
       setIsLoading(false);
-      return; // Saiu da função - user já tem token válido
+      return;
     } catch (error) {
       console.error('❌ [SYNC] Erro ao sincronizar:', error);
     }
@@ -125,6 +126,12 @@ export async function initializeAuth({
     console.log('📤 Enviando para backend em /auth/callback...');
 
     try {
+      try {
+        sessionStorage.setItem('auth_exchange_in_progress', '1');
+      } catch {
+        // ignore
+      }
+
       if (!codeVerifier) {
         console.warn('⚠️ code_verifier não encontrado! Backend deve ser capaz de processar sem PKCE ou...');
         console.warn('   Isso pode acontecer se a página foi recarregada após redirect do Keycloak');
@@ -183,7 +190,6 @@ export async function initializeAuth({
         window.history.replaceState({}, document.title, '/');
       }
 
-      // Limpar dados da sessão após sucesso
       sessionStorage.removeItem('pkce_code_verifier');
       sessionStorage.removeItem('attempted_code');
 
@@ -194,13 +200,16 @@ export async function initializeAuth({
       console.error('   Status HTTP:', error.response?.status);
       console.error('   Mensagem:', error.response?.data?.message || error.message);
       console.error('   Resposta completa:', error.response?.data);
-      console.error('   Headers enviados:', error.config?.headers);
-      console.error('   Payload enviado:', error.config?.data);
-      
-      // Limpar query string mesmo em caso de erro para evitar retry infinito
+
       window.history.replaceState({}, document.title, '/');
-      
+
       setIsLoading(false);
+    } finally {
+      try {
+        sessionStorage.removeItem('auth_exchange_in_progress');
+      } catch {
+        // ignore
+      }
     }
   } else if (!code) {
     // Sem token e sem code: redirecionar para login no Keycloak

@@ -9,12 +9,72 @@ import { toast } from 'sonner';
  * Deve corresponder ao enum ApplicationRole do backend
  */
 export type ApplicationRole = 
-  | 'SERVER_MANAGER'      // Pode gerenciar servidores
-  | 'ALERT_MANAGER'       // Pode gerenciar alertas
-  | 'REPORT_VIEWER'       // Pode visualizar relatórios
-  | 'SYSTEM_ADMIN'        // Administração completa do sistema
-  | 'MONITORING_VIEWER'   // Apenas visualização de monitoramento
+  | 'SERVER_MANAGER'
+  | 'ALERT_MANAGER'
+  | 'REPORT_VIEWER'
+  | 'SYSTEM_ADMIN'
+  | 'MONITORING_VIEWER'
   | 'ROLE_USER';
+
+function mapToApplicationRole(role: string): ApplicationRole | null {
+  const r = role.toUpperCase();
+  if (r === 'SERVER_MANAGER' || r.includes('SERVER_MANAGER')) return 'SERVER_MANAGER';
+  if (r === 'ALERT_MANAGER' || r.includes('ALERT_MANAGER')) return 'ALERT_MANAGER';
+  if (r === 'REPORT_VIEWER' || r.includes('REPORT_VIEWER')) return 'REPORT_VIEWER';
+  if (r === 'SYSTEM_ADMIN' || r.includes('SYSTEM_ADMIN') || r.includes('ADMIN')) return 'SYSTEM_ADMIN';
+  if (r === 'MONITORING_VIEWER' || r.includes('MONITORING_VIEWER')) return 'MONITORING_VIEWER';
+  if (r === 'ROLE_USER' || r.includes('USER')) return 'ROLE_USER';
+  return null;
+}
+
+function extractApplicationRolesFromToken(
+  token: string | null | undefined,
+  knownRoles?: string[] | null,
+): ApplicationRole[] {
+  const set = new Set<ApplicationRole>();
+
+  if (Array.isArray(knownRoles)) {
+    knownRoles.forEach((r) => {
+      const mapped = mapToApplicationRole(r);
+      if (mapped) set.add(mapped);
+    });
+  }
+
+  if (!token) return Array.from(set);
+
+  try {
+    const parts = token.split('.');
+    if (parts.length < 2) return Array.from(set);
+    const payload = JSON.parse(decodeURIComponent(
+      atob(parts[1].replace(/-/g, '+').replace(/_/g, '/'))
+        .split('')
+        .map((c) => '%' + ('00' + c.charCodeAt(0).toString(16)).slice(-2))
+        .join(''),
+    ));
+
+    if (payload?.realm_access?.roles && Array.isArray(payload.realm_access.roles)) {
+      payload.realm_access.roles.forEach((r: string) => {
+        const mapped = mapToApplicationRole(r);
+        if (mapped) set.add(mapped);
+      });
+    }
+
+    if (payload?.resource_access && typeof payload.resource_access === 'object') {
+      Object.values(payload.resource_access).forEach((res: any) => {
+        if (res?.roles && Array.isArray(res.roles)) {
+          res.roles.forEach((r: string) => {
+            const mapped = mapToApplicationRole(r);
+            if (mapped) set.add(mapped);
+          });
+        }
+      });
+    }
+  } catch (e) {
+    console.warn('[auth] erro ao decodificar token para extrair roles', e);
+  }
+
+  return Array.from(set);
+}
 
 export interface UserInfo {
   fullName: string;
@@ -57,65 +117,66 @@ export const useAuthStore = create<AuthState>()(
   setUser: (user) => set({ user, isAuthenticated: !!user }),
   setToken: (token) => set({ token }),
 
-  // Método para armazenar tokens e usuário recebidos do OAuth2 Keycloak
   setTokens: (response: KeycloakTokenResponse) => {
-    console.log('💾 [auth] Armazenando tokens e dados do usuário:', response.user);
-    console.log('💾 [auth] Access Token (primeiros 50 chars):', response.accessToken.substring(0, 50) + '...');
-    
-    // IMPORTANTE: localStorage com nomes EXATOS que o interceptador procura
     localStorage.setItem('access_token', response.accessToken);
     if (response.refreshToken) {
       localStorage.setItem('refresh_token', response.refreshToken);
     }
-    
-    // ✅ CRÍTICO: Salvar os dados do usuário também!
-    // Isso é essencial para restaurar o usuário ao recarregar a página
     if (response.user) {
       localStorage.setItem('user', JSON.stringify(response.user));
-      console.log('💾 [auth] User salvo em localStorage:', response.user.username);
     }
-    
-    // ✅ NÃO adicionar header aqui - o interceptador faz isso automaticamente!
-    // Apenas atualizar o estado
+
+    const normalizedRoles = extractApplicationRolesFromToken(
+      response.accessToken,
+      response.user?.roles as unknown as string[] | undefined,
+    );
+    const userWithRoles: UserInfo = {
+      ...response.user,
+      roles: normalizedRoles,
+    };
+
     set({
       token: response.accessToken,
       refreshToken: response.refreshToken || null,
-      user: response.user,
+      user: userWithRoles,
       isAuthenticated: true,
     });
-    
-    console.log('✅ [auth] setTokens concluído - interceptador vai adicionar header');
   },
 
 
   logout: async () => {
     console.log('🚪 [auth] Iniciando logout...');
+    const _doKeycloakRedirect = () => {
+      const keycloakUrl =
+        import.meta.env.VITE_KEYCLOAK_AUTH_SERVER_URL ||
+        import.meta.env.VITE_KEYCLOAK_URL ||
+        '';
+      const realm = import.meta.env.VITE_KEYCLOAK_REALM || '';
+      const clientId = import.meta.env.VITE_KEYCLOAK_CLIENT_ID || '';
+      const postLogoutRedirectUri = window.location.origin + '/';
+      if (keycloakUrl && realm && clientId) {
+        window.location.href = `${keycloakUrl}/realms/${realm}/protocol/openid-connect/logout?client_id=${clientId}&post_logout_redirect_uri=${encodeURIComponent(postLogoutRedirectUri)}`;
+      } else {
+        window.location.href = '/';
+      }
+    };
+
     try {
-      // Chamar o authService que faz logout local + Keycloak
       await authService.logout();
-      
-      // ✅ CRÍTICO: Limpar localStorage completamente!
+
       localStorage.removeItem('access_token');
       localStorage.removeItem('refresh_token');
       localStorage.removeItem('user');
       localStorage.removeItem('expires_in');
       localStorage.removeItem('token_type');
-      localStorage.removeItem('auth_attempted_codes'); // Limpar códigos tentados
-      localStorage.removeItem('__pkce_code_verifier__'); // Limpar verifier PKCE
-      console.log('💾 [auth] localStorage limpo completamente');
-      
-      // Limpar store
+      localStorage.removeItem('auth_attempted_codes');
+      localStorage.removeItem('__pkce_code_verifier__');
+
       set({ user: null, token: null, refreshToken: null, isAuthenticated: false });
-      console.log('✅ [auth] Logout completo realizado');
-      
-      // ✅ Recarregar a página para resetar tudo e voltar ao fluxo de auth do Keycloak
-      setTimeout(() => {
-        console.log('🔄 [auth] Recarregando página...');
-        window.location.href = '/';
-      }, 100);
+
+      _doKeycloakRedirect();
     } catch (error) {
       console.error('❌ [auth] Erro durante logout:', error);
-      // Mesmo com erro, limpar estado local E localStorage
       localStorage.removeItem('access_token');
       localStorage.removeItem('refresh_token');
       localStorage.removeItem('user');
@@ -124,12 +185,8 @@ export const useAuthStore = create<AuthState>()(
       localStorage.removeItem('auth_attempted_codes');
       localStorage.removeItem('__pkce_code_verifier__');
       set({ user: null, token: null, refreshToken: null, isAuthenticated: false });
-      
-      // Mesmo com erro, recarregar para voltar ao fluxo de auth
-      setTimeout(() => {
-        console.log('🔄 [auth] Recarregando página após erro...');
-        window.location.href = '/';
-      }, 100);
+
+      _doKeycloakRedirect();
     }
   },
 
@@ -138,28 +195,36 @@ export const useAuthStore = create<AuthState>()(
     try {
       const token = localStorage.getItem('access_token');
       if (!token) {
-        console.log('❌ [auth] Sem access_token no localStorage');
         set({ isChecking: false });
         return false;
       }
 
-      console.log('🔍 [auth] Verificando auth com token (primeiros 50 chars):', token.substring(0, 50) + '...');
-      
-      // ✅ NÃO adicionar header aqui - o interceptador faz isso automaticamente!
-      const res = await api.get('/profile/me') as { data: { user: UserInfo } };
-      
-      if (res.data?.user) {
-        console.log('✅ [auth] Usuário verificado:', res.data.user.username);
-        set({ user: res.data.user, token, isAuthenticated: true, isChecking: false });
+      const res = await api.get('/profile/me');
+      const currentToken = localStorage.getItem('access_token') || token;
+      const candidate = (res as any)?.data?.user ?? (res as any)?.data;
+      const hasUsername = candidate && typeof candidate === 'object' && typeof candidate.username === 'string';
+
+      if (hasUsername) {
+        const normalizedRoles = extractApplicationRolesFromToken(currentToken, candidate.roles as unknown as string[] | undefined);
+        const userWithRoles: UserInfo = { ...candidate, roles: normalizedRoles };
+        set({ user: userWithRoles, token: currentToken, isAuthenticated: true, isChecking: false });
         return true;
       }
 
-      console.log('❌ [auth] checkAuth - sem dados de usuário');
       set({ isChecking: false });
       return false;
     } catch (err) {
       console.error('[auth] checkAuth failed:', err);
-      console.error('[auth] Error response:', (err as any)?.response?.status, (err as any)?.response?.data);
+      const status = (err as any)?.response?.status;
+
+      if (status === 403) {
+        const storedUser = localStorage.getItem('user');
+        const fallbackUser = storedUser ? (JSON.parse(storedUser) as UserInfo) : null;
+        const currentToken = localStorage.getItem('access_token');
+        set({ user: fallbackUser, token: currentToken || null, isAuthenticated: true, isChecking: false });
+        return true;
+      }
+
       localStorage.removeItem('access_token');
       set({ user: null, token: null, isAuthenticated: false, isChecking: false });
       return false;
@@ -169,19 +234,31 @@ export const useAuthStore = create<AuthState>()(
   getAuthInfo: async () => {
     set({ isChecking: true });
     try {
-      const res = await api.get('/profile/me') as { data: { user: UserInfo } };
+      const res = await api.get('/profile/me');
       const token = localStorage.getItem('access_token');
-      const isAuthenticated = !!(token && res.data?.user);
-      
-      // Atualizar o store com os dados do usuário
-      if (res.data?.user) {
-        set({ user: res.data.user, token, isAuthenticated, isChecking: false });
+      const candidate = (res as any)?.data?.user ?? (res as any)?.data;
+      const hasUsername = candidate && typeof candidate === 'object' && typeof candidate.username === 'string';
+      const isAuthenticated = !!(token && hasUsername);
+
+      if (hasUsername) {
+        const normalizedRoles = extractApplicationRolesFromToken(token, candidate.roles as unknown as string[] | undefined);
+        const userWithRoles: UserInfo = { ...candidate, roles: normalizedRoles };
+        set({ user: userWithRoles, token, isAuthenticated, isChecking: false });
       }
-      
-      return { user: res.data?.user || null, isAuthenticated };
+
+      return { user: hasUsername ? (candidate as UserInfo) : null, isAuthenticated };
     } catch (error) {
-      toast.error('Erro ao obter informações de autenticação.');
+      const status = (error as any)?.response?.status;
       console.error('[auth] getAuthInfo failed:', error);
+
+      if (status === 403) {
+        set({ isChecking: false });
+        const storedUser = localStorage.getItem('user');
+        const fallbackUser = storedUser ? (JSON.parse(storedUser) as UserInfo) : null;
+        return { user: fallbackUser, isAuthenticated: true };
+      }
+
+      toast.error('Erro ao obter informações de autenticação.');
       set({ isChecking: false, isAuthenticated: false });
       return { user: null, isAuthenticated: false };
     }

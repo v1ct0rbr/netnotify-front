@@ -81,6 +81,7 @@ async function refreshAccessToken(): Promise<string | null> {
       });
 
       const payload = {
+        refresh_token: refreshToken,
         refreshToken: refreshToken,
       };
 
@@ -91,25 +92,37 @@ async function refreshAccessToken(): Promise<string | null> {
       console.log('✅ [REFRESH] Resposta recebida:', response.status);
       console.log('   Response data:', response.data);
 
-      // Backend retorna KeycloakTokenResponse com accessToken
-      const newAccessToken = response.data.accessToken || response.data.access_token;
-      
+      const newAccessToken = response.data.accessToken || response.data.access_token || response.data.acessToken;
+      const newExpiresIn = response.data.expiresIn || response.data.expires_in;
+      const newRefreshToken = response.data.refreshToken || response.data.refresh_token;
+
       if (newAccessToken) {
-        console.log('✅ [REFRESH] Token renovado com sucesso');
-        console.log('   Novo token (primeiros 50 chars):', newAccessToken.substring(0, 50) + '...');
         localStorage.setItem('access_token', newAccessToken);
-        
-        // Atualizar também o expiresIn se recebido
-        if (response.data.expiresIn) {
-          localStorage.setItem('expires_in', String(response.data.expiresIn));
+
+        if (newExpiresIn) {
+          localStorage.setItem('expires_in', String(newExpiresIn));
         }
-        
-        // Atualizar o novo refreshToken se o backend retornar um
-        if (response.data.refreshToken) {
-          localStorage.setItem('refresh_token', response.data.refreshToken);
-          console.log('✅ [REFRESH] Novo refresh token também atualizado');
+
+        if (newRefreshToken) {
+          localStorage.setItem('refresh_token', newRefreshToken);
         }
-        
+
+        // Sincronizar o store Zustand imediatamente
+        try {
+          const authStore = useAuthStore.getState();
+          if (authStore.user) {
+            authStore.setTokens({
+              accessToken: newAccessToken,
+              refreshToken: newRefreshToken || localStorage.getItem('refresh_token') || '',
+              expiresIn: newExpiresIn || parseInt(localStorage.getItem('expires_in') || '3600'),
+              tokenType: 'Bearer',
+              user: authStore.user,
+            });
+          }
+        } catch (storeErr) {
+          console.warn('⚠️ [REFRESH] Não foi possível sincronizar o store automaticamente:', storeErr);
+        }
+
         return newAccessToken;
       }
 
@@ -132,6 +145,9 @@ async function refreshAccessToken(): Promise<string | null> {
 }
 
 api.interceptors.request.use(config => {
+    if (isHandlingAuthError) {
+        return Promise.reject(new Error('Authentication error loop protection'));
+    }
     const token = localStorage.getItem('access_token');
     
     console.log(`🌐 [INTERCEPTOR] ${config.method?.toUpperCase()} ${config.url}`);
@@ -154,72 +170,81 @@ api.interceptors.request.use(config => {
 
 api.interceptors.response.use(
     response => {
-        console.log(`✅ [INTERCEPTOR RESPONSE] ${response.status} ${response.config.url}`);
-        response.data = camelcaseKeys(response.data, { deep: true });
+        if (response.data &&
+            !(response.data instanceof Blob) &&
+            !(response.data instanceof ArrayBuffer) &&
+            response.config.responseType !== 'blob' &&
+            response.config.responseType !== 'arraybuffer') {
+            response.data = camelcaseKeys(response.data, { deep: true });
+        }
         return response;
     },
     async error => {
         const status = error.response?.status;
         const url: string = error.config?.url || '';
 
-        if (status === 401 || status === 403) {
-            console.error(`❌ [INTERCEPTOR RESPONSE] ${status} Auth error em:`, url);
+        const isAuthExchangeInProgress = (() => {
+            try { return sessionStorage.getItem('auth_exchange_in_progress') === '1'; } catch { return false; }
+        })();
+
+        if (status === 401) {
+            console.error(`❌ [INTERCEPTOR RESPONSE] 401 Auth error em:`, url);
             console.error('   Dados do erro:', error.response?.data);
 
-            // Ignorar endpoints de autenticação para evitar loops
+            if (error.config?._retry) {
+                console.warn('⚠️ [INTERCEPTOR] 401 detectado em uma RETENTATIVA - abortando loop');
+                return Promise.reject(error);
+            }
+
             const isAuthEndpoint = url.includes('/auth/callback') || url.includes('/auth/logout') || url.includes('/auth/refresh');
 
             if (!isAuthEndpoint && !isHandlingAuthError) {
-                // Tentar fazer refresh do token em caso de 401
-                if (status === 401 && !isRefreshingToken) {
-                    console.log('🔄 [INTERCEPTOR] 401 Detectado - Tentando fazer refresh do token...');
-                    const newToken = await refreshAccessToken();
-                    
-                    if (newToken) {
-                        console.log('✅ [INTERCEPTOR] Token renovado com sucesso, retentando request original');
-                        // Atualizar o token na requisição original
-                        error.config.headers.Authorization = `Bearer ${newToken}`;
-                        // Retentar a requisição original
-                        return api.request(error.config);
-                    } else {
-                        console.log('❌ [INTERCEPTOR] Refresh falhou - prosseguindo para logout');
-                    }
+                if (isAuthExchangeInProgress) {
+                    return Promise.reject(error);
                 }
 
-                // Se refresh falhou ou não é 401, fazer logout
+                const newToken = await refreshAccessToken();
+
+                if (newToken) {
+                    error.config._retry = true;
+                    error.config.headers.Authorization = `Bearer ${newToken}`;
+                    return api.request(error.config);
+                }
+
                 isHandlingAuthError = true;
                 try {
-                    console.warn('🚪 [INTERCEPTOR] Token inválido/expirado durante operação...');
-                    
-                    // ✅ Salvar URL atual para redirecionar depois da reautenticação
                     const currentPath = window.location.pathname + window.location.search + window.location.hash;
                     if (currentPath !== '/login' && currentPath !== '/') {
-                        console.log('💾 [INTERCEPTOR] Salvando URL de redirecionamento para após reauth:', currentPath);
                         localStorage.setItem('redirect_url_after_reauth', currentPath);
-                        
-                        // Também salvar no store para consistência
                         const { setRedirectUrl } = useNavigationStore.getState();
                         setRedirectUrl(currentPath);
                     }
-                    
-                    // Chama logout do store
+
+                    // Preservar dados de formulários em andamento antes do logout
+                    try {
+                        for (let i = 0; i < localStorage.length; i += 1) {
+                            const key = localStorage.key(i);
+                            if (!key) continue;
+                            if (key.includes('notification') || key.includes('alert')) {
+                                const val = localStorage.getItem(key);
+                                if (val !== null) sessionStorage.setItem(key, val);
+                            }
+                        }
+                    } catch (presErr) {
+                        console.warn('⚠️ [INTERCEPTOR] Falha ao preservar estado do formulário:', presErr);
+                    }
+
                     const { logout } = useAuthStore.getState();
-                    logout()
-                        .catch((e) => console.warn('⚠️ [INTERCEPTOR] Erro ao executar logout:', e))
-                        .finally(() => {
-                            console.warn('↪️ [INTERCEPTOR] Redirecionando para / ...');
-                            window.location.replace('/');
-                        });
+                    logout().catch((e) => console.warn('⚠️ [INTERCEPTOR] Erro ao executar logout:', e));
                 } catch (e) {
                     console.error('❌ [INTERCEPTOR] Falha ao forçar logout:', e);
-                    // fallback
-                    try {
-                        localStorage.clear();
-                        sessionStorage.clear();
-                    } catch {}
+                    try { localStorage.clear(); sessionStorage.clear(); } catch {}
                     window.location.replace('/');
                 }
             }
+        } else if (status === 403) {
+            console.error(`⛔ [INTERCEPTOR RESPONSE] 403 Forbidden detectado em: ${url}`);
+            console.error('   Dados da resposta do servidor:', error.response?.data);
         } else {
             console.error(`❌ [INTERCEPTOR RESPONSE] ${status}:`, error.message);
         }
