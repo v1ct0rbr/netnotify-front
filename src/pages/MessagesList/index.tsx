@@ -14,6 +14,7 @@ import {
     TableRow,
 } from "@/components/ui/table";
 import api from "@/config/axios";
+import { isAdmin as checkIsAdmin } from "@/lib/roles";
 import { useAuthStore } from "@/store/useAuthStore";
 import type { ApiPageResponse } from "@/utils/ApiPageResponse";
 import { formatRelativeDate } from "@/utils/DateUtils";
@@ -30,7 +31,7 @@ const PAGE_SIZE = 10;
 const MessagesList: React.FC = () => {
     const { filterMessages, deleteMessage } = useMessagesApi();
     const { user } = useAuthStore();
-    const isAdmin = user?.roles?.includes(import.meta.env.VITE_ROLE_ADMIN || 'admin');
+    const isAdmin = checkIsAdmin(user?.roles);
 
     const [searchParams, setSearchParams] = useSearchParams();
 
