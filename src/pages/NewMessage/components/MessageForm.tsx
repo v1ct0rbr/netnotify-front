@@ -16,7 +16,7 @@ import React from 'react';
 import { Controller, useForm } from 'react-hook-form';
 import { toast } from 'sonner';
 import * as z from 'zod';
-import { AlertCircle, FileText, Zap, Tag, Building2, GitBranch, Calendar, Clock, RefreshCw, Plus, MessageSquareText } from 'lucide-react';
+import { AlertCircle, FileText, Zap, Tag, Building2, GitBranch, Calendar, Clock, RefreshCw, Plus, MessageSquareText, Globe } from 'lucide-react';
 
 const FormSchema = z.object({
   title: z.string().min(1, 'O título é obrigatório').max(100, 'O título deve ter no máximo 100 caracteres').optional(),
@@ -28,6 +28,7 @@ const FormSchema = z.object({
   repeatIntervalMinutes: z.number().min(0, 'O intervalo de repetição deve ser maior ou igual a 0').optional(),
   expireAt: z.string().optional(),
   publishedAt: z.string().optional(),
+  agentScope: z.enum(['INTERNAL', 'EXTERNAL', 'BOTH']).default('BOTH').optional(),
 }).superRefine((data, ctx) => {
   // Se expireAt está preenchido, repeatIntervalMinutes é obrigatório e deve ser > 0
   if (data.expireAt && data.expireAt.trim()) {
@@ -88,7 +89,7 @@ export const MessageForm: React.FC<HomeFormProps> = ({ id }: HomeFormProps) => {
 
   const { handleSubmit, control, reset, formState: { errors }, watch } = useForm<FormData>({
     resolver: zodResolver(FormSchema),
-    defaultValues: { title: '', content: '', level: 0, type: 0, departments: [], sendToSubdivisions: false, repeatIntervalMinutes: 0, expireAt: '', publishedAt: '' },
+    defaultValues: { title: '', content: '', level: 0, type: 0, departments: [], sendToSubdivisions: false, repeatIntervalMinutes: 0, expireAt: '', publishedAt: '', agentScope: 'BOTH' },
   });
 
   // Watch expireAt para controlar estado de repeatIntervalMinutes
@@ -147,6 +148,7 @@ export const MessageForm: React.FC<HomeFormProps> = ({ id }: HomeFormProps) => {
         repeatIntervalMinutes: msg.repeatIntervalMinutes ?? 0,
         expireAt: msg.expireAt ?? '',
         publishedAt: msg.publishedAt ?? '',
+        agentScope: (msg.agentScope as 'INTERNAL' | 'EXTERNAL' | 'BOTH') ?? 'BOTH',
       });
     } catch (err) {
       console.error('Error resetting form values from message DTO:', err);
@@ -161,7 +163,7 @@ export const MessageForm: React.FC<HomeFormProps> = ({ id }: HomeFormProps) => {
     if (isNew) {
       console.log('✨ [MessageForm] Parâmetro new=true detectado - limpando formulário');
       clearFormData();
-      reset({ title: '', content: '', level: 0, type: 0, departments: [], sendToSubdivisions: false, repeatIntervalMinutes: 0, expireAt: '', publishedAt: '' });
+      reset({ title: '', content: '', level: 0, type: 0, departments: [], sendToSubdivisions: false, repeatIntervalMinutes: 0, expireAt: '', publishedAt: '', agentScope: 'BOTH' });
     }
   }, []);
 
@@ -193,6 +195,7 @@ export const MessageForm: React.FC<HomeFormProps> = ({ id }: HomeFormProps) => {
         repeatIntervalMinutes: data.repeatIntervalMinutes,
         expireAt: data.expireAt ?? '',
         publishedAt: data.publishedAt ?? '',
+        agentScope: data.agentScope ?? 'BOTH',
       });
     });
     return () => subscription.unsubscribe();
@@ -203,7 +206,7 @@ export const MessageForm: React.FC<HomeFormProps> = ({ id }: HomeFormProps) => {
       // ✅ NOVO: Limpar dados salvos após envio bem-sucedido
       console.log('✅ [MessageForm] Mensagem enviada com sucesso - limpando dados salvos');
       clearFormData();
-      reset({ title: '', content: '', level: 0, type: 0, departments: [], sendToSubdivisions: false, repeatIntervalMinutes: 0, expireAt: '', publishedAt: '' });
+      reset({ title: '', content: '', level: 0, type: 0, departments: [], sendToSubdivisions: false, repeatIntervalMinutes: 0, expireAt: '', publishedAt: '', agentScope: 'BOTH' });
       toast.success('✅ Mensagem enviada com sucesso!');
     }).catch(err => {
       // ✅ NOVO: NÃO limpar dados se houver erro
@@ -245,7 +248,7 @@ export const MessageForm: React.FC<HomeFormProps> = ({ id }: HomeFormProps) => {
                     <RefreshCw size={16} />
                     Restaurar
                   </button>
-                  <button type="button" onClick={() => reset({ title: '', content: '', level: 0, type: 0, departments: [], sendToSubdivisions: false, repeatIntervalMinutes: 0, expireAt: '', publishedAt: '' })} className="ml-4 text-sm text-blue-600 hover:text-blue-800 hover:bg-blue-50 dark:hover:bg-blue-900/20 rounded px-2 py-1 flex items-center gap-1">
+                  <button type="button" onClick={() => reset({ title: '', content: '', level: 0, type: 0, departments: [], sendToSubdivisions: false, repeatIntervalMinutes: 0, expireAt: '', publishedAt: '', agentScope: 'BOTH' })} className="ml-4 text-sm text-blue-600 hover:text-blue-800 hover:bg-blue-50 dark:hover:bg-blue-900/20 rounded px-2 py-1 flex items-center gap-1">
                     <Plus size={16} />
                     Novo Formulário
                   </button>
@@ -396,6 +399,33 @@ export const MessageForm: React.FC<HomeFormProps> = ({ id }: HomeFormProps) => {
                       />
                       {errors.sendToSubdivisions && <p className="text-red-500 text-xs mt-1">{errors.sendToSubdivisions.message}</p>}
                       <p className="text-xs text-muted-foreground italic">Ativa a propagação para subdivisões</p>
+                    </div>
+                  )}
+                />
+              </div>
+
+              {/* Visibilidade do Agente */}
+              <div className="space-y-3">
+                <div className="flex items-center gap-2">
+                  <Globe size={18} className="text-amber-500" />
+                  <label className="block text-sm font-medium">Visibilidade do Agente</label>
+                </div>
+                <Controller
+                  control={control}
+                  name="agentScope"
+                  render={({ field }) => (
+                    <div>
+                      <StyledSelect
+                        options={[
+                          { label: 'Todos os Agentes (padrão)', value: 'BOTH' },
+                          { label: 'Apenas Agentes Internos (rede local)', value: 'INTERNAL' },
+                          { label: 'Apenas Agentes Externos (web)', value: 'EXTERNAL' },
+                        ]}
+                        value={field.value ?? 'BOTH'}
+                        onChange={(e) => field.onChange(e.target.value)}
+                      />
+                      {errors.agentScope && <p className="text-red-500 text-xs mt-1">{errors.agentScope.message}</p>}
+                      <p className="text-xs text-muted-foreground italic">Define quais agentes receberão esta mensagem</p>
                     </div>
                   )}
                 />
