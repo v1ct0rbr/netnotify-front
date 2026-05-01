@@ -15,6 +15,10 @@ export type CreateMessageDTO = {
     expireAt?: string;
     publishedAt?: string;
     agentScope?: 'INTERNAL' | 'EXTERNAL' | 'BOTH';
+    scheduleDaysOfWeek?: string;
+    scheduleTimes?: string;
+    scheduleMonthDays?: string;
+    availabilityWindows?: string;
 }
 
 export type MessageResponseDTO = {
@@ -32,6 +36,10 @@ export type MessageResponseDTO = {
     lastSentAt: string | null;
     departments: DepartmentResponseDTO[];
     publishedAt: string | null;
+    scheduleDaysOfWeek: string | null;
+    scheduleTimes: string | null;
+    scheduleMonthDays: string | null;
+    availabilityWindows: string | null;
 }
 
 interface MessagesFilterParams {
@@ -45,6 +53,21 @@ interface MessagesFilterParams {
 }
 
 export const useMessagesApi = () => {
+
+    const getDefaultOfficeHoursWindow = async (): Promise<string> => {
+        try {
+            const response = await api.get<SimpleResponse<string>>('/messages/get-default-office-hours-window');
+            const defaultOfficeHoursWindow = response.data;
+            if (defaultOfficeHoursWindow.status !== 'SUCCESS') {
+                throw new Error(defaultOfficeHoursWindow.message || 'Erro ao obter janela de horário comercial padrão.');
+            }
+            return defaultOfficeHoursWindow.object as string;
+        } catch (error) {
+            toast.error(error instanceof Error ? error.message : 'Erro ao obter janela de horário comercial padrão.');
+            throw error;
+        }
+    }
+
     const getCreateMessageDtoById = async (id: string): Promise<CreateMessageDTO> => {
         try {
             const response = await api.get<CreateMessageDTO>(`/messages?clone-message-id=${id}`);
@@ -87,6 +110,11 @@ export const useMessagesApi = () => {
                 repeatIntervalMinutes: data.repeatIntervalMinutes,
                 expireAt: data.expireAt,
                 publishedAt: data.publishedAt,
+                agentScope: data.agentScope,
+                scheduleDaysOfWeek: data.scheduleDaysOfWeek,
+                scheduleTimes: data.scheduleTimes,
+                scheduleMonthDays: data.scheduleMonthDays,
+                availabilityWindows: data.availabilityWindows,
             });
             toast.success('Mensagem criada com sucesso.');
 
@@ -136,6 +164,7 @@ export const useMessagesApi = () => {
         }
     };
     return {
+        getDefaultOfficeHoursWindow,
         getCreateMessageDtoById,
         getMessageById,
         createMessage,

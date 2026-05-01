@@ -1,4 +1,5 @@
 import { useRabbitAgentsApi, type DirectNotifyRequest, type RabbitAgentDTO, type SortDirection, type SortBy } from "@/api/rabbitAgents";
+import api from "@/config/axios";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 import {
@@ -31,6 +32,14 @@ import { toast } from "sonner";
 
 const AUTO_REFRESH_INTERVAL_MS = 30_000;
 
+type AuxOption = { id: number; name: string };
+
+const getDefaultOption = (options: string[], preferred: string): string => {
+    const normalizedPreferred = preferred.trim().toLowerCase();
+    const found = options.find((opt) => opt.trim().toLowerCase() === normalizedPreferred);
+    return found ?? options[0] ?? preferred;
+};
+
 const RabbitAgentsPage: React.FC = () => {
     const { listAgents, sendDirectMessage } = useRabbitAgentsApi();
     const isAdmin = authService.isAdmin?.() ?? false;
@@ -44,6 +53,8 @@ const RabbitAgentsPage: React.FC = () => {
     const [selectedAgent, setSelectedAgent] = useState<RabbitAgentDTO | null>(null);
     const [directTitle, setDirectTitle] = useState("");
     const [directContent, setDirectContent] = useState("");
+    const [directLevel, setDirectLevel] = useState("Normal");
+    const [directType, setDirectType] = useState("Notificação");
     const intervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
     useEffect(() => {
@@ -58,6 +69,45 @@ const RabbitAgentsPage: React.FC = () => {
         staleTime: 20_000,
         enabled: isAdmin,
     });
+
+    const { data: levelsData, isLoading: levelsLoading } = useQuery<AuxOption[]>({
+        queryKey: ["direct-notify-levels"],
+        queryFn: async () => {
+            const res = await api.get<AuxOption[]>("/aux/levels");
+            return res.data;
+        },
+        enabled: isAdmin,
+        staleTime: 5 * 60 * 1000,
+    });
+
+    const { data: typesData, isLoading: typesLoading } = useQuery<AuxOption[]>({
+        queryKey: ["direct-notify-types"],
+        queryFn: async () => {
+            const res = await api.get<AuxOption[]>("/aux/message-types");
+            return res.data;
+        },
+        enabled: isAdmin,
+        staleTime: 5 * 60 * 1000,
+    });
+
+    const levelOptions = levelsData?.map((l) => l.name).filter(Boolean) ?? [];
+    const typeOptions = typesData?.map((t) => t.name).filter(Boolean) ?? [];
+
+    useEffect(() => {
+        if (selectedAgent && levelOptions.length > 0) {
+            setDirectLevel((current) =>
+                levelOptions.includes(current) ? current : getDefaultOption(levelOptions, "Normal")
+            );
+        }
+    }, [selectedAgent, levelOptions]);
+
+    useEffect(() => {
+        if (selectedAgent && typeOptions.length > 0) {
+            setDirectType((current) =>
+                typeOptions.includes(current) ? current : getDefaultOption(typeOptions, "Notificação")
+            );
+        }
+    }, [selectedAgent, typeOptions]);
 
     // Auto-refresh
     useEffect(() => {
@@ -94,6 +144,8 @@ const RabbitAgentsPage: React.FC = () => {
             setSelectedAgent(null);
             setDirectTitle("");
             setDirectContent("");
+            setDirectLevel(getDefaultOption(levelOptions, "Normal"));
+            setDirectType(getDefaultOption(typeOptions, "Notificação"));
         },
     });
 
@@ -103,9 +155,18 @@ const RabbitAgentsPage: React.FC = () => {
             toast.warning("O conteúdo da mensagem é obrigatório.");
             return;
         }
+        if (levelOptions.length === 0 || typeOptions.length === 0) {
+            toast.warning("Aguarde o carregamento de nível e tipo para enviar a mensagem.");
+            return;
+        }
         directMutation.mutate({
             queueName: selectedAgent.queueName,
-            payload: { title: directTitle || undefined, content: directContent },
+            payload: {
+                title: directTitle || undefined,
+                content: directContent,
+                level: directLevel,
+                type: directType,
+            },
         });
     };
 
@@ -113,6 +174,8 @@ const RabbitAgentsPage: React.FC = () => {
         setSelectedAgent(agent);
         setDirectTitle("");
         setDirectContent("");
+        setDirectLevel(getDefaultOption(levelOptions, "Normal"));
+        setDirectType(getDefaultOption(typeOptions, "Notificação"));
     };
 
     const queueTypeBadge = (type: string) => {
@@ -144,11 +207,10 @@ const RabbitAgentsPage: React.FC = () => {
                     <div className="flex items-center gap-3">
                         <button
                             onClick={() => setAutoRefresh((v) => !v)}
-                            className={`flex items-center gap-2 text-sm px-3 py-1.5 rounded-lg border transition-all ${
-                                autoRefresh
+                            className={`flex items-center gap-2 text-sm px-3 py-1.5 rounded-lg border transition-all ${autoRefresh
                                     ? "bg-green-100 border-green-300 text-green-700 dark:bg-green-900/30 dark:border-green-700 dark:text-green-300"
                                     : "bg-white border-gray-300 text-gray-600 dark:bg-slate-800 dark:border-slate-700 dark:text-gray-400"
-                            }`}
+                                }`}
                         >
                             <Wifi size={14} />
                             {autoRefresh ? "Auto-atualização ativa" : "Auto-atualização"}
@@ -185,12 +247,7 @@ const RabbitAgentsPage: React.FC = () => {
                                     <SortIcon column="queue" />
                                 </div>
                             </TableHead>
-                            <TableHead>
-                                <div className="flex items-center gap-2">
-                                    <MessageSquare size={14} className="text-blue-500" />
-                                    Tipo
-                                </div>
-                            </TableHead>
+
                             <TableHead>
                                 <div className="flex items-center gap-2">
                                     <Cpu size={14} className="text-indigo-500" />
@@ -213,7 +270,7 @@ const RabbitAgentsPage: React.FC = () => {
                                     <SortIcon column="ip" />
                                 </div>
                             </TableHead>
-                            <TableHead className="text-center">Mensagens</TableHead>
+
                             <TableHead className="text-center">Ações</TableHead>
                         </TableRow>
                     </TableHeader>
@@ -244,22 +301,14 @@ const RabbitAgentsPage: React.FC = () => {
                                     <TableCell className="font-mono text-xs text-gray-700 dark:text-gray-300">
                                         {agent.queueName}
                                     </TableCell>
-                                    <TableCell>
-                                        <span className={`text-xs font-medium px-2 py-0.5 rounded-full ${queueTypeBadge(agent.queueType)}`}>
-                                            {agent.queueType}
-                                        </span>
-                                    </TableCell>
+
                                     <TableCell className="font-medium">{agent.agentHostname || "—"}</TableCell>
                                     <TableCell>{agent.department ?? <span className="text-muted-foreground italic text-xs">geral</span>}</TableCell>
                                     <TableCell className="font-mono text-sm">
                                         {agent.peerAddress}
                                         {agent.peerPort ? `:${agent.peerPort}` : ""}
                                     </TableCell>
-                                    <TableCell className="text-center">
-                                        <span className={`font-semibold ${agent.messageCount > 0 ? "text-amber-600 dark:text-amber-400" : "text-gray-500"}`}>
-                                            {agent.messageCount}
-                                        </span>
-                                    </TableCell>
+
                                     <TableCell className="text-center">
                                         <Button
                                             variant="outline"
@@ -321,6 +370,38 @@ const RabbitAgentsPage: React.FC = () => {
                                     placeholder="Conteúdo da notificação..."
                                 />
                             </div>
+                            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                                <div>
+                                    <label className="block text-sm font-medium mb-1">Nível</label>
+                                    <select
+                                        value={directLevel}
+                                        onChange={(e) => setDirectLevel(e.target.value)}
+                                        disabled={levelsLoading || levelOptions.length === 0}
+                                        className="w-full border rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-purple-500 dark:bg-slate-800 dark:border-slate-700 dark:text-white"
+                                    >
+                                        {(levelOptions.length > 0 ? levelOptions : ["Carregando..."]).map((level) => (
+                                            <option key={level} value={level}>
+                                                {level}
+                                            </option>
+                                        ))}
+                                    </select>
+                                </div>
+                                <div>
+                                    <label className="block text-sm font-medium mb-1">Tipo</label>
+                                    <select
+                                        value={directType}
+                                        onChange={(e) => setDirectType(e.target.value)}
+                                        disabled={typesLoading || typeOptions.length === 0}
+                                        className="w-full border rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-purple-500 dark:bg-slate-800 dark:border-slate-700 dark:text-white"
+                                    >
+                                        {(typeOptions.length > 0 ? typeOptions : ["Carregando..."]).map((type) => (
+                                            <option key={type} value={type}>
+                                                {type}
+                                            </option>
+                                        ))}
+                                    </select>
+                                </div>
+                            </div>
                         </div>
 
                         <div className="flex justify-end gap-3 pt-2 border-t border-gray-100 dark:border-slate-700">
@@ -329,7 +410,14 @@ const RabbitAgentsPage: React.FC = () => {
                             </Button>
                             <Button
                                 onClick={handleSendDirect}
-                                disabled={directMutation.isPending || !directContent.trim()}
+                                disabled={
+                                    directMutation.isPending ||
+                                    !directContent.trim() ||
+                                    levelsLoading ||
+                                    typesLoading ||
+                                    levelOptions.length === 0 ||
+                                    typeOptions.length === 0
+                                }
                                 className="bg-purple-600 hover:bg-purple-700 text-white gap-2"
                             >
                                 {directMutation.isPending ? (

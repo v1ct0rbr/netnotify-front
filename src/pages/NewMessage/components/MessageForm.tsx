@@ -1,4 +1,4 @@
-import useDepartmentsApi from '@/api/departments';
+﻿import useDepartmentsApi from '@/api/departments';
 import { useMessagesApi } from '@/api/messages';
 import ConfirmationDialog from '@/components/ConfirmationDialog';
 import { MultiSelect } from '@/components/multi-select';
@@ -7,102 +7,502 @@ import { Button } from '@/components/ui/button';
 import { Skeleton } from '@/components/ui/skeleton';
 import { StyledSelect } from '@/components/ui/styled-select';
 import api from '@/config/axios';
+import type { ScheduleTimeGroup } from '@/store/useFormStore';
 import { unescapeServerHtml } from '@/utils/StringUtils';
 import { useFormStore } from '@/store/useFormStore';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { useQuery } from '@tanstack/react-query';
-
 import React from 'react';
 import { Controller, useForm } from 'react-hook-form';
 import { toast } from 'sonner';
 import * as z from 'zod';
-import { AlertCircle, FileText, Zap, Tag, Building2, GitBranch, Calendar, Clock, RefreshCw, Plus, MessageSquareText, Globe } from 'lucide-react';
+import {
+  AlertCircle,
+  FileText,
+  Zap,
+  Tag,
+  Building2,
+  GitBranch,
+  Calendar,
+  Clock,
+  RefreshCw,
+  Plus,
+  MessageSquareText,
+  Globe,
+  Trash2,
+} from 'lucide-react';
 
-const FormSchema = z.object({
-  title: z.string().min(1, 'O título é obrigatório').max(100, 'O título deve ter no máximo 100 caracteres').optional(),
-  content: z.string().min(1, 'O conteúdo é obrigatório'),
-  level: z.number().min(1, 'O nível é obrigatório'),
-  type: z.number().min(1, 'O tipo é obrigatório'),
-  departments: z.array(z.string()).optional(),
-  sendToSubdivisions: z.boolean().optional(),
-  repeatIntervalMinutes: z.number().min(1, 'O intervalo de repetição deve ser no mínimo 1 minuto').optional(),
-  expireAt: z.string().optional(),
-  publishedAt: z.string().optional(),
-  agentScope: z.enum(['INTERNAL', 'EXTERNAL', 'BOTH']).default('BOTH').optional(),
-}).superRefine((data, ctx) => {
-  // Se expireAt está preenchido, repeatIntervalMinutes é obrigatório e deve ser > 0
-  if (data.expireAt && data.expireAt.trim()) {
-    if (!data.repeatIntervalMinutes || data.repeatIntervalMinutes < 1) {
-      ctx.addIssue({
-        code: 'custom',
-        message: 'O intervalo de repetição é obrigatório quando a data de expiração é definida',
-        path: ['repeatIntervalMinutes'],
+const DAYS_OF_WEEK = [
+  { label: 'Seg', value: '1' },
+  { label: 'Ter', value: '2' },
+  { label: 'Qua', value: '3' },
+  { label: 'Qui', value: '4' },
+  { label: 'Sex', value: '5' },
+  { label: 'Sab', value: '6' },
+  { label: 'Dom', value: '7' },
+];
+
+const DAY_NAMES = Object.fromEntries(DAYS_OF_WEEK.map((day) => [day.value, day.label])) as Record<
+  string,
+  string
+>;
+
+const MONTH_DAYS = Array.from({ length: 31 }, (_, i) => String(i + 1));
+const formatOfficeHoursWindows = (input: unknown): string => {
+  try {
+    let entries: { day: string; startTime: string; endTime: string }[];
+    if (typeof input === 'string') {
+      entries = JSON.parse(input) as { day: string; startTime: string; endTime: string }[];
+    } else if (Array.isArray(input)) {
+      entries = input as { day: string; startTime: string; endTime: string }[];
+    } else {
+      return '';
+    }
+
+    if (!entries.length) return '';
+
+    const sorted = [...entries].sort((a, b) => Number(a.day) - Number(b.day));
+
+    const ranges: { days: string[]; startTime: string; endTime: string }[] = [];
+    let currentRange: { days: string[]; startTime: string; endTime: string } | null = null;
+
+    for (const entry of sorted) {
+      if (
+        currentRange &&
+        currentRange.startTime === entry.startTime &&
+        currentRange.endTime === entry.endTime &&
+        Number(currentRange.days[currentRange.days.length - 1]) === Number(entry.day) - 1
+      ) {
+        currentRange.days.push(entry.day);
+      } else {
+        if (currentRange) ranges.push(currentRange);
+        currentRange = { days: [entry.day], startTime: entry.startTime, endTime: entry.endTime };
+      }
+    }
+    if (currentRange) ranges.push(currentRange);
+
+    return ranges
+      .map(({ days, startTime, endTime }) => {
+        const dayLabel =
+          days.length === 1
+            ? (DAY_NAMES[days[0]] ?? days[0])
+            : `${DAY_NAMES[days[0]] ?? days[0]}-${DAY_NAMES[days[days.length - 1]] ?? days[days.length - 1]}`;
+        return `${dayLabel} ${startTime}-${endTime}`;
+      })
+      .join(', ');
+  } catch {
+    return typeof input === 'string' ? input : '';
+  }
+};
+
+const parseTimeToMinutes = (value: string): number | null => {
+  const trimmed = value.trim();
+  const match = /^(\d{2}):(\d{2})$/.exec(trimmed);
+  if (!match) return null;
+  const hours = Number(match[1]);
+  const minutes = Number(match[2]);
+  if (hours < 0 || hours > 23 || minutes < 0 || minutes > 59) return null;
+  return hours * 60 + minutes;
+};
+
+const sortScheduleDays = (days: string[], mode: 'weekly' | 'monthly'): string[] => {
+  if (mode === 'weekly') {
+    return DAYS_OF_WEEK.map((day) => day.value).filter((value) => days.includes(value));
+  }
+
+  return [...days].sort((a, b) => Number(a) - Number(b));
+};
+
+const normalizeStringArray = (value: unknown): string[] => {
+  if (Array.isArray(value)) {
+    return [...new Set(value.map((item) => String(item).trim()).filter(Boolean))];
+  }
+
+  if (typeof value === 'string' && value.trim()) {
+    return [...new Set(value.split(',').map((item) => item.trim()).filter(Boolean))];
+  }
+
+  return [];
+};
+
+const toggleSelection = (
+  currentValue: unknown,
+  nextValue: string,
+  mode: 'weekly' | 'monthly'
+): string[] => {
+  const selected = normalizeStringArray(currentValue);
+  const updated = selected.includes(nextValue)
+    ? selected.filter((value) => value !== nextValue)
+    : [...selected, nextValue];
+
+  if (mode === 'weekly') {
+    return sortScheduleDays(updated, 'weekly');
+  }
+
+  return sortScheduleDays(updated, 'monthly');
+};
+
+const normalizeScheduleTimeGroups = (
+  value: unknown,
+  fallbackDays: unknown,
+  mode: 'weekly' | 'monthly'
+): ScheduleTimeGroup[] => {
+  const normalizeGroups = (groups: unknown[]): ScheduleTimeGroup[] => {
+    const mapped = groups
+      .filter((item) => item && typeof item === 'object' && !Array.isArray(item))
+      .map((item) => {
+        const group = item as { day?: unknown; times?: unknown };
+        return {
+          day: String(group.day ?? '').trim(),
+          times: normalizeStringArray(group.times),
+        };
+      })
+      .filter((group) => group.day);
+
+    const groupedByDay = new Map<string, ScheduleTimeGroup>();
+    for (const group of mapped) {
+      groupedByDay.set(group.day, {
+        day: group.day,
+        times: normalizeStringArray(group.times),
       });
     }
 
-    const expireDate = new Date(data.expireAt);
-    if (isNaN(expireDate.getTime())) {
-      ctx.addIssue({
-        code: 'custom',
-        message: 'Data de expiração inválida',
-        path: ['expireAt'],
-      });
-    } else if (expireDate.getTime() <= Date.now()) {
-      ctx.addIssue({
-        code: 'custom',
-        message: 'A data de expiração deve ser maior que a data corrente',
-        path: ['expireAt'],
-      });
+    return sortScheduleDays([...groupedByDay.keys()], mode).map(
+      (day) => groupedByDay.get(day) ?? { day, times: [] }
+    );
+  };
+
+  if (Array.isArray(value)) {
+    const hasStructuredItems = value.some(
+      (item) => item && typeof item === 'object' && !Array.isArray(item) && 'day' in item
+    );
+    if (hasStructuredItems) {
+      return normalizeGroups(value);
     }
   }
 
-  // Se publishedAt estiver definido, deve ser maior que a data corrente
-  if (data.publishedAt && data.publishedAt.trim()) {
-    const pubDate = new Date(data.publishedAt);
-    if (isNaN(pubDate.getTime())) {
-      ctx.addIssue({
-        code: 'custom',
-        message: 'Data de publicação inválida',
-        path: ['publishedAt'],
-      });
-    } else if (pubDate.getTime() <= Date.now()) {
-      ctx.addIssue({
-        code: 'custom',
-        message: 'A data de publicação deve ser maior que a data corrente',
-        path: ['publishedAt'],
-      });
+  if (typeof value === 'string' && value.trim().startsWith('[')) {
+    try {
+      const parsed = JSON.parse(value);
+      if (Array.isArray(parsed)) {
+        return normalizeScheduleTimeGroups(parsed, fallbackDays, mode);
+      }
+    } catch {
+      // fallback para formato legado CSV logo abaixo
     }
   }
-});
 
-type FormData = z.infer<typeof FormSchema>;
+  const days = sortScheduleDays(normalizeStringArray(fallbackDays), mode);
+  const legacyTimes = normalizeStringArray(value);
+  return days.map((day) => ({ day, times: [...legacyTimes] }));
+};
+
+const syncScheduleTimeGroups = (
+  selectedDays: unknown,
+  groupsValue: unknown,
+  mode: 'weekly' | 'monthly'
+): ScheduleTimeGroup[] => {
+  const days = sortScheduleDays(normalizeStringArray(selectedDays), mode);
+  const groups = normalizeScheduleTimeGroups(groupsValue, [], mode);
+  const groupMap = new Map(groups.map((group) => [group.day, group]));
+
+  return days.map((day) => {
+    const group = groupMap.get(day);
+    return group ? { day, times: normalizeStringArray(group.times) } : { day, times: [] };
+  });
+};
+
+const getNextSuggestedTime = (times: string[]): string => {
+  const validTimes = normalizeStringArray(times)
+    .map((time) => parseTimeToMinutes(time))
+    .filter((minutes): minutes is number => minutes !== null);
+
+  const used = new Set(validTimes);
+  for (let hour = 9; hour <= 23; hour += 1) {
+    const minutes = hour * 60;
+    if (!used.has(minutes)) {
+      return `${String(hour).padStart(2, '0')}:00`;
+    }
+  }
+
+  for (let hour = 0; hour <= 8; hour += 1) {
+    const minutes = hour * 60;
+    if (!used.has(minutes)) {
+      return `${String(hour).padStart(2, '0')}:00`;
+    }
+  }
+
+  return '09:00';
+};
+
+const FormSchema = z
+  .object({
+    title: z.string().min(1).max(100).optional(),
+    content: z.string().min(1),
+    level: z.number().min(1),
+    type: z.number().min(1),
+    departments: z.array(z.string()).optional(),
+    sendToSubdivisions: z.boolean().optional(),
+    repeatIntervalMinutes: z.number().min(1).optional(),
+    expireAt: z.string().optional(),
+    publishedAt: z.string().optional(),
+    agentScope: z.enum(['INTERNAL', 'EXTERNAL', 'BOTH']).default('BOTH').optional(),
+    scheduleType: z.enum(['NONE', 'INTERVAL', 'WEEKLY', 'MONTHLY']).default('NONE'),
+    scheduleDaysOfWeek: z.array(z.string()).optional(),
+    scheduleTimes: z
+      .array(
+        z.object({
+          day: z.string(),
+          times: z.array(z.string()),
+        })
+      )
+      .optional(),
+    scheduleMonthDays: z.array(z.string()).optional(),
+    availabilityWindows: z
+      .array(
+        z.object({
+          day: z.string(),
+          startTime: z.string(),
+          endTime: z.string(),
+        })
+      )
+      .optional(),
+  })
+  .superRefine((data, ctx) => {
+    if (data.expireAt && data.expireAt.trim()) {
+      const d = new Date(data.expireAt);
+      if (isNaN(d.getTime()))
+        ctx.addIssue({ code: 'custom', message: 'Data de expiracao invalida', path: ['expireAt'] });
+      else if (d.getTime() <= Date.now())
+        ctx.addIssue({
+          code: 'custom',
+          message: 'A data de expiracao deve ser maior que a data corrente',
+          path: ['expireAt'],
+        });
+    }
+    if (data.publishedAt && data.publishedAt.trim()) {
+      const d = new Date(data.publishedAt);
+      if (isNaN(d.getTime()))
+        ctx.addIssue({ code: 'custom', message: 'Data de publicacao invalida', path: ['publishedAt'] });
+      else if (d.getTime() <= Date.now())
+        ctx.addIssue({
+          code: 'custom',
+          message: 'A data de publicacao deve ser maior que a data corrente',
+          path: ['publishedAt'],
+        });
+    }
+    if (data.scheduleType === 'INTERVAL') {
+      if (!data.repeatIntervalMinutes || data.repeatIntervalMinutes < 1)
+        ctx.addIssue({
+          code: 'custom',
+          message: 'O intervalo de repeticao e obrigatorio e deve ser maior que zero',
+          path: ['repeatIntervalMinutes'],
+        });
+    }
+    if (data.scheduleType === 'WEEKLY') {
+      if (!data.scheduleDaysOfWeek || data.scheduleDaysOfWeek.length === 0)
+        ctx.addIssue({
+          code: 'custom',
+          message: 'Selecione ao menos um dia da semana',
+          path: ['scheduleDaysOfWeek'],
+        });
+    }
+    if (data.scheduleType === 'MONTHLY') {
+      if (!data.scheduleMonthDays || data.scheduleMonthDays.length === 0)
+        ctx.addIssue({
+          code: 'custom',
+          message: 'Selecione ao menos um dia do mes',
+          path: ['scheduleMonthDays'],
+        });
+    }
+
+    if (data.scheduleTimes && data.scheduleTimes.length > 0) {
+      const expectedDays =
+        data.scheduleType === 'WEEKLY'
+          ? new Set(normalizeStringArray(data.scheduleDaysOfWeek))
+          : data.scheduleType === 'MONTHLY'
+          ? new Set(normalizeStringArray(data.scheduleMonthDays))
+          : new Set<string>();
+
+      const seenDays = new Set<string>();
+      data.scheduleTimes.forEach((group, groupIndex) => {
+        const day = String(group.day ?? '').trim();
+        if (!day) {
+          ctx.addIssue({
+            code: 'custom',
+            message: 'Dia da recorrencia invalido',
+            path: ['scheduleTimes', groupIndex, 'day'],
+          });
+          return;
+        }
+
+        if (expectedDays.size > 0 && !expectedDays.has(day)) {
+          ctx.addIssue({
+            code: 'custom',
+            message: 'Existe card de horario para um dia nao selecionado',
+            path: ['scheduleTimes', groupIndex, 'day'],
+          });
+        }
+
+        if (seenDays.has(day)) {
+          ctx.addIssue({
+            code: 'custom',
+            message: 'Dia duplicado na configuracao de horarios',
+            path: ['scheduleTimes', groupIndex, 'day'],
+          });
+        }
+        seenDays.add(day);
+
+        const seenTimes = new Set<string>();
+        group.times.forEach((time, timeIndex) => {
+          const normalizedTime = String(time ?? '').trim();
+          if (parseTimeToMinutes(normalizedTime) === null) {
+            ctx.addIssue({
+              code: 'custom',
+              message: 'Horario invalido. Use o formato HH:mm',
+              path: ['scheduleTimes', groupIndex, 'times', timeIndex],
+            });
+            return;
+          }
+
+          if (seenTimes.has(normalizedTime)) {
+            ctx.addIssue({
+              code: 'custom',
+              message: 'Horario duplicado no mesmo dia',
+              path: ['scheduleTimes', groupIndex, 'times', timeIndex],
+            });
+          }
+          seenTimes.add(normalizedTime);
+        });
+      });
+    }
+
+    if (data.availabilityWindows && data.availabilityWindows.length > 0) {
+      const byDay = new Map<string, Array<{ start: number; end: number }>>();
+
+      data.availabilityWindows.forEach((window, index) => {
+        const day = String(window.day ?? '').trim();
+        const dayNumber = Number(day);
+        if (!Number.isInteger(dayNumber) || dayNumber < 1 || dayNumber > 7) {
+          ctx.addIssue({
+            code: 'custom',
+            message: 'Dia da janela de disponibilidade invalido',
+            path: ['availabilityWindows', index, 'day'],
+          });
+          return;
+        }
+
+        const startMinutes = parseTimeToMinutes(window.startTime ?? '');
+        const endMinutes = parseTimeToMinutes(window.endTime ?? '');
+
+        if (startMinutes === null) {
+          ctx.addIssue({
+            code: 'custom',
+            message: 'Horario inicial invalido. Use o formato HH:mm',
+            path: ['availabilityWindows', index, 'startTime'],
+          });
+        }
+        if (endMinutes === null) {
+          ctx.addIssue({
+            code: 'custom',
+            message: 'Horario final invalido. Use o formato HH:mm',
+            path: ['availabilityWindows', index, 'endTime'],
+          });
+        }
+        if (startMinutes !== null && endMinutes !== null && startMinutes >= endMinutes) {
+          ctx.addIssue({
+            code: 'custom',
+            message: 'Horario inicial deve ser menor que o horario final',
+            path: ['availabilityWindows', index, 'endTime'],
+          });
+        }
+
+        if (startMinutes !== null && endMinutes !== null && startMinutes < endMinutes) {
+          const list = byDay.get(day) ?? [];
+          list.push({ start: startMinutes, end: endMinutes });
+          byDay.set(day, list);
+        }
+      });
+
+      for (const [day, intervals] of byDay.entries()) {
+        const sorted = [...intervals].sort((a, b) => a.start - b.start);
+        for (let i = 1; i < sorted.length; i += 1) {
+          if (sorted[i].start < sorted[i - 1].end) {
+            ctx.addIssue({
+              code: 'custom',
+              message: `Janelas de disponibilidade sobrepostas no dia ${DAY_NAMES[day] ?? day}`,
+              path: ['availabilityWindows'],
+            });
+            break;
+          }
+        }
+      }
+    }
+  });
+
+type FormValues = z.input<typeof FormSchema>;
+type FormData = z.output<typeof FormSchema>;
 
 interface HomeFormProps {
   id?: string | null;
 }
 
 export const MessageForm: React.FC<HomeFormProps> = ({ id }: HomeFormProps) => {
-
   const [isDialogOpen, setIsDialogOpen] = React.useState(false);
   const { getDepartments } = useDepartmentsApi();
+  
   const { saveFormData, getFormData, clearFormData } = useFormStore();
 
-  const { handleSubmit, control, reset, formState: { errors }, watch } = useForm<FormData>({
+  const {
+    handleSubmit,
+    control,
+    reset,
+    formState: { errors },
+    watch,
+  } = useForm<FormValues, unknown, FormData>({
     resolver: zodResolver(FormSchema),
-    defaultValues: { title: '', content: '', level: 0, type: 0, departments: [], sendToSubdivisions: false, repeatIntervalMinutes: undefined, expireAt: '', publishedAt: '', agentScope: 'BOTH' },
+    defaultValues: {
+      title: '',
+      content: '',
+      level: 0,
+      type: 0,
+      departments: [],
+      sendToSubdivisions: false,
+      repeatIntervalMinutes: undefined,
+      expireAt: '',
+      publishedAt: '',
+      agentScope: 'BOTH',
+      scheduleType: 'NONE',
+      scheduleDaysOfWeek: [],
+      scheduleTimes: [],
+      scheduleMonthDays: [],
+      availabilityWindows: [],
+    },
   });
 
-  // Watch expireAt para controlar estado do campo repeatIntervalMinutes
-  const expireAtValue = watch('expireAt');
-  const hasExpireDate = !!(expireAtValue && expireAtValue.trim());
+  const scheduleTypeValue = watch('scheduleType');
 
-  const { createMessage, getCreateMessageDtoById } = useMessagesApi();
+  const { createMessage, getCreateMessageDtoById, getDefaultOfficeHoursWindow } = useMessagesApi();
 
   const { data: msg, isLoading: msgLoading } = useQuery({
     queryKey: ['messageDto', id],
-    queryFn: async () => id ? await getCreateMessageDtoById(id) : null,
+    queryFn: async () => (id ? await getCreateMessageDtoById(id) : null),
     enabled: !!id,
     staleTime: 5 * 60 * 1000,
+  });
+
+  const { data: defaultOfficeHoursWindow, isLoading: defaultOfficeHoursLoading } = useQuery({
+    queryKey: ['defaultOfficeHoursWindow'],
+    queryFn: async () => {
+      try {
+        const window = await getDefaultOfficeHoursWindow();
+        return window;
+      } catch (err) {
+        console.error('Erro ao obter janela de horário comercial padrão:', err);
+        return null;
+      }
+    },
+    staleTime: 60 * 60 * 1000,
   });
 
   const { data: levelsData, isLoading: levelsLoading } = useQuery({
@@ -136,11 +536,21 @@ export const MessageForm: React.FC<HomeFormProps> = ({ id }: HomeFormProps) => {
 
   React.useEffect(() => {
     if (!msg) return;
-    console.log('Resetting form with message DTO:', msg);
     try {
+      const scheduleType = (
+        msg.scheduleMonthDays
+          ? 'MONTHLY'
+          : msg.scheduleDaysOfWeek
+          ? 'WEEKLY'
+          : msg.repeatIntervalMinutes
+          ? 'INTERVAL'
+          : 'NONE'
+      ) as 'NONE' | 'INTERVAL' | 'WEEKLY' | 'MONTHLY';
+      const weeklyDays = msg.scheduleDaysOfWeek ? normalizeStringArray(msg.scheduleDaysOfWeek) : [];
+      const monthDays = msg.scheduleMonthDays ? normalizeStringArray(msg.scheduleMonthDays) : [];
       reset({
         title: msg.title ?? '',
-        content: msg.content ?? '',
+        content: unescapeServerHtml(msg.content ?? ''),
         level: msg.level ?? 0,
         type: msg.type ?? 0,
         departments: msg.departments ?? [],
@@ -149,47 +559,94 @@ export const MessageForm: React.FC<HomeFormProps> = ({ id }: HomeFormProps) => {
         expireAt: msg.expireAt ?? '',
         publishedAt: msg.publishedAt ?? '',
         agentScope: (msg.agentScope as 'INTERNAL' | 'EXTERNAL' | 'BOTH') ?? 'BOTH',
+        scheduleType,
+        scheduleDaysOfWeek: weeklyDays,
+        scheduleTimes:
+          scheduleType === 'WEEKLY'
+            ? syncScheduleTimeGroups(
+                weeklyDays,
+                normalizeScheduleTimeGroups(msg.scheduleTimes, weeklyDays, 'weekly'),
+                'weekly'
+              )
+            : scheduleType === 'MONTHLY'
+            ? syncScheduleTimeGroups(
+                monthDays,
+                normalizeScheduleTimeGroups(msg.scheduleTimes, monthDays, 'monthly'),
+                'monthly'
+              )
+            : [],
+        scheduleMonthDays: monthDays,
+        availabilityWindows: msg.availabilityWindows ? JSON.parse(msg.availabilityWindows) : [],
       });
     } catch (err) {
-      console.error('Error resetting form values from message DTO:', err);
+      console.error(err);
     }
   }, [msg, reset]);
 
-  // ✅ NOVO: Limpar dados do formulário se parâmetro new=true na URL
   React.useEffect(() => {
     const urlParams = new URLSearchParams(window.location.search);
-    const isNew = urlParams.get('new') === 'true';
-
-    if (isNew) {
-      console.log('✨ [MessageForm] Parâmetro new=true detectado - limpando formulário');
-        clearFormData();
-        reset({ title: '', content: '', level: 0, type: 0, departments: [], sendToSubdivisions: false, repeatIntervalMinutes: undefined, expireAt: '', publishedAt: '', agentScope: 'BOTH' });
-    }
-  }, []);
-
-  // ✅ NOVO: Recuperar dados salvos ao montar o componente
-  React.useEffect(() => {
-    const savedData = getFormData();
-    if (savedData && !id) { // Só restaura se não estiver editando uma mensagem existente
-      console.log('✅ [MessageForm] Dados do formulário restaurados após reauth:', savedData);
-      
-      // Mostrar toast informando que o formulário foi recuperado
-      toast.success('✅ Formulário restaurado! Seus dados foram preservados durante a reautenticação.');
-      
-      // Sanitiza repeatIntervalMinutes: 0 ou falsy → undefined (valores legados do localStorage)
+    if (urlParams.get('new') === 'true') {
+      clearFormData();
       reset({
-        ...savedData,
-        repeatIntervalMinutes: savedData.repeatIntervalMinutes && savedData.repeatIntervalMinutes > 0
-          ? savedData.repeatIntervalMinutes
-          : undefined,
+        title: '',
+        content: '',
+        level: 0,
+        type: 0,
+        departments: [],
+        sendToSubdivisions: false,
+        repeatIntervalMinutes: undefined,
+        expireAt: '',
+        publishedAt: '',
+        agentScope: 'BOTH',
+        scheduleType: 'NONE',
+        scheduleDaysOfWeek: [],
+        scheduleTimes: [],
+        scheduleMonthDays: [],
+        availabilityWindows: [],
       });
     }
   }, []);
 
-  // ✅ NOVO: Salvar dados do formulário automaticamente quando mudam
+  React.useEffect(() => {
+    const savedData = getFormData();
+    if (savedData && !id) {
+      toast.success('Formulario restaurado! Seus dados foram preservados durante a reautenticacao.');
+      reset({
+        ...savedData,
+        scheduleDaysOfWeek: normalizeStringArray(savedData.scheduleDaysOfWeek),
+        scheduleTimes:
+          savedData.scheduleType === 'WEEKLY'
+            ? syncScheduleTimeGroups(
+                savedData.scheduleDaysOfWeek,
+                normalizeScheduleTimeGroups(
+                  (savedData as { scheduleTimes?: unknown }).scheduleTimes,
+                  savedData.scheduleDaysOfWeek,
+                  'weekly'
+                ),
+                'weekly'
+              )
+            : savedData.scheduleType === 'MONTHLY'
+            ? syncScheduleTimeGroups(
+                savedData.scheduleMonthDays,
+                normalizeScheduleTimeGroups(
+                  (savedData as { scheduleTimes?: unknown }).scheduleTimes,
+                  savedData.scheduleMonthDays,
+                  'monthly'
+                ),
+                'monthly'
+              )
+            : [],
+        scheduleMonthDays: normalizeStringArray(savedData.scheduleMonthDays),
+        repeatIntervalMinutes:
+          savedData.repeatIntervalMinutes && savedData.repeatIntervalMinutes > 0
+            ? savedData.repeatIntervalMinutes
+            : undefined,
+      });
+    }
+  }, []);
+
   React.useEffect(() => {
     const subscription = watch(() => {
-      // Salva a cada mudança
       const data = watch();
       saveFormData({
         title: data.title ?? '',
@@ -202,28 +659,77 @@ export const MessageForm: React.FC<HomeFormProps> = ({ id }: HomeFormProps) => {
         expireAt: data.expireAt ?? '',
         publishedAt: data.publishedAt ?? '',
         agentScope: data.agentScope ?? 'BOTH',
+        scheduleType: data.scheduleType ?? 'NONE',
+        scheduleDaysOfWeek: data.scheduleDaysOfWeek ?? [],
+        scheduleTimes: data.scheduleTimes ?? [],
+        scheduleMonthDays: data.scheduleMonthDays ?? [],
+        availabilityWindows: data.availabilityWindows ?? [],
       });
     });
     return () => subscription.unsubscribe();
   }, [watch, saveFormData]);
 
   const submitForm = (data: FormData) => {
-    createMessage({ title: data.title, content: data.content, level: data.level, type: data.type, departments: data.departments, sendToSubdivisions: data.sendToSubdivisions, repeatIntervalMinutes: data.repeatIntervalMinutes, expireAt: data.expireAt, publishedAt: data.publishedAt }).then(() => {
-      // ✅ NOVO: Limpar dados salvos após envio bem-sucedido
-      console.log('✅ [MessageForm] Mensagem enviada com sucesso - limpando dados salvos');
-      clearFormData();
-      reset({ title: '', content: '', level: 0, type: 0, departments: [], sendToSubdivisions: false, repeatIntervalMinutes: undefined, expireAt: '', publishedAt: '', agentScope: 'BOTH' });
-      toast.success('✅ Mensagem enviada com sucesso!');
-    }).catch(err => {
-      // ✅ NOVO: NÃO limpar dados se houver erro
-      // Os dados são preservados para que o usuário possa tentar novamente
-      console.warn('⚠️ [MessageForm] Erro ao enviar - dados preservados para novo envio');
-      toast.error('Erro ao criar mensagem.' + (err?.response?.data?.message ? ` ${err.response.data.message}` : ''));
-    });
-  }
-  // openDialog will validate the form; only opens confirmation dialog when form is valid
+    const payload: import('@/api/messages').CreateMessageDTO = {
+      title: data.title,
+      content: data.content,
+      level: data.level,
+      type: data.type,
+      departments: data.departments,
+      sendToSubdivisions: data.sendToSubdivisions,
+      expireAt: data.expireAt,
+      publishedAt: data.publishedAt,
+      agentScope: data.agentScope,
+    };
+    if (data.scheduleType === 'INTERVAL') {
+      payload.repeatIntervalMinutes = data.repeatIntervalMinutes;
+    } else if (data.scheduleType === 'WEEKLY') {
+      const weeklyGroups = syncScheduleTimeGroups(data.scheduleDaysOfWeek, data.scheduleTimes, 'weekly');
+      payload.scheduleDaysOfWeek = (data.scheduleDaysOfWeek ?? []).join(',');
+      payload.scheduleTimes = JSON.stringify(weeklyGroups);
+    } else if (data.scheduleType === 'MONTHLY') {
+      const monthlyGroups = syncScheduleTimeGroups(
+        data.scheduleMonthDays,
+        data.scheduleTimes,
+        'monthly'
+      );
+      payload.scheduleMonthDays = (data.scheduleMonthDays ?? []).join(',');
+      payload.scheduleTimes = JSON.stringify(monthlyGroups);
+    }
+    if (data.availabilityWindows && data.availabilityWindows.length > 0) {
+      payload.availabilityWindows = JSON.stringify(data.availabilityWindows);
+    }
+    createMessage(payload)
+      .then(() => {
+        clearFormData();
+        reset({
+          title: '',
+          content: '',
+          level: 0,
+          type: 0,
+          departments: [],
+          sendToSubdivisions: false,
+          repeatIntervalMinutes: undefined,
+          expireAt: '',
+          publishedAt: '',
+          agentScope: 'BOTH',
+          scheduleType: 'NONE',
+          scheduleDaysOfWeek: [],
+          scheduleTimes: [],
+          scheduleMonthDays: [],
+          availabilityWindows: [],
+        });
+        toast.success('Mensagem enviada com sucesso!');
+      })
+      .catch((err) => {
+        toast.error(
+          'Erro ao criar mensagem.' +
+            (err?.response?.data?.message ? ' ' + err.response.data.message : '')
+        );
+      });
+  };
+
   const openDialog = handleSubmit(() => setIsDialogOpen(true));
-  // called when user confirms in dialog: finally submit (re-validates)
   const handleConfirmSend = () => {
     setIsDialogOpen(false);
     handleSubmit(submitForm)();
@@ -231,43 +737,65 @@ export const MessageForm: React.FC<HomeFormProps> = ({ id }: HomeFormProps) => {
 
   return (
     <>
-      {isLoading ?
+      {isLoading ? (
         <>
-          <Skeleton className='w-full h-10 mb-4' />
-          <Skeleton className='w-full h-10 mb-4' />
-          <Skeleton className='w-full h-10 mb-4' />
+          <Skeleton className="w-full h-10 mb-4" />
+          <Skeleton className="w-full h-10 mb-4" />
+          <Skeleton className="w-full h-10 mb-4" />
         </>
-        :
-        // prevent default submit so we control submission via the button click (which validates before opening dialog)
+      ) : (
         <form onSubmit={(e) => e.preventDefault()} className="space-y-6 pb-16">
-          {/* Informações Básicas */}
+          {/* Informacoes Basicas */}
           <div className="bg-gradient-to-r from-blue-50 to-cyan-50 dark:from-slate-900 dark:to-slate-800 rounded-xl p-6 border border-blue-200 dark:border-slate-700">
             <div className="flex items-center gap-2 mb-6">
-              <div className="w-1 h-6 bg-gradient-to-b from-blue-500 to-cyan-500 rounded"></div>
-              <div className='w-full flex justify-between items-center'>
-                <h3 className="text-lg font-semibold text-foreground justify-between">Informações Básicas
-
-
-                </h3>
-                <div className='flex items-center'>
-                  <button type="button" onClick={() => reset()} className="ml-4 text-sm text-blue-600 hover:text-blue-800 hover:bg-blue-50 dark:hover:bg-blue-900/20 rounded px-2 py-1 flex items-center gap-1">
+              <div className="w-1 h-6 bg-gradient-to-b from-blue-500 to-cyan-500 rounded" />
+              <div className="w-full flex justify-between items-center">
+                <h3 className="text-lg font-semibold text-foreground">Informacoes Basicas</h3>
+                <div className="flex items-center">
+                  <button
+                    type="button"
+                    onClick={() => reset()}
+                    className="ml-4 text-sm text-blue-600 hover:text-blue-800 hover:bg-blue-50 dark:hover:bg-blue-900/20 rounded px-2 py-1 flex items-center gap-1"
+                  >
                     <RefreshCw size={16} />
                     Restaurar
                   </button>
-                  <button type="button" onClick={() => reset({ title: '', content: '', level: 0, type: 0, departments: [], sendToSubdivisions: false, repeatIntervalMinutes: undefined, expireAt: '', publishedAt: '', agentScope: 'BOTH' })} className="ml-4 text-sm text-blue-600 hover:text-blue-800 hover:bg-blue-50 dark:hover:bg-blue-900/20 rounded px-2 py-1 flex items-center gap-1">
+                  <button
+                    type="button"
+                    onClick={() =>
+                      reset({
+                        title: '',
+                        content: '',
+                        level: 0,
+                        type: 0,
+                        departments: [],
+                        sendToSubdivisions: false,
+                        repeatIntervalMinutes: undefined,
+                        expireAt: '',
+                        publishedAt: '',
+                        agentScope: 'BOTH',
+                        scheduleType: 'NONE',
+                        scheduleDaysOfWeek: [],
+                        scheduleTimes: [],
+                        scheduleMonthDays: [],
+                        availabilityWindows: [],
+                      })
+                    }
+                    className="ml-4 text-sm text-blue-600 hover:text-blue-800 hover:bg-blue-50 dark:hover:bg-blue-900/20 rounded px-2 py-1 flex items-center gap-1"
+                  >
                     <Plus size={16} />
-                    Novo Formulário
+                    Novo Formulario
                   </button>
                 </div>
               </div>
             </div>
 
             <div className="space-y-5">
-              {/* Título */}
+              {/* Titulo */}
               <div className="space-y-3">
                 <div className="flex items-center gap-2">
-                  <FileText size={18} className="text-blue-500" />
-                  <label className="block text-sm font-medium">Título</label>
+                  <AlertCircle size={18} className="text-blue-500" />
+                  <label className="block text-sm font-medium">Titulo</label>
                 </div>
                 <Controller
                   control={control}
@@ -275,53 +803,44 @@ export const MessageForm: React.FC<HomeFormProps> = ({ id }: HomeFormProps) => {
                   render={({ field }) => (
                     <div>
                       <input
-                        type="text"
                         {...field}
-                        className={`w-full border rounded-lg px-4 py-3 focus:outline-none focus:ring-2 focus:ring-blue-500 dark:bg-slate-950 dark:text-white dark:border-slate-700 transition-all ${errors.title ? 'border-red-500' : 'border-gray-300'}`}
-                        placeholder="Digite o título da mensagem"
-
+                        type="text"
+                        placeholder="Titulo da mensagem (opcional)"
+                        className="w-full border rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 dark:bg-slate-950 dark:text-white dark:border-slate-700 border-gray-300"
                       />
-                      {errors.title && <p className="text-red-500 text-xs mt-1">{errors.title.message}</p>}
-                      <p className="text-xs text-muted-foreground italic">Obrigatório: Identifique a mensagem com um título</p>
+                      {errors.title && (
+                        <p className="text-xs text-red-500 mt-1">{errors.title.message}</p>
+                      )}
                     </div>
                   )}
                 />
               </div>
 
-              {/* Conteúdo */}
+              {/* Conteudo */}
               <div className="space-y-3">
                 <div className="flex items-center gap-2">
-                  <Zap size={18} className="text-cyan-500" />
-                  <label className="block text-sm font-medium">Conteúdo</label>
+                  <FileText size={18} className="text-blue-500" />
+                  <label className="block text-sm font-medium">Conteudo</label>
                 </div>
                 <Controller
                   control={control}
                   name="content"
                   render={({ field }) => (
                     <div>
-                      <TinyMceEditor key={msg ? `msg-content-${unescapeServerHtml(msg.content)}` : 'tinymce-initial'} value={field.value} onChange={field.onChange} />
-                      {errors.content && <p className="text-red-500 text-xs mt-1">{errors.content.message}</p>}
-                      <p className="text-xs text-muted-foreground italic">Obrigatório: Use o editor para formatar o conteúdo</p>
+                      <TinyMceEditor value={field.value} onChange={field.onChange} />
+                      {errors.content && (
+                        <p className="text-xs text-red-500 mt-1">{errors.content.message}</p>
+                      )}
                     </div>
                   )}
                 />
               </div>
-            </div>
-          </div>
 
-          {/* Configuração da Mensagem */}
-          <div className="bg-gradient-to-r from-amber-50 to-orange-50 dark:from-slate-900 dark:to-slate-800 rounded-xl p-6 border border-amber-200 dark:border-slate-700">
-            <div className="flex items-center gap-2 mb-6">
-              <div className="w-1 h-6 bg-gradient-to-b from-amber-500 to-orange-500 rounded"></div>
-              <h3 className="text-lg font-semibold text-foreground">Configuração da Mensagem</h3>
-            </div>
-
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
-              {/* Nível */}
+              {/* Nivel */}
               <div className="space-y-3">
                 <div className="flex items-center gap-2">
-                  <AlertCircle size={18} className="text-amber-500" />
-                  <label className="block text-sm font-medium">Nível de Severidade</label>
+                  <Zap size={18} className="text-blue-500" />
+                  <label className="block text-sm font-medium">Nivel</label>
                 </div>
                 <Controller
                   control={control}
@@ -329,12 +848,20 @@ export const MessageForm: React.FC<HomeFormProps> = ({ id }: HomeFormProps) => {
                   render={({ field }) => (
                     <div>
                       <StyledSelect
-                        options={[{ label: 'Selecione', value: '' }, ...((levelsData || []).map((l: any) => ({ label: l.name, value: String(l.id) })))]}
-                        value={field.value === 0 ? '' : String(field.value)}
+                        value={field.value ? String(field.value) : ''}
                         onChange={(e) => field.onChange(Number(e.target.value))}
+                        options={
+                          levelsData
+                            ? levelsData.map((l: { id: number; name: string }) => ({
+                                value: String(l.id),
+                                label: l.name,
+                              }))
+                            : []
+                        }
                       />
-                      {errors.level && <p className="text-red-500 text-xs mt-1">{errors.level.message}</p>}
-                      <p className="text-xs text-muted-foreground italic">Obrigatório: Define a importância da mensagem</p>
+                      {errors.level && (
+                        <p className="text-xs text-red-500 mt-1">{errors.level.message}</p>
+                      )}
                     </div>
                   )}
                 />
@@ -343,8 +870,8 @@ export const MessageForm: React.FC<HomeFormProps> = ({ id }: HomeFormProps) => {
               {/* Tipo */}
               <div className="space-y-3">
                 <div className="flex items-center gap-2">
-                  <Tag size={18} className="text-orange-500" />
-                  <label className="block text-sm font-medium">Tipo de Mensagem</label>
+                  <Tag size={18} className="text-blue-500" />
+                  <label className="block text-sm font-medium">Tipo</label>
                 </div>
                 <Controller
                   control={control}
@@ -352,219 +879,821 @@ export const MessageForm: React.FC<HomeFormProps> = ({ id }: HomeFormProps) => {
                   render={({ field }) => (
                     <div>
                       <StyledSelect
-                        options={[{ label: 'Selecione', value: '' }, ...((typesData || []).map((t: any) => ({ label: t.name, value: String(t.id) })))]}
-                        value={field.value === 0 ? '' : String(field.value)}
+                        value={field.value ? String(field.value) : ''}
                         onChange={(e) => field.onChange(Number(e.target.value))}
+                        options={
+                          typesData
+                            ? typesData.map((t: { id: number; name: string }) => ({
+                                value: String(t.id),
+                                label: t.name,
+                              }))
+                            : []
+                        }
                       />
-                      {errors.type && <p className="text-red-500 text-xs mt-1">{errors.type.message}</p>}
-                      <p className="text-xs text-muted-foreground italic">Obrigatório: Categorize a mensagem</p>
+                      {errors.type && (
+                        <p className="text-xs text-red-500 mt-1">{errors.type.message}</p>
+                      )}
                     </div>
                   )}
                 />
               </div>
 
-              {/* Departamentos */}
+              {/* Escopo do Agente */}
               <div className="space-y-3">
                 <div className="flex items-center gap-2">
-                  <Building2 size={18} className="text-orange-500" />
-                  <label className="block text-sm font-medium">Departamentos</label>
-                </div>
-                <Controller
-                  control={control}
-                  name="departments"
-                  render={({ field }) => (
-                    <div>
-                      <MultiSelect
-                        options={(departmentsData || []).map((d: any) => ({ label: d.name, value: d.id }))}
-                        value={field.value || []}
-                        onValueChange={field.onChange}
-                        placeholder="Selecione os departamentos"
-                      />
-                      {errors.departments && <p className="text-red-500 text-xs mt-1">{errors.departments.message}</p>}
-                      <p className="text-xs text-muted-foreground italic">Opcional: Deixe vazio para enviar a todos</p>
-                    </div>
-                  )}
-                />
-              </div>
-
-              {/* Enviar para Subdivisões */}
-              <div className="space-y-3">
-                <div className="flex items-center gap-2">
-                  <GitBranch size={18} className="text-amber-500" />
-                  <label className="block text-sm font-medium">Incluir Subdivisões</label>
-                </div>
-                <Controller
-                  control={control}
-                  name="sendToSubdivisions"
-                  render={({ field }) => (
-                    <div>
-                      <StyledSelect
-                        options={[{ label: 'Não', value: 'false' }, { label: 'Sim', value: 'true' }]}
-                        value={field.value ? 'true' : 'false'}
-                        onChange={(e) => field.onChange(e.target.value === 'true')}
-                      />
-                      {errors.sendToSubdivisions && <p className="text-red-500 text-xs mt-1">{errors.sendToSubdivisions.message}</p>}
-                      <p className="text-xs text-muted-foreground italic">Ativa a propagação para subdivisões</p>
-                    </div>
-                  )}
-                />
-              </div>
-
-              {/* Visibilidade do Agente */}
-              <div className="space-y-3">
-                <div className="flex items-center gap-2">
-                  <Globe size={18} className="text-amber-500" />
-                  <label className="block text-sm font-medium">Visibilidade do Agente</label>
+                  <Globe size={18} className="text-blue-500" />
+                  <label className="block text-sm font-medium">Escopo do Agente</label>
                 </div>
                 <Controller
                   control={control}
                   name="agentScope"
                   render={({ field }) => (
-                    <div>
-                      <StyledSelect
-                        options={[
-                          { label: 'Todos os Agentes (padrão)', value: 'BOTH' },
-                          { label: 'Apenas Agentes Internos (rede local)', value: 'INTERNAL' },
-                          { label: 'Apenas Agentes Externos (web)', value: 'EXTERNAL' },
-                        ]}
-                        value={field.value ?? 'BOTH'}
-                        onChange={(e) => field.onChange(e.target.value)}
-                      />
-                      {errors.agentScope && <p className="text-red-500 text-xs mt-1">{errors.agentScope.message}</p>}
-                      <p className="text-xs text-muted-foreground italic">Define quais agentes receberão esta mensagem</p>
-                    </div>
+                    <StyledSelect
+                      value={field.value ?? 'BOTH'}
+                      onChange={(e) =>
+                        field.onChange(e.target.value as 'INTERNAL' | 'EXTERNAL' | 'BOTH')
+                      }
+                      options={[
+                        { value: 'BOTH', label: 'Todos os agentes' },
+                        { value: 'INTERNAL', label: 'Apenas agentes internos' },
+                        { value: 'EXTERNAL', label: 'Apenas agentes externos' },
+                      ]}
+                    />
                   )}
                 />
               </div>
             </div>
           </div>
 
-          {/* Agendamento e Repetição */}
-          <div className="bg-gradient-to-r from-purple-50 to-pink-50 dark:from-slate-900 dark:to-slate-800 rounded-xl p-6 border border-purple-200 dark:border-slate-700">
+          {/* Destino */}
+          <div className="bg-gradient-to-r from-green-50 to-emerald-50 dark:from-slate-900 dark:to-slate-800 rounded-xl p-6 border border-green-200 dark:border-slate-700">
             <div className="flex items-center gap-2 mb-6">
-              <div className="w-1 h-6 bg-gradient-to-b from-purple-500 to-pink-500 rounded"></div>
-              <h3 className="text-lg font-semibold text-foreground">Agendamento e Repetição</h3>
+              <div className="w-1 h-6 bg-gradient-to-b from-green-500 to-emerald-500 rounded" />
+              <Building2 size={20} className="text-green-600" />
+              <h3 className="text-lg font-semibold text-foreground">Destino</h3>
             </div>
 
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-              {/* Publicar em */}
+            <div className="space-y-5">
+              {/* Departamentos */}
               <div className="space-y-3">
+                <label className="block text-sm font-medium">Departamentos</label>
+                <Controller
+                  control={control}
+                  name="departments"
+                  render={({ field }) => (
+                    <MultiSelect
+                      options={
+                        departmentsData
+                          ? departmentsData.map((d) => ({ value: d.id, label: d.name }))
+                          : []
+                      }
+                      value={field.value ?? []}
+                      onValueChange={(val) => field.onChange(val.map(String))}
+                      placeholder="Selecione os departamentos..."
+                    />
+                  )}
+                />
+              </div>
+
+              {/* Enviar para subdivisoes */}
+              <div className="flex items-center gap-3">
+                <GitBranch size={18} className="text-green-600" />
+                <Controller
+                  control={control}
+                  name="sendToSubdivisions"
+                  render={({ field }) => (
+                    <label className="flex items-center gap-2 cursor-pointer">
+                      <input
+                        type="checkbox"
+                        checked={field.value ?? false}
+                        onChange={(e) => field.onChange(e.target.checked)}
+                        className="w-4 h-4 rounded border-gray-300 text-green-600 focus:ring-green-500"
+                      />
+                      <span className="text-sm font-medium">Enviar para subdivisoes</span>
+                    </label>
+                  )}
+                />
+              </div>
+            </div>
+          </div>
+
+          {/* Agendamento e Repeticao */}
+          <div className="bg-gradient-to-r from-purple-50 to-violet-50 dark:from-slate-900 dark:to-slate-800 rounded-xl p-6 border border-purple-200 dark:border-slate-700">
+            <div className="flex items-center gap-2 mb-6">
+              <div className="w-1 h-6 bg-gradient-to-b from-purple-500 to-violet-500 rounded" />
+              <h3 className="text-lg font-semibold text-foreground">Agendamento e Repeticao</h3>
+            </div>
+
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-5 mb-5">
+              {/* Data de publicacao */}
+              <div className="space-y-2">
                 <div className="flex items-center gap-2">
-                  <Calendar size={18} className="text-purple-500" />
-                  <label className="block text-sm font-medium">Publicar em</label>
+                  <Calendar size={16} className="text-purple-500" />
+                  <label className="block text-sm font-medium">Data de publicacao</label>
                 </div>
                 <Controller
                   control={control}
                   name="publishedAt"
                   render={({ field }) => (
                     <div>
-                      <input
-                        type="datetime-local"
-                        {...field}
-                        className={`w-full border rounded-lg px-4 py-3 focus:outline-none focus:ring-2 focus:ring-blue-500 dark:bg-slate-950 dark:text-white dark:border-slate-700 transition-all ${errors.publishedAt ? 'border-red-500' : 'border-gray-300'}`}
-                      />
-                      {errors.publishedAt && <p className="text-red-500 text-xs mt-1">{errors.publishedAt.message}</p>}
+                      <div className="flex items-center gap-2">
+                        <input
+                          type="datetime-local"
+                          value={field.value ?? ''}
+                          onChange={(e) => field.onChange(e.target.value)}
+                          className="flex-1 border rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-purple-500 dark:bg-slate-950 dark:text-white dark:border-slate-700 border-gray-300"
+                        />
+                        {field.value && (
+                          <button
+                            type="button"
+                            onClick={() => field.onChange('')}
+                            className="text-gray-400 hover:text-gray-600 transition-colors"
+                          >
+                            <Trash2 size={16} />
+                          </button>
+                        )}
+                      </div>
+                      {errors.publishedAt && (
+                        <p className="text-xs text-red-500 mt-1">{errors.publishedAt.message}</p>
+                      )}
                     </div>
                   )}
                 />
-                <button
-                  type="button"
-                  className="text-xs text-blue-500 hover:text-blue-700 font-medium transition-colors"
-                  onClick={() => {
-                    reset({ ...watch(), publishedAt: '' });
-                  }}
-                >
-                  ✕ Limpar data
-                </button>
-                <p className="text-xs text-muted-foreground italic">Opcional: data de publicação futura</p>
               </div>
 
-              {/* Expirar em */}
-              <div className="space-y-3">
+              {/* Data de expiracao */}
+              <div className="space-y-2">
                 <div className="flex items-center gap-2">
-                  <Clock size={18} className="text-pink-500" />
-                  <label className="block text-sm font-medium">Expirar em</label>
+                  <Clock size={16} className="text-purple-500" />
+                  <label className="block text-sm font-medium">Data de expiracao</label>
                 </div>
                 <Controller
                   control={control}
                   name="expireAt"
                   render={({ field }) => (
                     <div>
-                      <input
-                        type="datetime-local"
-                        {...field}
-                        className={`w-full border rounded-lg px-4 py-3 focus:outline-none focus:ring-2 focus:ring-purple-500 dark:bg-slate-950 dark:text-white dark:border-slate-700 transition-all ${errors.expireAt ? 'border-red-500' : 'border-gray-300'}`}
-                      />
-                      {errors.expireAt && <p className="text-red-500 text-xs mt-1">{errors.expireAt.message}</p>}
+                      <div className="flex items-center gap-2">
+                        <input
+                          type="datetime-local"
+                          value={field.value ?? ''}
+                          onChange={(e) => field.onChange(e.target.value)}
+                          className="flex-1 border rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-purple-500 dark:bg-slate-950 dark:text-white dark:border-slate-700 border-gray-300"
+                        />
+                        {field.value && (
+                          <button
+                            type="button"
+                            onClick={() => field.onChange('')}
+                            className="text-gray-400 hover:text-gray-600 transition-colors"
+                          >
+                            <Trash2 size={16} />
+                          </button>
+                        )}
+                      </div>
+                      {errors.expireAt && (
+                        <p className="text-xs text-red-500 mt-1">{errors.expireAt.message}</p>
+                      )}
                     </div>
                   )}
                 />
-                <button
-                  type="button"
-                  className="text-xs text-purple-500 hover:text-purple-700 font-medium transition-colors"
-                  onClick={() => {
-                    reset({ ...watch(), expireAt: '' });
-                  }}
-                >
-                  ✕ Limpar data
-                </button>
-                <p className="text-xs text-muted-foreground italic">Opcional: data de expiração da mensagem</p>
               </div>
+            </div>
 
-              {/* Intervalo de Repetição */}
-              <div className="space-y-3">
-                <div className="flex items-center gap-2">
-                  <RefreshCw size={18} className="text-pink-500" />
-                  <label className="block text-sm font-medium">
-                    Repetir (min)
-                    {hasExpireDate && <span className="text-red-500 ml-1">*</span>}
-                  </label>
-                </div>
+            {/* Tipo de Recorrencia */}
+            <div className="space-y-4">
+              <div className="flex items-center gap-2">
+                <RefreshCw size={16} className="text-purple-500" />
+                <label className="block text-sm font-medium">Tipo de Recorrencia</label>
+              </div>
+              <div className="max-w-xl">
                 <Controller
                   control={control}
-                  name="repeatIntervalMinutes"
+                  name="scheduleType"
                   render={({ field }) => (
-                    <div>
-                      <input
-                        type="number"
-                        {...field}
-                        value={field.value || ''}
-                        onChange={(e) => field.onChange(e.target.value === '' ? undefined : Number(e.target.value))}
-                        disabled={!hasExpireDate}
-                        className={`w-full border rounded-lg px-4 py-3 focus:outline-none focus:ring-2 focus:ring-pink-500 dark:bg-slate-950 dark:text-white dark:border-slate-700 transition-all disabled:opacity-50 disabled:cursor-not-allowed ${errors.repeatIntervalMinutes ? 'border-red-500' : 'border-gray-300'}`}
-                        placeholder={hasExpireDate ? 'ex: 60' : 'Defina expiração primeiro'}
-                        min={1}
-                      />
-                      {errors.repeatIntervalMinutes && <p className="text-red-500 text-xs mt-1">{errors.repeatIntervalMinutes.message}</p>}
-                      {!hasExpireDate && <p className="text-xs text-amber-600 dark:text-amber-400 italic font-medium">⚠️ Ative preenchendo "Expirar em"</p>}
-                      {hasExpireDate && <p className="text-xs text-green-600 dark:text-green-400 italic">✓ Obrigatório quando expiração ativa</p>}
-                    </div>
+                    <StyledSelect
+                      value={field.value}
+                      onChange={(e) =>
+                        field.onChange(
+                          e.target.value as 'NONE' | 'INTERVAL' | 'WEEKLY' | 'MONTHLY'
+                        )
+                      }
+                      options={[
+                        { value: 'NONE', label: 'Sem repeticao (envio unico)' },
+                        { value: 'INTERVAL', label: 'Repetir por intervalo (em minutos)' },
+                        { value: 'WEEKLY', label: 'Programado semanal (dias da semana)' },
+                        { value: 'MONTHLY', label: 'Programado mensal (dias do mes)' },
+                      ]}
+                    />
                   )}
                 />
               </div>
+
+              {/* INTERVAL */}
+              {scheduleTypeValue === 'INTERVAL' && (
+                <div className="space-y-2 mt-3">
+                  <label className="block text-sm font-medium">Intervalo de repeticao (minutos)</label>
+                  <Controller
+                    control={control}
+                    name="repeatIntervalMinutes"
+                    render={({ field }) => (
+                      <div className="max-w-xs">
+                        <input
+                          type="number"
+                          min={1}
+                          value={field.value ?? ''}
+                          onChange={(e) =>
+                            field.onChange(e.target.value ? Number(e.target.value) : undefined)
+                          }
+                          placeholder="Ex.: 60"
+                          className="w-full border rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-purple-500 dark:bg-slate-950 dark:text-white dark:border-slate-700 border-gray-300"
+                        />
+                        {errors.repeatIntervalMinutes && (
+                          <p className="text-xs text-red-500 mt-1">
+                            {errors.repeatIntervalMinutes.message}
+                          </p>
+                        )}
+                      </div>
+                    )}
+                  />
+                </div>
+              )}
+
+              {/* WEEKLY */}
+              {scheduleTypeValue === 'WEEKLY' && (
+                <Controller
+                  control={control}
+                  name="scheduleDaysOfWeek"
+                  render={({ field: daysField }) => (
+                    <Controller
+                      control={control}
+                      name="scheduleTimes"
+                      render={({ field: timesField }) => {
+                        const selectedDays = normalizeStringArray(daysField.value);
+                        const groupedTimes = syncScheduleTimeGroups(
+                          selectedDays,
+                          timesField.value,
+                          'weekly'
+                        );
+
+                        const setGroups = (groups: ScheduleTimeGroup[]) => {
+                          timesField.onChange(syncScheduleTimeGroups(selectedDays, groups, 'weekly'));
+                        };
+
+                        const toggleDaySelection = (day: string) => {
+                          const nextDays = toggleSelection(selectedDays, day, 'weekly');
+                          daysField.onChange(nextDays);
+                          timesField.onChange(syncScheduleTimeGroups(nextDays, groupedTimes, 'weekly'));
+                        };
+
+                        const removeDayCard = (day: string) => {
+                          const nextDays = selectedDays.filter((value) => value !== day);
+                          daysField.onChange(nextDays);
+                          timesField.onChange(syncScheduleTimeGroups(nextDays, groupedTimes, 'weekly'));
+                        };
+
+                        const addTimeForDay = (day: string) => {
+                          setGroups(
+                            groupedTimes.map((group) =>
+                              group.day === day
+                                ? { day, times: [...group.times, getNextSuggestedTime(group.times)] }
+                                : group
+                            )
+                          );
+                        };
+
+                        const updateTimeForDay = (day: string, index: number, value: string) => {
+                          setGroups(
+                            groupedTimes.map((group) =>
+                              group.day === day
+                                ? {
+                                    day,
+                                    times: group.times.map((time, timeIndex) =>
+                                      timeIndex === index ? value : time
+                                    ),
+                                  }
+                                : group
+                            )
+                          );
+                        };
+
+                        const removeTimeForDay = (day: string, index: number) => {
+                          setGroups(
+                            groupedTimes.map((group) =>
+                              group.day === day
+                                ? {
+                                    day,
+                                    times: group.times.filter((_, timeIndex) => timeIndex !== index),
+                                  }
+                                : group
+                            )
+                          );
+                        };
+
+                        return (
+                          <div className="space-y-4 mt-3">
+                            <div className="space-y-2">
+                              <label className="block text-sm font-medium">Dias da semana</label>
+                              <div className="flex flex-wrap gap-2">
+                                {DAYS_OF_WEEK.map((day) => {
+                                  const isSelected = selectedDays.includes(day.value);
+                                  return (
+                                    <button
+                                      key={day.value}
+                                      type="button"
+                                      onClick={() => toggleDaySelection(day.value)}
+                                      aria-pressed={isSelected}
+                                      className={`min-w-14 px-3 py-1.5 rounded-lg text-sm font-medium transition-colors border ${
+                                        isSelected
+                                          ? 'bg-purple-600 text-white border-purple-600'
+                                          : 'bg-white dark:bg-slate-900 text-foreground border-gray-300 dark:border-slate-600 hover:border-purple-400'
+                                      }`}
+                                    >
+                                      {day.label}
+                                    </button>
+                                  );
+                                })}
+                              </div>
+                              <p className="text-xs text-muted-foreground">
+                                Selecione um dia para criar o card e adicionar os horários daquele dia.
+                              </p>
+                              {errors.scheduleDaysOfWeek && (
+                                <p className="text-xs text-red-500 mt-1">
+                                  {errors.scheduleDaysOfWeek.message}
+                                </p>
+                              )}
+                            </div>
+
+                            {groupedTimes.length > 0 && (
+                              <div className="grid grid-cols-1 xl:grid-cols-2 gap-3">
+                                {groupedTimes.map((group) => (
+                                  <div
+                                    key={group.day}
+                                    className="rounded-xl border border-purple-200 dark:border-slate-700 bg-white/60 dark:bg-slate-900/60 p-4 space-y-3"
+                                  >
+                                    <div className="flex flex-wrap items-center justify-between gap-2">
+                                      <div>
+                                        <h4 className="font-semibold text-foreground">
+                                          {DAY_NAMES[group.day]}
+                                        </h4>
+                                        <p className="text-xs text-muted-foreground">
+                                          {group.times.length} horário{group.times.length > 1 ? 's' : ''}
+                                        </p>
+                                      </div>
+                                      <div className="flex items-center gap-2">
+                                        <button
+                                          type="button"
+                                          onClick={() => addTimeForDay(group.day)}
+                                          className="flex items-center gap-1 text-xs text-purple-600 hover:text-purple-800 font-medium border border-purple-300 hover:border-purple-500 rounded px-2 py-1"
+                                        >
+                                          <Plus size={12} /> Adicionar horário
+                                        </button>
+                                        <button
+                                          type="button"
+                                          onClick={() => removeDayCard(group.day)}
+                                          className="text-red-500 hover:text-red-700 border border-red-300 hover:border-red-500 rounded p-1.5"
+                                          aria-label={`Remover card de ${DAY_NAMES[group.day]}`}
+                                          title={`Remover card de ${DAY_NAMES[group.day]}`}
+                                        >
+                                          <Trash2 size={14} />
+                                        </button>
+                                      </div>
+                                    </div>
+
+                                    {group.times.length > 0 ? (
+                                      <div className="space-y-2">
+                                        {group.times.map((time, index) => (
+                                          <div
+                                            key={`${group.day}-${index}`}
+                                            className="grid grid-cols-[minmax(0,1fr)_auto] gap-2 items-center"
+                                          >
+                                            <input
+                                              type="time"
+                                              value={time}
+                                              onChange={(e) =>
+                                                updateTimeForDay(group.day, index, e.target.value)
+                                              }
+                                              className="w-full border rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-purple-500 dark:bg-slate-950 dark:text-white dark:border-slate-700 border-gray-300"
+                                            />
+                                            <button
+                                              type="button"
+                                              onClick={() => removeTimeForDay(group.day, index)}
+                                              className="text-red-500 hover:text-red-700 transition-colors p-1"
+                                              aria-label={`Remover horário de ${DAY_NAMES[group.day]}`}
+                                            >
+                                              <Trash2 size={16} />
+                                            </button>
+                                          </div>
+                                        ))}
+                                      </div>
+                                    ) : (
+                                      <p className="text-xs text-muted-foreground italic">
+                                        Sem horário fixo: dispara uma vez no primeiro tick disponível deste dia.
+                                      </p>
+                                    )}
+                                  </div>
+                                ))}
+                              </div>
+                            )}
+                          </div>
+                        );
+                      }}
+                    />
+                  )}
+                />
+              )}
+
+              {/* MONTHLY */}
+              {scheduleTypeValue === 'MONTHLY' && (
+                <Controller
+                  control={control}
+                  name="scheduleMonthDays"
+                  render={({ field: daysField }) => (
+                    <Controller
+                      control={control}
+                      name="scheduleTimes"
+                      render={({ field: timesField }) => {
+                        const selectedDays = normalizeStringArray(daysField.value);
+                        const groupedTimes = syncScheduleTimeGroups(
+                          selectedDays,
+                          timesField.value,
+                          'monthly'
+                        );
+
+                        const setGroups = (groups: ScheduleTimeGroup[]) => {
+                          timesField.onChange(syncScheduleTimeGroups(selectedDays, groups, 'monthly'));
+                        };
+
+                        const toggleDaySelection = (day: string) => {
+                          const nextDays = toggleSelection(selectedDays, day, 'monthly');
+                          daysField.onChange(nextDays);
+                          timesField.onChange(syncScheduleTimeGroups(nextDays, groupedTimes, 'monthly'));
+                        };
+
+                        const removeDayCard = (day: string) => {
+                          const nextDays = selectedDays.filter((value) => value !== day);
+                          daysField.onChange(nextDays);
+                          timesField.onChange(syncScheduleTimeGroups(nextDays, groupedTimes, 'monthly'));
+                        };
+
+                        const addTimeForDay = (day: string) => {
+                          setGroups(
+                            groupedTimes.map((group) =>
+                              group.day === day
+                                ? { day, times: [...group.times, getNextSuggestedTime(group.times)] }
+                                : group
+                            )
+                          );
+                        };
+
+                        const updateTimeForDay = (day: string, index: number, value: string) => {
+                          setGroups(
+                            groupedTimes.map((group) =>
+                              group.day === day
+                                ? {
+                                    day,
+                                    times: group.times.map((time, timeIndex) =>
+                                      timeIndex === index ? value : time
+                                    ),
+                                  }
+                                : group
+                            )
+                          );
+                        };
+
+                        const removeTimeForDay = (day: string, index: number) => {
+                          setGroups(
+                            groupedTimes.map((group) =>
+                              group.day === day
+                                ? {
+                                    day,
+                                    times: group.times.filter((_, timeIndex) => timeIndex !== index),
+                                  }
+                                : group
+                            )
+                          );
+                        };
+
+                        return (
+                          <div className="space-y-4 mt-3">
+                            <div className="space-y-2">
+                              <label className="block text-sm font-medium">Dias do mês</label>
+                              <div className="flex flex-wrap gap-1.5 max-w-3xl">
+                                {MONTH_DAYS.map((day) => {
+                                  const isSelected = selectedDays.includes(day);
+                                  return (
+                                    <button
+                                      key={day}
+                                      type="button"
+                                      onClick={() => toggleDaySelection(day)}
+                                      aria-pressed={isSelected}
+                                      className={`w-10 h-10 rounded-lg text-sm font-medium transition-colors border ${
+                                        isSelected
+                                          ? 'bg-pink-600 text-white border-pink-600'
+                                          : 'bg-white dark:bg-slate-900 text-foreground border-gray-300 dark:border-slate-600 hover:border-pink-400'
+                                      }`}
+                                    >
+                                      {day}
+                                    </button>
+                                  );
+                                })}
+                              </div>
+                              <p className="text-xs text-muted-foreground">
+                                Selecione um dia para criar o card e adicionar os horários daquele dia.
+                              </p>
+                              {errors.scheduleMonthDays && (
+                                <p className="text-xs text-red-500 mt-1">
+                                  {errors.scheduleMonthDays.message}
+                                </p>
+                              )}
+                            </div>
+
+                            {groupedTimes.length > 0 && (
+                              <div className="grid grid-cols-1 xl:grid-cols-2 gap-3">
+                                {groupedTimes.map((group) => (
+                                  <div
+                                    key={group.day}
+                                    className="rounded-xl border border-pink-200 dark:border-slate-700 bg-white/60 dark:bg-slate-900/60 p-4 space-y-3"
+                                  >
+                                    <div className="flex flex-wrap items-center justify-between gap-2">
+                                      <div>
+                                        <h4 className="font-semibold text-foreground">Dia {group.day}</h4>
+                                        <p className="text-xs text-muted-foreground">
+                                          {group.times.length} horário{group.times.length > 1 ? 's' : ''}
+                                        </p>
+                                      </div>
+                                      <div className="flex items-center gap-2">
+                                        <button
+                                          type="button"
+                                          onClick={() => addTimeForDay(group.day)}
+                                          className="flex items-center gap-1 text-xs text-pink-600 hover:text-pink-800 font-medium border border-pink-300 hover:border-pink-500 rounded px-2 py-1"
+                                        >
+                                          <Plus size={12} /> Adicionar horário
+                                        </button>
+                                        <button
+                                          type="button"
+                                          onClick={() => removeDayCard(group.day)}
+                                          className="text-red-500 hover:text-red-700 border border-red-300 hover:border-red-500 rounded p-1.5"
+                                          aria-label={`Remover card do dia ${group.day}`}
+                                          title={`Remover card do dia ${group.day}`}
+                                        >
+                                          <Trash2 size={14} />
+                                        </button>
+                                      </div>
+                                    </div>
+
+                                    {group.times.length > 0 ? (
+                                      <div className="space-y-2">
+                                        {group.times.map((time, index) => (
+                                          <div
+                                            key={`${group.day}-${index}`}
+                                            className="grid grid-cols-[minmax(0,1fr)_auto] gap-2 items-center"
+                                          >
+                                            <input
+                                              type="time"
+                                              value={time}
+                                              onChange={(e) =>
+                                                updateTimeForDay(group.day, index, e.target.value)
+                                              }
+                                              className="w-full border rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-pink-500 dark:bg-slate-950 dark:text-white dark:border-slate-700 border-gray-300"
+                                            />
+                                            <button
+                                              type="button"
+                                              onClick={() => removeTimeForDay(group.day, index)}
+                                              className="text-red-500 hover:text-red-700 transition-colors p-1"
+                                              aria-label={`Remover horário do dia ${group.day}`}
+                                            >
+                                              <Trash2 size={16} />
+                                            </button>
+                                          </div>
+                                        ))}
+                                      </div>
+                                    ) : (
+                                      <p className="text-xs text-muted-foreground italic">
+                                        Sem horário fixo: dispara uma vez no primeiro tick disponível deste dia.
+                                      </p>
+                                    )}
+                                  </div>
+                                ))}
+                              </div>
+                            )}
+                          </div>
+                        );
+                      }}
+                    />
+                  )}
+                />
+              )}
             </div>
 
             <div className="mt-6 pt-4 border-t border-purple-200 dark:border-slate-700">
               <p className="text-xs text-muted-foreground">
-                <span className="font-semibold">💡 Dica:</span> Configure quando a mensagem será publicada, expirada e repetida automaticamente
+                <span className="font-semibold">Dica:</span> Configure quando a mensagem sera
+                publicada, expirada e repetida automaticamente
               </p>
             </div>
           </div>
 
-          {/* Botão de Envio */}
+          {/* Janelas de Disponibilidade */}
+          <div className="bg-gradient-to-r from-orange-50 to-amber-50 dark:from-slate-900 dark:to-slate-800 rounded-xl p-6 border border-orange-200 dark:border-slate-700">
+            <div className="flex items-center gap-2 mb-6">
+              <div className="w-1 h-6 bg-gradient-to-b from-orange-500 to-amber-500 rounded" />
+              <h3 className="text-lg font-semibold text-foreground">Janelas de Disponibilidade</h3>
+            </div>
+            <p className="text-sm text-muted-foreground mb-4">
+              Define os horarios em que a mensagem pode ser disparada (ex.: horario de expediente).
+              Fora desses horarios, o envio sera bloqueado. Se nenhuma janela for configurada,
+              sera aplicado o expediente padrao global.
+            </p>
+            <Controller
+              control={control}
+              name="availabilityWindows"
+              render={({ field }) => {
+                const windows = field.value ?? [];
+                const normalizedWindows = windows.map((window) => ({
+                  day: String(window.day),
+                  startTime: window.startTime,
+                  endTime: window.endTime,
+                }));
+                const selectedDays = new Set(normalizedWindows.map((window) => window.day));
+                const groupedWindows = DAYS_OF_WEEK.map((day) => ({
+                  ...day,
+                  windows: normalizedWindows
+                    .map((window, index) => ({ ...window, index }))
+                    .filter((window) => window.day === day.value),
+                })).filter((day) => day.windows.length > 0);
+
+                const toggleDay = (day: string) => {
+                  if (selectedDays.has(day)) {
+                    field.onChange(normalizedWindows.filter((window) => window.day !== day));
+                    return;
+                  }
+
+                  field.onChange([
+                    ...normalizedWindows,
+                    { day, startTime: '08:00', endTime: '17:00' },
+                  ]);
+                };
+                const addWindowForDay = (day: string) => {
+                  field.onChange([
+                    ...normalizedWindows,
+                    { day, startTime: '08:00', endTime: '17:00' },
+                  ]);
+                };
+                const removeWindow = (idx: number) => {
+                  field.onChange(normalizedWindows.filter((_, i) => i !== idx));
+                };
+                const updateWindow = (
+                  idx: number,
+                  key: 'day' | 'startTime' | 'endTime',
+                  value: string
+                ) => {
+                  const updated = normalizedWindows.map((w, i) =>
+                    i === idx ? { ...w, [key]: value } : w
+                  );
+                  field.onChange(updated);
+                };
+                return (
+                  <div className="space-y-4">
+                    {normalizedWindows.length === 0 ? (
+                      <div className="rounded-lg border border-amber-300/60 dark:border-amber-700/60 bg-amber-50/70 dark:bg-amber-950/20 p-3">
+                        <p className="text-xs text-amber-800 dark:text-amber-200">
+                          <span className="font-semibold">Expediente padrão ativo:</span>{' '}
+                          {defaultOfficeHoursLoading ? 'Carregando...' : (formatOfficeHoursWindows(defaultOfficeHoursWindow) || 'não configurado')}. Configure janelas abaixo para sobrescrever esse
+                          padrão nesta mensagem.
+                        </p>
+                      </div>
+                    ) : (
+                      <div className="rounded-lg border border-orange-300/60 dark:border-orange-700/60 bg-orange-50/70 dark:bg-orange-950/20 p-3">
+                        <p className="text-xs text-orange-800 dark:text-orange-200">
+                          <span className="font-semibold">Expediente personalizado da mensagem:</span>{' '}
+                          as janelas abaixo substituem o expediente padrão global.
+                        </p>
+                      </div>
+                    )}
+
+                    <div className="space-y-2">
+                      <label className="block text-sm font-medium">Dias com restricao</label>
+                      <div className="flex flex-wrap gap-2">
+                        {DAYS_OF_WEEK.map((day) => {
+                          const isSelected = selectedDays.has(day.value);
+                          return (
+                            <button
+                              key={day.value}
+                              type="button"
+                              onClick={() => toggleDay(day.value)}
+                              aria-pressed={isSelected}
+                              className={`min-w-14 px-3 py-1.5 rounded-lg text-sm font-medium transition-colors border ${
+                                isSelected
+                                  ? 'bg-orange-500 text-white border-orange-500'
+                                  : 'bg-white dark:bg-slate-900 text-foreground border-gray-300 dark:border-slate-600 hover:border-orange-400'
+                              }`}
+                            >
+                              {day.label}
+                            </button>
+                          );
+                        })}
+                      </div>
+                      <p className="text-xs text-muted-foreground">
+                        Clique no dia para ativar ou remover todos os intervalos dele.
+                      </p>
+                    </div>
+
+                    {groupedWindows.length > 0 && (
+                      <div className="grid grid-cols-1 xl:grid-cols-2 gap-3">
+                        {groupedWindows.map((dayGroup) => (
+                          <div
+                            key={dayGroup.value}
+                            className="rounded-xl border border-orange-200 dark:border-slate-700 bg-white/60 dark:bg-slate-900/60 p-4 space-y-3"
+                          >
+                            <div className="flex flex-wrap items-center justify-between gap-2">
+                              <div>
+                                <h4 className="font-semibold text-foreground">{dayGroup.label}</h4>
+                                <p className="text-xs text-muted-foreground">
+                                  {dayGroup.windows.length} intervalo{dayGroup.windows.length > 1 ? 's' : ''}
+                                </p>
+                              </div>
+                              <button
+                                type="button"
+                                onClick={() => addWindowForDay(dayGroup.value)}
+                                className="flex items-center gap-1 text-xs text-orange-600 hover:text-orange-800 font-medium border border-orange-300 hover:border-orange-500 rounded px-2 py-1"
+                              >
+                                <Plus size={12} /> Adicionar intervalo
+                              </button>
+                            </div>
+
+                            <div className="space-y-2">
+                              {dayGroup.windows.map((window) => (
+                                <div
+                                  key={window.index}
+                                  className="grid grid-cols-[minmax(0,1fr)_minmax(0,1fr)_auto] gap-2 items-center"
+                                >
+                                  <input
+                                    type="time"
+                                    value={window.startTime}
+                                    onChange={(e) =>
+                                      updateWindow(window.index, 'startTime', e.target.value)
+                                    }
+                                    className="w-full border rounded-lg px-3 py-2 text-sm dark:bg-slate-950 dark:border-slate-700"
+                                  />
+                                  <input
+                                    type="time"
+                                    value={window.endTime}
+                                    onChange={(e) =>
+                                      updateWindow(window.index, 'endTime', e.target.value)
+                                    }
+                                    className="w-full border rounded-lg px-3 py-2 text-sm dark:bg-slate-950 dark:border-slate-700"
+                                  />
+                                  <button
+                                    type="button"
+                                    onClick={() => removeWindow(window.index)}
+                                    className="text-red-500 hover:text-red-700 transition-colors p-1"
+                                    aria-label={`Remover intervalo de ${DAY_NAMES[dayGroup.value]}`}
+                                  >
+                                    <Trash2 size={16} />
+                                  </button>
+                                </div>
+                              ))}
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    )}
+
+                    {normalizedWindows.length === 0 && (
+                      <p className="text-xs text-muted-foreground italic">
+                        Nenhuma janela configurada — sem restricao de horario
+                      </p>
+                    )}
+                    {errors.availabilityWindows && (
+                      <p className="text-xs text-red-500 mt-1">
+                        {errors.availabilityWindows.message as string}
+                      </p>
+                    )}
+                  </div>
+                );
+              }}
+            />
+            <div className="mt-4 pt-4 border-t border-orange-200 dark:border-slate-700">
+              <p className="text-xs text-muted-foreground">
+                <span className="font-semibold">Dica:</span> Ex.: Segunda 08:00-12:00 e
+                13:30-17:00 simula horario de expediente com intervalo de almoco
+              </p>
+            </div>
+          </div>
+
+          {/* Botao de Envio */}
           <div className="flex justify-end gap-3 pt-4">
-            <Button type="button" onClick={openDialog} className='btn-primary min-w-32'>
+            <Button type="button" onClick={openDialog} className="btn-primary min-w-32">
               <MessageSquareText size={18} className="mr-2" />
               Enviar Mensagem
             </Button>
           </div>
         </form>
-      }
+      )}
 
       <ConfirmationDialog
         isOpen={isDialogOpen}
         title="Confirmar envio"
-        description="Você tem certeza que deseja enviar esta mensagem?"
+        description="Voce tem certeza que deseja enviar esta mensagem?"
         confirmText="Enviar"
         cancelText="Cancelar"
         onClose={() => setIsDialogOpen(false)}
@@ -572,5 +1701,4 @@ export const MessageForm: React.FC<HomeFormProps> = ({ id }: HomeFormProps) => {
       />
     </>
   );
-}
-
+};

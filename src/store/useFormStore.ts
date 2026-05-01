@@ -1,6 +1,17 @@
 import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
 
+export type AvailabilityWindow = {
+  day: string;       // ISO day of week: "1"=Seg, "7"=Dom
+  startTime: string; // "HH:mm"
+  endTime: string;   // "HH:mm"
+};
+
+export type ScheduleTimeGroup = {
+  day: string;
+  times: string[];
+};
+
 export interface FormData {
   title: string;
   content: string;
@@ -12,6 +23,11 @@ export interface FormData {
   expireAt: string;
   publishedAt: string;
   agentScope?: 'INTERNAL' | 'EXTERNAL' | 'BOTH';
+  scheduleType: 'NONE' | 'INTERVAL' | 'WEEKLY' | 'MONTHLY';
+  scheduleDaysOfWeek: string[];
+  scheduleTimes: ScheduleTimeGroup[];
+  scheduleMonthDays: string[];
+  availabilityWindows: AvailabilityWindow[];
 }
 
 interface FormState {
