@@ -1,5 +1,5 @@
 import { Button } from "@/components/ui/button";
-import { Building, Home, Inbox, LogOut, Send, User } from "lucide-react";
+import { Building, Cpu, Home, Inbox, LogOut, Send, User } from "lucide-react";
 
 import {
   Sidebar,
@@ -50,7 +50,13 @@ const items = [
     url: "/profile",
     icon: User,
     adminOnly: false,
-  }
+  },
+  {
+    title: "Agentes Conectados",
+    url: "/rabbit-agents",
+    icon: Cpu,
+    adminOnly: true,
+  },
 
 
 ]

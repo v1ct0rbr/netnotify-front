@@ -14,6 +14,7 @@ export type CreateMessageDTO = {
     repeatIntervalMinutes?: number;
     expireAt?: string;
     publishedAt?: string;
+    agentScope?: 'INTERNAL' | 'EXTERNAL' | 'BOTH';
 }
 
 export type MessageResponseDTO = {

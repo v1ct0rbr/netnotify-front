@@ -7,6 +7,7 @@ import { About } from "@/pages/About";
 import { NewMessage } from "@/pages/NewMessage";
 import LoginPage from "@/pages/Login";
 import MessagesList from "@/pages/MessagesList";
+import RabbitAgentsPage from "@/pages/RabbitAgents";
 
 
 
@@ -58,6 +59,11 @@ export const router = createBrowserRouter([
                         path: "departments",
                         Component: DepartmentsPage,
                         handle: { pageTitle: "Departamentos" },
+                    },
+                    {
+                        path: "rabbit-agents",
+                        Component: RabbitAgentsPage,
+                        handle: { pageTitle: "Agentes Conectados" },
                     },
 
                 ],

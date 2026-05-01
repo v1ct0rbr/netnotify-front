@@ -11,6 +11,7 @@ export interface FormData {
   repeatIntervalMinutes: number | undefined;
   expireAt: string;
   publishedAt: string;
+  agentScope?: 'INTERNAL' | 'EXTERNAL' | 'BOTH';
 }
 
 interface FormState {

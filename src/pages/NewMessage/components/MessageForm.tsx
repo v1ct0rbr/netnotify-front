@@ -25,14 +25,14 @@ const FormSchema = z.object({
   type: z.number().min(1, 'O tipo é obrigatório'),
   departments: z.array(z.string()).optional(),
   sendToSubdivisions: z.boolean().optional(),
-  repeatIntervalMinutes: z.number().min(0, 'O intervalo de repetição deve ser maior ou igual a 0').optional(),
+  repeatIntervalMinutes: z.number().min(1, 'O intervalo de repetição deve ser no mínimo 1 minuto').optional(),
   expireAt: z.string().optional(),
   publishedAt: z.string().optional(),
   agentScope: z.enum(['INTERNAL', 'EXTERNAL', 'BOTH']).default('BOTH').optional(),
 }).superRefine((data, ctx) => {
   // Se expireAt está preenchido, repeatIntervalMinutes é obrigatório e deve ser > 0
   if (data.expireAt && data.expireAt.trim()) {
-    if (data.repeatIntervalMinutes === undefined || data.repeatIntervalMinutes === null || data.repeatIntervalMinutes <= 0) {
+    if (!data.repeatIntervalMinutes || data.repeatIntervalMinutes < 1) {
       ctx.addIssue({
         code: 'custom',
         message: 'O intervalo de repetição é obrigatório quando a data de expiração é definida',
@@ -89,12 +89,12 @@ export const MessageForm: React.FC<HomeFormProps> = ({ id }: HomeFormProps) => {
 
   const { handleSubmit, control, reset, formState: { errors }, watch } = useForm<FormData>({
     resolver: zodResolver(FormSchema),
-    defaultValues: { title: '', content: '', level: 0, type: 0, departments: [], sendToSubdivisions: false, repeatIntervalMinutes: 0, expireAt: '', publishedAt: '', agentScope: 'BOTH' },
+    defaultValues: { title: '', content: '', level: 0, type: 0, departments: [], sendToSubdivisions: false, repeatIntervalMinutes: undefined, expireAt: '', publishedAt: '', agentScope: 'BOTH' },
   });
 
-  // Watch expireAt para controlar estado de repeatIntervalMinutes
+  // Watch expireAt para controlar estado do campo repeatIntervalMinutes
   const expireAtValue = watch('expireAt');
-  const hasExpireDate = expireAtValue && expireAtValue.trim();
+  const hasExpireDate = !!(expireAtValue && expireAtValue.trim());
 
   const { createMessage, getCreateMessageDtoById } = useMessagesApi();
 
@@ -145,7 +145,7 @@ export const MessageForm: React.FC<HomeFormProps> = ({ id }: HomeFormProps) => {
         type: msg.type ?? 0,
         departments: msg.departments ?? [],
         sendToSubdivisions: msg.sendToSubdivisions ?? false,
-        repeatIntervalMinutes: msg.repeatIntervalMinutes ?? 0,
+        repeatIntervalMinutes: msg.repeatIntervalMinutes ?? undefined,
         expireAt: msg.expireAt ?? '',
         publishedAt: msg.publishedAt ?? '',
         agentScope: (msg.agentScope as 'INTERNAL' | 'EXTERNAL' | 'BOTH') ?? 'BOTH',
@@ -162,8 +162,8 @@ export const MessageForm: React.FC<HomeFormProps> = ({ id }: HomeFormProps) => {
 
     if (isNew) {
       console.log('✨ [MessageForm] Parâmetro new=true detectado - limpando formulário');
-      clearFormData();
-      reset({ title: '', content: '', level: 0, type: 0, departments: [], sendToSubdivisions: false, repeatIntervalMinutes: 0, expireAt: '', publishedAt: '', agentScope: 'BOTH' });
+        clearFormData();
+        reset({ title: '', content: '', level: 0, type: 0, departments: [], sendToSubdivisions: false, repeatIntervalMinutes: undefined, expireAt: '', publishedAt: '', agentScope: 'BOTH' });
     }
   }, []);
 
@@ -176,7 +176,13 @@ export const MessageForm: React.FC<HomeFormProps> = ({ id }: HomeFormProps) => {
       // Mostrar toast informando que o formulário foi recuperado
       toast.success('✅ Formulário restaurado! Seus dados foram preservados durante a reautenticação.');
       
-      reset(savedData);
+      // Sanitiza repeatIntervalMinutes: 0 ou falsy → undefined (valores legados do localStorage)
+      reset({
+        ...savedData,
+        repeatIntervalMinutes: savedData.repeatIntervalMinutes && savedData.repeatIntervalMinutes > 0
+          ? savedData.repeatIntervalMinutes
+          : undefined,
+      });
     }
   }, []);
 
@@ -206,7 +212,7 @@ export const MessageForm: React.FC<HomeFormProps> = ({ id }: HomeFormProps) => {
       // ✅ NOVO: Limpar dados salvos após envio bem-sucedido
       console.log('✅ [MessageForm] Mensagem enviada com sucesso - limpando dados salvos');
       clearFormData();
-      reset({ title: '', content: '', level: 0, type: 0, departments: [], sendToSubdivisions: false, repeatIntervalMinutes: 0, expireAt: '', publishedAt: '', agentScope: 'BOTH' });
+      reset({ title: '', content: '', level: 0, type: 0, departments: [], sendToSubdivisions: false, repeatIntervalMinutes: undefined, expireAt: '', publishedAt: '', agentScope: 'BOTH' });
       toast.success('✅ Mensagem enviada com sucesso!');
     }).catch(err => {
       // ✅ NOVO: NÃO limpar dados se houver erro
@@ -248,7 +254,7 @@ export const MessageForm: React.FC<HomeFormProps> = ({ id }: HomeFormProps) => {
                     <RefreshCw size={16} />
                     Restaurar
                   </button>
-                  <button type="button" onClick={() => reset({ title: '', content: '', level: 0, type: 0, departments: [], sendToSubdivisions: false, repeatIntervalMinutes: 0, expireAt: '', publishedAt: '', agentScope: 'BOTH' })} className="ml-4 text-sm text-blue-600 hover:text-blue-800 hover:bg-blue-50 dark:hover:bg-blue-900/20 rounded px-2 py-1 flex items-center gap-1">
+                  <button type="button" onClick={() => reset({ title: '', content: '', level: 0, type: 0, departments: [], sendToSubdivisions: false, repeatIntervalMinutes: undefined, expireAt: '', publishedAt: '', agentScope: 'BOTH' })} className="ml-4 text-sm text-blue-600 hover:text-blue-800 hover:bg-blue-50 dark:hover:bg-blue-900/20 rounded px-2 py-1 flex items-center gap-1">
                     <Plus size={16} />
                     Novo Formulário
                   </button>
@@ -527,7 +533,7 @@ export const MessageForm: React.FC<HomeFormProps> = ({ id }: HomeFormProps) => {
                         disabled={!hasExpireDate}
                         className={`w-full border rounded-lg px-4 py-3 focus:outline-none focus:ring-2 focus:ring-pink-500 dark:bg-slate-950 dark:text-white dark:border-slate-700 transition-all disabled:opacity-50 disabled:cursor-not-allowed ${errors.repeatIntervalMinutes ? 'border-red-500' : 'border-gray-300'}`}
                         placeholder={hasExpireDate ? 'ex: 60' : 'Defina expiração primeiro'}
-                        min={0}
+                        min={1}
                       />
                       {errors.repeatIntervalMinutes && <p className="text-red-500 text-xs mt-1">{errors.repeatIntervalMinutes.message}</p>}
                       {!hasExpireDate && <p className="text-xs text-amber-600 dark:text-amber-400 italic font-medium">⚠️ Ative preenchendo "Expirar em"</p>}
