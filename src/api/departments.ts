@@ -20,12 +20,12 @@ export type DepartmentResponseDTO = {
     
 }
 
-const useDepartmentsApi = () => {
+export const useDepartmentsApi = () => {
     const getDepartments = async (): Promise<DepartmentResponseDTO[]> => {
         try {
-            console.log('🔍 Buscando departamentos...');
+            // console.log('🔍 Buscando departamentos...');
             const response = await api.get<DepartmentResponseDTO[]>('/aux/departments');
-            console.log('✅ Departamentos recebidos:', response.data);
+            // console.log('✅ Departamentos recebidos:', response.data);
             const data = response.data;
             return data;
         } catch (error) {

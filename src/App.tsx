@@ -17,7 +17,7 @@ import { PrimeReactProvider } from 'primereact/api';
  * - SecuredContent: Proteção de rotas autenticadas
  */
 function App() {
-  console.log('🚀 App iniciando - OAuth2 PKCE flow');
+  //console.log('🚀 App iniciando - OAuth2 PKCE flow');
 
   return (
     <ThemeProvider defaultTheme="dark" storageKey="vite-ui-theme">

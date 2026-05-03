@@ -66,8 +66,8 @@ async function refreshAccessToken(): Promise<string | null> {
     }
 
     isRefreshingToken = true;
-    console.log('🔄 [REFRESH] Tentando fazer refresh do token...');
-    console.log('   Refresh token (primeiros 50 chars):', refreshToken.substring(0, 50) + '...');
+    //console.log('🔄 [REFRESH] Tentando fazer refresh do token...');
+   // console.log('   Refresh token (primeiros 50 chars):', refreshToken.substring(0, 50) + '...');
 
     try {
       // Criar uma instância do axios sem interceptadores para evitar loops
@@ -85,12 +85,12 @@ async function refreshAccessToken(): Promise<string | null> {
         refreshToken: refreshToken,
       };
 
-      console.log('📤 [REFRESH] Enviando payload para /auth/refresh');
+      //console.log('📤 [REFRESH] Enviando payload para /auth/refresh');
 
       const response = await simpleAxios.post('/auth/refresh', payload);
 
-      console.log('✅ [REFRESH] Resposta recebida:', response.status);
-      console.log('   Response data:', response.data);
+      //console.log('✅ [REFRESH] Resposta recebida:', response.status);
+      //console.log('   Response data:', response.data);
 
       const newAccessToken = response.data.accessToken || response.data.access_token || response.data.acessToken;
       const newExpiresIn = response.data.expiresIn || response.data.expires_in;
@@ -150,13 +150,13 @@ api.interceptors.request.use(config => {
     }
     const token = localStorage.getItem('access_token');
     
-    console.log(`🌐 [INTERCEPTOR] ${config.method?.toUpperCase()} ${config.url}`);
-    console.log(`   Payload enviado:`, config.data);
+    //console.log(`🌐 [INTERCEPTOR] ${config.method?.toUpperCase()} ${config.url}`);
+    //console.log(`   Payload enviado:`, config.data);
     
     if (token) {
         config.headers.Authorization = `Bearer ${token}`;
-        console.log('✅ [INTERCEPTOR] Authorization header adicionado');
-        console.log('   Token (primeiros 50 chars):', token.substring(0, 50) + '...');
+        //console.log('✅ [INTERCEPTOR] Authorization header adicionado');
+        //console.log('   Token (primeiros 50 chars):', token.substring(0, 50) + '...');
     } else {
         console.warn('⚠️ [INTERCEPTOR] ⚠️ NENHUM TOKEN ENCONTRADO EM localStorage!');
         console.warn('   localStorage keys:', Object.keys(localStorage));

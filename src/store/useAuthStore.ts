@@ -6,24 +6,24 @@ import { toast } from 'sonner';
 
 /**
  * Roles específicas da aplicação (enum do backend)
- * Deve corresponder ao enum ApplicationRole do backend
+ * Deve corresponder aos nomes de roles entregues pelo backend/Keycloak.
  */
 export type ApplicationRole = 
   | 'SERVER_MANAGER'
   | 'ALERT_MANAGER'
   | 'REPORT_VIEWER'
-  | 'SYSTEM_ADMIN'
   | 'MONITORING_VIEWER'
-  | 'ROLE_USER';
+  | 'NETNOTIFY_ADMIN'
+  | 'NETNOTIFY_USER';
 
 function mapToApplicationRole(role: string): ApplicationRole | null {
   const r = role.toUpperCase();
   if (r === 'SERVER_MANAGER' || r.includes('SERVER_MANAGER')) return 'SERVER_MANAGER';
   if (r === 'ALERT_MANAGER' || r.includes('ALERT_MANAGER')) return 'ALERT_MANAGER';
   if (r === 'REPORT_VIEWER' || r.includes('REPORT_VIEWER')) return 'REPORT_VIEWER';
-  if (r === 'SYSTEM_ADMIN' || r.includes('SYSTEM_ADMIN') || r.includes('ADMIN')) return 'SYSTEM_ADMIN';
+  if (r === 'NETNOTIFY_ADMIN' || r === 'SYSTEM_ADMIN' || r === 'ROLE_ADMIN' || r.includes('SYSTEM_ADMIN') || r.includes('NETNOTIFY_ADMIN')) return 'NETNOTIFY_ADMIN';
   if (r === 'MONITORING_VIEWER' || r.includes('MONITORING_VIEWER')) return 'MONITORING_VIEWER';
-  if (r === 'ROLE_USER' || r.includes('USER')) return 'ROLE_USER';
+  if (r === 'NETNOTIFY_USER' || r === 'ROLE_USER' || r.includes('NETNOTIFY_USER')) return 'NETNOTIFY_USER';
   return null;
 }
 
@@ -83,6 +83,39 @@ export interface UserInfo {
   roles: ApplicationRole[];
 }
 
+type UserInfoLike = Omit<UserInfo, 'roles'> & {
+  roles?: string[] | ApplicationRole[] | null;
+};
+
+function normalizeUserInfo(user: UserInfoLike | null | undefined, token?: string | null): UserInfo | null {
+  if (!user || typeof user !== 'object') return null;
+
+  const { fullName, username, email } = user;
+  if (typeof fullName !== 'string' || typeof username !== 'string' || typeof email !== 'string') {
+    return null;
+  }
+
+  return {
+    fullName,
+    username,
+    email,
+    roles: extractApplicationRolesFromToken(token, user.roles as string[] | undefined),
+  };
+}
+
+function readNormalizedStoredUser(token?: string | null): UserInfo | null {
+  const storedUser = localStorage.getItem('user');
+  if (!storedUser) return null;
+
+  try {
+    return normalizeUserInfo(JSON.parse(storedUser) as UserInfoLike, token);
+  } catch (error) {
+    console.warn('[auth] erro ao normalizar usuário salvo no localStorage', error);
+    localStorage.removeItem('user');
+    return null;
+  }
+}
+
 export interface KeycloakTokenResponse {
   accessToken: string;
   refreshToken: string;
@@ -114,7 +147,18 @@ export const useAuthStore = create<AuthState>()(
   isChecking: false,
   isAuthenticated: false,
 
-  setUser: (user) => set({ user, isAuthenticated: !!user }),
+  setUser: (user) => {
+    const token = localStorage.getItem('access_token');
+    const normalizedUser = normalizeUserInfo(user, token);
+
+    if (normalizedUser) {
+      localStorage.setItem('user', JSON.stringify(normalizedUser));
+    } else {
+      localStorage.removeItem('user');
+    }
+
+    set({ user: normalizedUser, isAuthenticated: !!normalizedUser });
+  },
   setToken: (token) => set({ token }),
 
   setTokens: (response: KeycloakTokenResponse) => {
@@ -122,30 +166,28 @@ export const useAuthStore = create<AuthState>()(
     if (response.refreshToken) {
       localStorage.setItem('refresh_token', response.refreshToken);
     }
-    if (response.user) {
-      localStorage.setItem('user', JSON.stringify(response.user));
-    }
-
-    const normalizedRoles = extractApplicationRolesFromToken(
+    const userWithRoles = normalizeUserInfo(
+      response.user as UserInfoLike,
       response.accessToken,
-      response.user?.roles as unknown as string[] | undefined,
     );
-    const userWithRoles: UserInfo = {
-      ...response.user,
-      roles: normalizedRoles,
-    };
+
+    if (userWithRoles) {
+      localStorage.setItem('user', JSON.stringify(userWithRoles));
+    } else {
+      localStorage.removeItem('user');
+    }
 
     set({
       token: response.accessToken,
       refreshToken: response.refreshToken || null,
       user: userWithRoles,
-      isAuthenticated: true,
+      isAuthenticated: !!userWithRoles,
     });
   },
 
 
   logout: async () => {
-    console.log('🚪 [auth] Iniciando logout...');
+   // console.log('🚪 [auth] Iniciando logout...');
     const _doKeycloakRedirect = () => {
       const keycloakUrl =
         import.meta.env.VITE_KEYCLOAK_AUTH_SERVER_URL ||
@@ -205,9 +247,11 @@ export const useAuthStore = create<AuthState>()(
       const hasUsername = candidate && typeof candidate === 'object' && typeof candidate.username === 'string';
 
       if (hasUsername) {
-        const normalizedRoles = extractApplicationRolesFromToken(currentToken, candidate.roles as unknown as string[] | undefined);
-        const userWithRoles: UserInfo = { ...candidate, roles: normalizedRoles };
-        set({ user: userWithRoles, token: currentToken, isAuthenticated: true, isChecking: false });
+        const userWithRoles = normalizeUserInfo(candidate as UserInfoLike, currentToken);
+        if (userWithRoles) {
+          localStorage.setItem('user', JSON.stringify(userWithRoles));
+        }
+        set({ user: userWithRoles, token: currentToken, isAuthenticated: !!userWithRoles, isChecking: false });
         return true;
       }
 
@@ -218,11 +262,10 @@ export const useAuthStore = create<AuthState>()(
       const status = (err as any)?.response?.status;
 
       if (status === 403) {
-        const storedUser = localStorage.getItem('user');
-        const fallbackUser = storedUser ? (JSON.parse(storedUser) as UserInfo) : null;
+        const fallbackUser = readNormalizedStoredUser(localStorage.getItem('access_token'));
         const currentToken = localStorage.getItem('access_token');
-        set({ user: fallbackUser, token: currentToken || null, isAuthenticated: true, isChecking: false });
-        return true;
+        set({ user: fallbackUser, token: currentToken || null, isAuthenticated: !!fallbackUser, isChecking: false });
+        return !!fallbackUser;
       }
 
       localStorage.removeItem('access_token');
@@ -241,21 +284,23 @@ export const useAuthStore = create<AuthState>()(
       const isAuthenticated = !!(token && hasUsername);
 
       if (hasUsername) {
-        const normalizedRoles = extractApplicationRolesFromToken(token, candidate.roles as unknown as string[] | undefined);
-        const userWithRoles: UserInfo = { ...candidate, roles: normalizedRoles };
-        set({ user: userWithRoles, token, isAuthenticated, isChecking: false });
+        const userWithRoles = normalizeUserInfo(candidate as UserInfoLike, token);
+        if (userWithRoles) {
+          localStorage.setItem('user', JSON.stringify(userWithRoles));
+        }
+        set({ user: userWithRoles, token, isAuthenticated: !!userWithRoles && isAuthenticated, isChecking: false });
+        return { user: userWithRoles, isAuthenticated: !!userWithRoles && isAuthenticated };
       }
 
-      return { user: hasUsername ? (candidate as UserInfo) : null, isAuthenticated };
+      return { user: null, isAuthenticated };
     } catch (error) {
       const status = (error as any)?.response?.status;
       console.error('[auth] getAuthInfo failed:', error);
 
       if (status === 403) {
         set({ isChecking: false });
-        const storedUser = localStorage.getItem('user');
-        const fallbackUser = storedUser ? (JSON.parse(storedUser) as UserInfo) : null;
-        return { user: fallbackUser, isAuthenticated: true };
+        const fallbackUser = readNormalizedStoredUser(localStorage.getItem('access_token'));
+        return { user: fallbackUser, isAuthenticated: !!fallbackUser };
       }
 
       toast.error('Erro ao obter informações de autenticação.');
@@ -266,6 +311,23 @@ export const useAuthStore = create<AuthState>()(
     }),
     {
       name: 'auth-storage',
+      merge: (persistedState, currentState) => {
+        const typedState = persistedState as Partial<AuthState> | undefined;
+        const persistedToken = typedState?.token ?? currentState.token ?? localStorage.getItem('access_token');
+        const normalizedUser = normalizeUserInfo(typedState?.user as UserInfoLike | null | undefined, persistedToken)
+          ?? currentState.user;
+
+        if (normalizedUser) {
+          localStorage.setItem('user', JSON.stringify(normalizedUser));
+        }
+
+        return {
+          ...currentState,
+          ...typedState,
+          user: normalizedUser,
+          isAuthenticated: typedState?.isAuthenticated ?? currentState.isAuthenticated,
+        };
+      },
       partialize: (state) => ({
         user: state.user,
         token: state.token,

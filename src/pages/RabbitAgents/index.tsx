@@ -23,7 +23,6 @@ import {
     Hash,
     Building2,
     Network,
-    MessageSquare,
     X,
 } from "lucide-react";
 import React, { useState, useEffect, useRef } from "react";
@@ -176,15 +175,6 @@ const RabbitAgentsPage: React.FC = () => {
         setDirectContent("");
         setDirectLevel(getDefaultOption(levelOptions, "Normal"));
         setDirectType(getDefaultOption(typeOptions, "Notificação"));
-    };
-
-    const queueTypeBadge = (type: string) => {
-        const map: Record<string, string> = {
-            geral: "bg-purple-100 text-purple-800 dark:bg-purple-900/30 dark:text-purple-300",
-            departamento: "bg-blue-100 text-blue-800 dark:bg-blue-900/30 dark:text-blue-300",
-            outro: "bg-gray-100 text-gray-700 dark:bg-gray-800 dark:text-gray-300",
-        };
-        return map[type] ?? map.outro;
     };
 
     if (!isAdmin) return null;

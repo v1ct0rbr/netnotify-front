@@ -32,11 +32,11 @@ class AuthService {
     user: UserInfo;
   }> {
     try {
-      console.log('🔄 Trocando código por token...');
-      console.log('📝 Código:', code.substring(0, 50) + '...');
-      console.log('🌐 URL do Backend:', api.defaults.baseURL);
-      console.log('📍 Redirect URI:', redirectUri);
-      console.log('🔐 Code Verifier:', codeVerifier ? 'presente (' + codeVerifier.substring(0, 30) + '...)' : 'ausente ❌');
+      // console.log('🔄 Trocando código por token...');
+      // console.log('📝 Código:', code.substring(0, 50) + '...');
+      // console.log('🌐 URL do Backend:', api.defaults.baseURL);
+      // console.log('📍 Redirect URI:', redirectUri);
+      // console.log('🔐 Code Verifier:', codeVerifier ? 'presente (' + codeVerifier.substring(0, 30) + '...)' : 'ausente ❌');
 
       const payload = {
         code: code,
@@ -44,7 +44,7 @@ class AuthService {
         code_verifier: codeVerifier,
       };
 
-      console.log('📤 Payload enviado:', JSON.stringify(payload, null, 2));
+      // console.log('📤 Payload enviado:', JSON.stringify(payload, null, 2));
 
       const response = await api.post('/auth/callback', payload, {
         headers: {
@@ -53,13 +53,13 @@ class AuthService {
         }
       });
 
-      console.log('✅ Token recebido com sucesso');
-      console.log('📦 Resposta:', {
-        access_token: response.data.access_token?.substring(0, 50) + '...',
-        refresh_token: response.data.refresh_token?.substring(0, 50) + '...',
-        expires_in: response.data.expires_in,
-        user: response.data.user
-      });
+      // console.log('✅ Token recebido com sucesso');
+      // console.log('📦 Resposta:', {
+      //   access_token: response.data.access_token?.substring(0, 50) + '...',
+      //   refresh_token: response.data.refresh_token?.substring(0, 50) + '...',
+      //   expires_in: response.data.expires_in,
+      //   user: response.data.user
+      // });
       
       // Normalizar resposta: backend pode retornar accessToken, access_token ou acessToken (typo)
       const accessToken = response.data.accessToken || response.data.access_token || response.data.acessToken;
@@ -70,9 +70,7 @@ class AuthService {
       localStorage.setItem('refresh_token', refreshTokenVal);
       localStorage.setItem('expires_in', String(expiresIn || '3600'));
       localStorage.setItem('token_type', response.data.tokenType || response.data.token_type || 'Bearer');
-      if (response.data.user) {
-        localStorage.setItem('user', JSON.stringify(response.data.user));
-      }
+      // O usuário é persistido pelo store após normalizar aliases legados de roles.
 
       return response.data;
     } catch (error: any) {
@@ -117,28 +115,26 @@ class AuthService {
   async logout(): Promise<void> {
     try {
       const refreshToken = localStorage.getItem('refresh_token');
-      const accessToken = localStorage.getItem('access_token');
-      
-      console.log('🚪 [auth] Iniciando logout...');
-      console.log('📦 [DEBUG] localStorage state:');
-      console.log('   - access_token:', accessToken ? `${accessToken.substring(0, 50)}...` : 'NÃO ENCONTRADO');
-      console.log('   - refresh_token:', refreshToken ? `${refreshToken.substring(0, 50)}...` : 'NÃO ENCONTRADO');
-      console.log('   - token:', localStorage.getItem('token') ? `${localStorage.getItem('token')!.substring(0, 50)}...` : 'NÃO ENCONTRADO');
-      console.log('   - user:', localStorage.getItem('user'));
+      // console.log('🚪 [auth] Iniciando logout...');
+      // console.log('📦 [DEBUG] localStorage state:');
+      // console.log('   - access_token:', localStorage.getItem('access_token') ? `${localStorage.getItem('access_token')!.substring(0, 50)}...` : 'NÃO ENCONTRADO');
+      // console.log('   - refresh_token:', refreshToken ? `${refreshToken.substring(0, 50)}...` : 'NÃO ENCONTRADO');
+      // console.log('   - token:', localStorage.getItem('token') ? `${localStorage.getItem('token')!.substring(0, 50)}...` : 'NÃO ENCONTRADO');
+      // console.log('   - user:', localStorage.getItem('user'));
 
       // 1. Notificar backend para revogação e limpeza ANTES de limpar localmente
       // O interceptador do Axios adiciona o Authorization header automaticamente
       if (refreshToken) {
         try {
-          console.log('📡 Chamando endpoint de logout no backend...');
-          console.log('📡 Enviando refresh_token (primeiros 50 chars):', refreshToken.substring(0, 50) + '...');
+          // console.log('📡 Chamando endpoint de logout no backend...');
+          // console.log('📡 Enviando refresh_token (primeiros 50 chars):', refreshToken.substring(0, 50) + '...');
           
-          const response = await api.post('/auth/logout', {            
+          await api.post('/auth/logout', {            
             refresh_token: refreshToken  // snake_case conforme @JsonProperty do backend
           });
-          
-          console.log('✅ Backend logout realizado - Status:', response.status);
-          console.log('✅ Resposta do backend:', response.data);
+
+          // console.log('✅ Backend logout realizado - Status:', response.status);
+          // console.log('✅ Resposta do backend:', response.data);
         } catch (error: any) {
           console.warn('⚠️ Backend logout falhou:', error.message);
           console.warn('🔴 Status:', error.response?.status);
@@ -162,12 +158,12 @@ class AuthService {
       // ✅ NÃO adicionar/remover header manualmente - o interceptador cuida disso!
       // delete api.defaults.headers.common['Authorization'];
 
-      console.log('✅ Logout local realizado');
+      // console.log('✅ Logout local realizado');
 
       // 3. Marcar timestamp de logout para evitar reautenticação imediata
       sessionStorage.setItem('logout_timestamp', Date.now().toString());
-      console.log('⏱️ Logout timestamp marcado');
-      console.log('✅ [auth] Logout completo realizado');
+      // console.log('⏱️ Logout timestamp marcado');
+      // console.log('✅ [auth] Logout completo realizado');
     } catch (error) {
       console.error('❌ Erro durante logout:', error);
       // Mesmo com erro, limpar tudo localmente
@@ -193,9 +189,9 @@ class AuthService {
       const userStr = localStorage.getItem('user');
       if (!userStr) return false;
       const user = JSON.parse(userStr);
-      // Roles are stored as normalized ApplicationRole values (e.g. 'SYSTEM_ADMIN'),
-      // not raw Keycloak role names — check for SYSTEM_ADMIN which NETNOTIFY_ADMIN maps to.
-      return Array.isArray(user.roles) && user.roles.includes('SYSTEM_ADMIN');
+      //console.log('🔍 Verificando se usuário é admin - User info:', user);
+      // Roles são armazenadas com os nomes canônicos do backend/Keycloak.
+      return Array.isArray(user.roles) && user.roles.includes('NETNOTIFY_ADMIN');
     } catch {
       return false;
     }

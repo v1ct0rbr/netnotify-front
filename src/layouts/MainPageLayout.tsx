@@ -23,9 +23,9 @@ export default function MainPageLayout({ pageTitle }: MainPageLayoutProps): Reac
     const navigate = useNavigate();
 
     const handleLogout = async () => {
-        console.log('Iniciando logout...');
+        //console.log('Iniciando logout...');
         await logout();
-        console.log('Logout concluído, redirecionando para /login');
+       // console.log('Logout concluído, redirecionando para /login');
         navigate('/');
     };
 
@@ -36,7 +36,7 @@ export default function MainPageLayout({ pageTitle }: MainPageLayoutProps): Reac
             if (token) {
                 const decoded = JSON.parse(atob(token.split('.')[1]));
                 const username = decoded.preferred_username || decoded.sub || null;
-                console.log("Usuario autenticado:", username);
+                //console.log("Usuario autenticado:", username);
             }
         } catch (error) {
             console.error("Erro ao extrair username do token:", error);

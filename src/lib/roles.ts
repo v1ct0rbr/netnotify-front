@@ -4,12 +4,17 @@ import type { ApplicationRole } from '@/store/useAuthStore';
  * Utilitários para verificar permissões de usuário
  */
 
+const ADMIN_ROLE: ApplicationRole = 'NETNOTIFY_ADMIN';
+const USER_ROLE: ApplicationRole = 'NETNOTIFY_USER';
+
+
 export const RolePermissions = {
-  SERVER_MANAGER: ['SERVER_MANAGER', 'SYSTEM_ADMIN', 'NETNOTIFY_ADMIN'],
-  ALERT_MANAGER: ['ALERT_MANAGER', 'SYSTEM_ADMIN'],
-  REPORT_VIEWER: ['REPORT_VIEWER', 'SYSTEM_ADMIN'],
-  MONITORING_VIEWER: ['MONITORING_VIEWER', 'SYSTEM_ADMIN'],
-  ROLE_USER: ['ROLE_USER', 'SYSTEM_ADMIN'],
+  SERVER_MANAGER: ['SERVER_MANAGER', ADMIN_ROLE],
+  ALERT_MANAGER: ['ALERT_MANAGER', ADMIN_ROLE],
+  REPORT_VIEWER: ['REPORT_VIEWER', ADMIN_ROLE],
+  MONITORING_VIEWER: ['MONITORING_VIEWER', ADMIN_ROLE],
+  NETNOTIFY_USER: [USER_ROLE],
+  NETNOTIFY_ADMIN: [ADMIN_ROLE],
 } as const;
 
 /**
@@ -24,7 +29,7 @@ export function hasRole(userRoles: ApplicationRole[] | undefined, role: Applicat
  * Verifica se o usuário tem uma role de administrador
  */
 export function isAdmin(userRoles: ApplicationRole[] | undefined): boolean {
-  return hasRole(userRoles, 'SYSTEM_ADMIN');
+  return hasRole(userRoles, ADMIN_ROLE);
 }
 
 /**

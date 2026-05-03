@@ -22,7 +22,6 @@ export interface FormData {
   repeatIntervalMinutes: number | undefined;
   expireAt: string;
   publishedAt: string;
-  agentScope?: 'INTERNAL' | 'EXTERNAL' | 'BOTH';
   scheduleType: 'NONE' | 'INTERVAL' | 'WEEKLY' | 'MONTHLY';
   scheduleDaysOfWeek: string[];
   scheduleTimes: ScheduleTimeGroup[];
@@ -44,20 +43,20 @@ export const useFormStore = create<FormState>()(
       formData: null,
 
       saveFormData: (data: FormData) => {
-        console.log('💾 [FormStore] Salvando dados do formulário:', data);
+        // console.log('💾 [FormStore] Salvando dados do formulário:', data);
         set({ formData: data });
       },
 
       getFormData: () => {
         const state = get();
         if (state.formData) {
-          console.log('📥 [FormStore] Recuperando dados do formulário:', state.formData);
+          // console.log('📥 [FormStore] Recuperando dados do formulário:', state.formData);
         }
         return state.formData;
       },
 
       clearFormData: () => {
-        console.log('🗑️ [FormStore] Limpando dados do formulário');
+        // console.log('🗑️ [FormStore] Limpando dados do formulário');
         set({ formData: null });
       },
 

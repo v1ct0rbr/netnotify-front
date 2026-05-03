@@ -24,17 +24,17 @@ export const useKeycloakCodeExchange = (code: string | null | undefined) => {
   useEffect(() => {
     // Se não tem código, não faz nada
     if (!code) {
-      console.log('ℹ️ [useKeycloakCodeExchange] Sem código para processar');
+      // console.log('ℹ️ [useKeycloakCodeExchange] Sem código para processar');
       return;
     }
 
     // Se já processou, não tenta novamente
     if (processedRef.current) {
-      console.log('⏭️ [useKeycloakCodeExchange] Já processado anteriormente');
+      // console.log('⏭️ [useKeycloakCodeExchange] Já processado anteriormente');
       return;
     }
 
-    console.log('🔍 [useKeycloakCodeExchange] Processando código:', code.substring(0, 30) + '...');
+    // console.log('🔍 [useKeycloakCodeExchange] Processando código:', code.substring(0, 30) + '...');
 
     // Marca como processado ANTES de iniciar a troca
     processedRef.current = true;
@@ -42,7 +42,7 @@ export const useKeycloakCodeExchange = (code: string | null | undefined) => {
     // Processa o código
     (async () => {
       try {
-        console.log('🔄 [Code Exchange] Iniciando...');
+        // console.log('🔄 [Code Exchange] Iniciando...');
 
         // Extrai redirectUri (deve ser o mesmo usado no login)
         // IMPORTANTE: Garante que tenha trailing slash para evitar mismatch com PKCE
@@ -50,7 +50,7 @@ export const useKeycloakCodeExchange = (code: string | null | undefined) => {
         if (!redirectUri.endsWith('/')) {
           redirectUri = redirectUri + '/';
         }
-        console.log('📍 Redirect URI (com slash):', redirectUri);
+        // console.log('📍 Redirect URI (com slash):', redirectUri);
 
         // Extrai code_verifier do storage (PKCE)
         const codeVerifier = getPkceCodeVerifierFromStorage();
@@ -60,9 +60,9 @@ export const useKeycloakCodeExchange = (code: string | null | undefined) => {
         }
 
         // Chama o serviço de autenticação para trocar código por token
-        const response = await authService.exchangeCodeForToken(code, redirectUri, codeVerifier);
+        await authService.exchangeCodeForToken(code, redirectUri, codeVerifier);
 
-        console.log('✅ [Code Exchange] Sucesso! Token válido por', response.expires_in, 's');
+        // console.log('✅ [Code Exchange] Sucesso! Token válido por', response.expires_in, 's');
 
         // Limpa URL (remove código)
         window.history.replaceState({}, document.title, window.location.pathname);

@@ -85,7 +85,7 @@ const MessagesList: React.FC = () => {
     const { data: levels } = useQuery({
         queryKey: ['levels'],
         queryFn: async () => {
-            console.log("Loading levels...")
+            // console.log("Loading levels...")
             const res = await api.get<{ id: number; name: string }[]>('/aux/levels');
             return res.data;
         },
@@ -95,7 +95,7 @@ const MessagesList: React.FC = () => {
     const { data: types } = useQuery({
         queryKey: ['types'],
         queryFn: async () => {
-            console.log("Loading types...")
+            // console.log("Loading types...")
             const res = await api.get<{ id: number; name: string }[]>('/aux/message-types');
             return res.data;
         },

@@ -16,12 +16,12 @@ function Profile() {
 
     const getRoleColor = (role: string) => {
         const roleColors: Record<string, string> = {
-            'SYSTEM_ADMIN': 'bg-red-500/10 text-red-700 border-red-200',
+            'NETNOTIFY_ADMIN': 'bg-red-500/10 text-red-700 border-red-200',
             'SERVER_MANAGER': 'bg-blue-500/10 text-blue-700 border-blue-200',
             'ALERT_MANAGER': 'bg-orange-500/10 text-orange-700 border-orange-200',
             'REPORT_VIEWER': 'bg-green-500/10 text-green-700 border-green-200',
             'MONITORING_VIEWER': 'bg-purple-500/10 text-purple-700 border-purple-200',
-            'ROLE_USER': 'bg-gray-500/10 text-gray-700 border-gray-200',
+            'NETNOTIFY_USER': 'bg-gray-500/10 text-gray-700 border-gray-200',
         };
         return roleColors[role] || 'bg-gray-500/10 text-gray-700 border-gray-200';
     };

@@ -20,7 +20,6 @@ import {
   AlertCircle,
   FileText,
   Zap,
-  Tag,
   Building2,
   GitBranch,
   Calendar,
@@ -28,7 +27,6 @@ import {
   RefreshCw,
   Plus,
   MessageSquareText,
-  Globe,
   Trash2,
 } from 'lucide-react';
 
@@ -246,7 +244,6 @@ const FormSchema = z
     repeatIntervalMinutes: z.number().min(1).optional(),
     expireAt: z.string().optional(),
     publishedAt: z.string().optional(),
-    agentScope: z.enum(['INTERNAL', 'EXTERNAL', 'BOTH']).default('BOTH').optional(),
     scheduleType: z.enum(['NONE', 'INTERVAL', 'WEEKLY', 'MONTHLY']).default('NONE'),
     scheduleDaysOfWeek: z.array(z.string()).optional(),
     scheduleTimes: z
@@ -443,6 +440,23 @@ const FormSchema = z
 type FormValues = z.input<typeof FormSchema>;
 type FormData = z.output<typeof FormSchema>;
 
+const buildEmptyFormValues = (): FormValues => ({
+  title: '',
+  content: '',
+  level: 0,
+  type: 0,
+  departments: [],
+  sendToSubdivisions: false,
+  repeatIntervalMinutes: undefined,
+  expireAt: '',
+  publishedAt: '',
+  scheduleType: 'NONE',
+  scheduleDaysOfWeek: [],
+  scheduleTimes: [],
+  scheduleMonthDays: [],
+  availabilityWindows: [],
+});
+
 interface HomeFormProps {
   id?: string | null;
 }
@@ -461,23 +475,7 @@ export const MessageForm: React.FC<HomeFormProps> = ({ id }: HomeFormProps) => {
     watch,
   } = useForm<FormValues, unknown, FormData>({
     resolver: zodResolver(FormSchema),
-    defaultValues: {
-      title: '',
-      content: '',
-      level: 0,
-      type: 0,
-      departments: [],
-      sendToSubdivisions: false,
-      repeatIntervalMinutes: undefined,
-      expireAt: '',
-      publishedAt: '',
-      agentScope: 'BOTH',
-      scheduleType: 'NONE',
-      scheduleDaysOfWeek: [],
-      scheduleTimes: [],
-      scheduleMonthDays: [],
-      availabilityWindows: [],
-    },
+    defaultValues: buildEmptyFormValues(),
   });
 
   const scheduleTypeValue = watch('scheduleType');
@@ -534,6 +532,11 @@ export const MessageForm: React.FC<HomeFormProps> = ({ id }: HomeFormProps) => {
 
   const isLoading = msgLoading || levelsLoading || typesLoading || departmentsLoading;
 
+  const resetToEmptyForm = React.useCallback(() => {
+    clearFormData();
+    reset(buildEmptyFormValues());
+  }, [clearFormData, reset]);
+
   React.useEffect(() => {
     if (!msg) return;
     try {
@@ -558,7 +561,6 @@ export const MessageForm: React.FC<HomeFormProps> = ({ id }: HomeFormProps) => {
         repeatIntervalMinutes: msg.repeatIntervalMinutes ?? undefined,
         expireAt: msg.expireAt ?? '',
         publishedAt: msg.publishedAt ?? '',
-        agentScope: (msg.agentScope as 'INTERNAL' | 'EXTERNAL' | 'BOTH') ?? 'BOTH',
         scheduleType,
         scheduleDaysOfWeek: weeklyDays,
         scheduleTimes:
@@ -586,26 +588,9 @@ export const MessageForm: React.FC<HomeFormProps> = ({ id }: HomeFormProps) => {
   React.useEffect(() => {
     const urlParams = new URLSearchParams(window.location.search);
     if (urlParams.get('new') === 'true') {
-      clearFormData();
-      reset({
-        title: '',
-        content: '',
-        level: 0,
-        type: 0,
-        departments: [],
-        sendToSubdivisions: false,
-        repeatIntervalMinutes: undefined,
-        expireAt: '',
-        publishedAt: '',
-        agentScope: 'BOTH',
-        scheduleType: 'NONE',
-        scheduleDaysOfWeek: [],
-        scheduleTimes: [],
-        scheduleMonthDays: [],
-        availabilityWindows: [],
-      });
+      resetToEmptyForm();
     }
-  }, []);
+  }, [resetToEmptyForm]);
 
   React.useEffect(() => {
     const savedData = getFormData();
@@ -643,7 +628,7 @@ export const MessageForm: React.FC<HomeFormProps> = ({ id }: HomeFormProps) => {
             : undefined,
       });
     }
-  }, []);
+  }, [getFormData, id, reset]);
 
   React.useEffect(() => {
     const subscription = watch(() => {
@@ -658,7 +643,6 @@ export const MessageForm: React.FC<HomeFormProps> = ({ id }: HomeFormProps) => {
         repeatIntervalMinutes: data.repeatIntervalMinutes,
         expireAt: data.expireAt ?? '',
         publishedAt: data.publishedAt ?? '',
-        agentScope: data.agentScope ?? 'BOTH',
         scheduleType: data.scheduleType ?? 'NONE',
         scheduleDaysOfWeek: data.scheduleDaysOfWeek ?? [],
         scheduleTimes: data.scheduleTimes ?? [],
@@ -679,7 +663,6 @@ export const MessageForm: React.FC<HomeFormProps> = ({ id }: HomeFormProps) => {
       sendToSubdivisions: data.sendToSubdivisions,
       expireAt: data.expireAt,
       publishedAt: data.publishedAt,
-      agentScope: data.agentScope,
     };
     if (data.scheduleType === 'INTERVAL') {
       payload.repeatIntervalMinutes = data.repeatIntervalMinutes;
@@ -701,24 +684,7 @@ export const MessageForm: React.FC<HomeFormProps> = ({ id }: HomeFormProps) => {
     }
     createMessage(payload)
       .then(() => {
-        clearFormData();
-        reset({
-          title: '',
-          content: '',
-          level: 0,
-          type: 0,
-          departments: [],
-          sendToSubdivisions: false,
-          repeatIntervalMinutes: undefined,
-          expireAt: '',
-          publishedAt: '',
-          agentScope: 'BOTH',
-          scheduleType: 'NONE',
-          scheduleDaysOfWeek: [],
-          scheduleTimes: [],
-          scheduleMonthDays: [],
-          availabilityWindows: [],
-        });
+        resetToEmptyForm();
         toast.success('Mensagem enviada com sucesso!');
       })
       .catch((err) => {
@@ -744,235 +710,201 @@ export const MessageForm: React.FC<HomeFormProps> = ({ id }: HomeFormProps) => {
           <Skeleton className="w-full h-10 mb-4" />
         </>
       ) : (
-        <form onSubmit={(e) => e.preventDefault()} className="space-y-6 pb-16">
-          {/* Informacoes Basicas */}
+        <form onSubmit={(e) => e.preventDefault()} className="space-y-8 pb-24">
           <div className="bg-gradient-to-r from-blue-50 to-cyan-50 dark:from-slate-900 dark:to-slate-800 rounded-xl p-6 border border-blue-200 dark:border-slate-700">
-            <div className="flex items-center gap-2 mb-6">
-              <div className="w-1 h-6 bg-gradient-to-b from-blue-500 to-cyan-500 rounded" />
-              <div className="w-full flex justify-between items-center">
-                <h3 className="text-lg font-semibold text-foreground">Informacoes Basicas</h3>
-                <div className="flex items-center">
-                  <button
-                    type="button"
-                    onClick={() => reset()}
-                    className="ml-4 text-sm text-blue-600 hover:text-blue-800 hover:bg-blue-50 dark:hover:bg-blue-900/20 rounded px-2 py-1 flex items-center gap-1"
-                  >
-                    <RefreshCw size={16} />
-                    Restaurar
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() =>
-                      reset({
-                        title: '',
-                        content: '',
-                        level: 0,
-                        type: 0,
-                        departments: [],
-                        sendToSubdivisions: false,
-                        repeatIntervalMinutes: undefined,
-                        expireAt: '',
-                        publishedAt: '',
-                        agentScope: 'BOTH',
-                        scheduleType: 'NONE',
-                        scheduleDaysOfWeek: [],
-                        scheduleTimes: [],
-                        scheduleMonthDays: [],
-                        availabilityWindows: [],
-                      })
-                    }
-                    className="ml-4 text-sm text-blue-600 hover:text-blue-800 hover:bg-blue-50 dark:hover:bg-blue-900/20 rounded px-2 py-1 flex items-center gap-1"
-                  >
-                    <Plus size={16} />
-                    Novo Formulario
-                  </button>
+            <div className="flex flex-col gap-4 mb-6 lg:flex-row lg:items-start lg:justify-between">
+              <div className="space-y-2">
+                <div className="flex items-center gap-2">
+                  <div className="w-1 h-6 bg-gradient-to-b from-blue-500 to-cyan-500 rounded" />
+                  <h3 className="text-lg font-semibold text-foreground">Mensagem</h3>
                 </div>
+                <p className="text-sm text-muted-foreground max-w-2xl">
+                  Preencha o conteúdo principal e defina quem recebe a mensagem. Os campos
+                  mais usados ficam concentrados aqui para facilitar a edição.
+                </p>
+              </div>
+              <div className="flex flex-wrap items-center gap-2">
+                <button
+                  type="button"
+                  onClick={() => reset()}
+                  className="text-sm text-blue-600 hover:text-blue-800 hover:bg-blue-50 dark:hover:bg-blue-900/20 rounded px-3 py-2 flex items-center gap-1"
+                >
+                  <RefreshCw size={16} />
+                  Restaurar
+                </button>
+                <button
+                  type="button"
+                  onClick={resetToEmptyForm}
+                  className="text-sm text-blue-600 hover:text-blue-800 hover:bg-blue-50 dark:hover:bg-blue-900/20 rounded px-3 py-2 flex items-center gap-1"
+                >
+                  <Plus size={16} />
+                  Novo formulário
+                </button>
               </div>
             </div>
 
-            <div className="space-y-5">
-              {/* Titulo */}
-              <div className="space-y-3">
-                <div className="flex items-center gap-2">
-                  <AlertCircle size={18} className="text-blue-500" />
-                  <label className="block text-sm font-medium">Titulo</label>
+            <div className="grid grid-cols-1 xl:grid-cols-[minmax(0,1.35fr)_minmax(320px,0.95fr)] gap-6">
+              <div className="space-y-5">
+                <div className="space-y-3">
+                  <div className="flex items-center gap-2">
+                    <AlertCircle size={18} className="text-blue-500" />
+                    <label className="block text-sm font-medium">Título</label>
+                  </div>
+                  <Controller
+                    control={control}
+                    name="title"
+                    render={({ field }) => (
+                      <div>
+                        <input
+                          {...field}
+                          type="text"
+                          placeholder="Título da mensagem (opcional)"
+                          className="w-full border rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 dark:bg-slate-950 dark:text-white dark:border-slate-700 border-gray-300"
+                        />
+                        {errors.title && (
+                          <p className="text-xs text-red-500 mt-1">{errors.title.message}</p>
+                        )}
+                      </div>
+                    )}
+                  />
                 </div>
-                <Controller
-                  control={control}
-                  name="title"
-                  render={({ field }) => (
-                    <div>
-                      <input
-                        {...field}
-                        type="text"
-                        placeholder="Titulo da mensagem (opcional)"
-                        className="w-full border rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 dark:bg-slate-950 dark:text-white dark:border-slate-700 border-gray-300"
+
+                <div className="space-y-3">
+                  <div className="flex items-center gap-2">
+                    <FileText size={18} className="text-blue-500" />
+                    <label className="block text-sm font-medium">Conteúdo</label>
+                  </div>
+                  <Controller
+                    control={control}
+                    name="content"
+                    render={({ field }) => (
+                      <div>
+                        <TinyMceEditor value={field.value} onChange={field.onChange} />
+                        {errors.content && (
+                          <p className="text-xs text-red-500 mt-1">{errors.content.message}</p>
+                        )}
+                      </div>
+                    )}
+                  />
+                </div>
+              </div>
+
+              <div className="space-y-5">
+                <div className="rounded-xl border border-blue-200/80 dark:border-slate-700 bg-white/70 dark:bg-slate-950/40 p-4 space-y-4">
+                  <div className="flex items-center gap-2">
+                    <Zap size={18} className="text-blue-500" />
+                    <h4 className="text-sm font-semibold text-foreground">Classificação</h4>
+                  </div>
+                  <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-1 gap-4">
+                    <div className="space-y-2">
+                      <label className="block text-sm font-medium">Nível</label>
+                      <Controller
+                        control={control}
+                        name="level"
+                        render={({ field }) => (
+                          <div>
+                            <StyledSelect
+                              value={field.value ? String(field.value) : ''}
+                              onChange={(e) => field.onChange(Number(e.target.value))}
+                              options={
+                                levelsData
+                                  ? levelsData.map((l: { id: number; name: string }) => ({
+                                      value: String(l.id),
+                                      label: l.name,
+                                    }))
+                                  : []
+                              }
+                            />
+                            {errors.level && (
+                              <p className="text-xs text-red-500 mt-1">{errors.level.message}</p>
+                            )}
+                          </div>
+                        )}
                       />
-                      {errors.title && (
-                        <p className="text-xs text-red-500 mt-1">{errors.title.message}</p>
-                      )}
                     </div>
-                  )}
-                />
-              </div>
 
-              {/* Conteudo */}
-              <div className="space-y-3">
-                <div className="flex items-center gap-2">
-                  <FileText size={18} className="text-blue-500" />
-                  <label className="block text-sm font-medium">Conteudo</label>
-                </div>
-                <Controller
-                  control={control}
-                  name="content"
-                  render={({ field }) => (
-                    <div>
-                      <TinyMceEditor value={field.value} onChange={field.onChange} />
-                      {errors.content && (
-                        <p className="text-xs text-red-500 mt-1">{errors.content.message}</p>
-                      )}
-                    </div>
-                  )}
-                />
-              </div>
-
-              {/* Nivel */}
-              <div className="space-y-3">
-                <div className="flex items-center gap-2">
-                  <Zap size={18} className="text-blue-500" />
-                  <label className="block text-sm font-medium">Nivel</label>
-                </div>
-                <Controller
-                  control={control}
-                  name="level"
-                  render={({ field }) => (
-                    <div>
-                      <StyledSelect
-                        value={field.value ? String(field.value) : ''}
-                        onChange={(e) => field.onChange(Number(e.target.value))}
-                        options={
-                          levelsData
-                            ? levelsData.map((l: { id: number; name: string }) => ({
-                                value: String(l.id),
-                                label: l.name,
-                              }))
-                            : []
-                        }
+                    <div className="space-y-2">
+                      <label className="block text-sm font-medium">Tipo</label>
+                      <Controller
+                        control={control}
+                        name="type"
+                        render={({ field }) => (
+                          <div>
+                            <StyledSelect
+                              value={field.value ? String(field.value) : ''}
+                              onChange={(e) => field.onChange(Number(e.target.value))}
+                              options={
+                                typesData
+                                  ? typesData.map((t: { id: number; name: string }) => ({
+                                      value: String(t.id),
+                                      label: t.name,
+                                    }))
+                                  : []
+                              }
+                            />
+                            {errors.type && (
+                              <p className="text-xs text-red-500 mt-1">{errors.type.message}</p>
+                            )}
+                          </div>
+                        )}
                       />
-                      {errors.level && (
-                        <p className="text-xs text-red-500 mt-1">{errors.level.message}</p>
-                      )}
                     </div>
-                  )}
-                />
-              </div>
-
-              {/* Tipo */}
-              <div className="space-y-3">
-                <div className="flex items-center gap-2">
-                  <Tag size={18} className="text-blue-500" />
-                  <label className="block text-sm font-medium">Tipo</label>
+                  </div>
                 </div>
-                <Controller
-                  control={control}
-                  name="type"
-                  render={({ field }) => (
-                    <div>
-                      <StyledSelect
-                        value={field.value ? String(field.value) : ''}
-                        onChange={(e) => field.onChange(Number(e.target.value))}
-                        options={
-                          typesData
-                            ? typesData.map((t: { id: number; name: string }) => ({
-                                value: String(t.id),
-                                label: t.name,
-                              }))
-                            : []
-                        }
-                      />
-                      {errors.type && (
-                        <p className="text-xs text-red-500 mt-1">{errors.type.message}</p>
+
+                <div className="rounded-xl border border-green-200/80 dark:border-slate-700 bg-white/70 dark:bg-slate-950/40 p-4 space-y-4">
+                  <div className="flex items-center gap-2">
+                    <Building2 size={18} className="text-green-600" />
+                    <h4 className="text-sm font-semibold text-foreground">Destino</h4>
+                  </div>
+
+                  <div className="space-y-2">
+                    <label className="block text-sm font-medium">Departamentos</label>
+                    <Controller
+                      control={control}
+                      name="departments"
+                      render={({ field }) => (
+                        <MultiSelect
+                          options={
+                            departmentsData
+                              ? departmentsData.map((d) => ({ value: d.id, label: d.name }))
+                              : []
+                          }
+                          value={field.value ?? []}
+                          onValueChange={(val) => field.onChange(val.map(String))}
+                          placeholder="Selecione os departamentos..."
+                        />
                       )}
-                    </div>
-                  )}
-                />
-              </div>
-
-              {/* Escopo do Agente */}
-              <div className="space-y-3">
-                <div className="flex items-center gap-2">
-                  <Globe size={18} className="text-blue-500" />
-                  <label className="block text-sm font-medium">Escopo do Agente</label>
-                </div>
-                <Controller
-                  control={control}
-                  name="agentScope"
-                  render={({ field }) => (
-                    <StyledSelect
-                      value={field.value ?? 'BOTH'}
-                      onChange={(e) =>
-                        field.onChange(e.target.value as 'INTERNAL' | 'EXTERNAL' | 'BOTH')
-                      }
-                      options={[
-                        { value: 'BOTH', label: 'Todos os agentes' },
-                        { value: 'INTERNAL', label: 'Apenas agentes internos' },
-                        { value: 'EXTERNAL', label: 'Apenas agentes externos' },
-                      ]}
                     />
-                  )}
-                />
-              </div>
-            </div>
-          </div>
+                  </div>
 
-          {/* Destino */}
-          <div className="bg-gradient-to-r from-green-50 to-emerald-50 dark:from-slate-900 dark:to-slate-800 rounded-xl p-6 border border-green-200 dark:border-slate-700">
-            <div className="flex items-center gap-2 mb-6">
-              <div className="w-1 h-6 bg-gradient-to-b from-green-500 to-emerald-500 rounded" />
-              <Building2 size={20} className="text-green-600" />
-              <h3 className="text-lg font-semibold text-foreground">Destino</h3>
-            </div>
-
-            <div className="space-y-5">
-              {/* Departamentos */}
-              <div className="space-y-3">
-                <label className="block text-sm font-medium">Departamentos</label>
-                <Controller
-                  control={control}
-                  name="departments"
-                  render={({ field }) => (
-                    <MultiSelect
-                      options={
-                        departmentsData
-                          ? departmentsData.map((d) => ({ value: d.id, label: d.name }))
-                          : []
-                      }
-                      value={field.value ?? []}
-                      onValueChange={(val) => field.onChange(val.map(String))}
-                      placeholder="Selecione os departamentos..."
-                    />
-                  )}
-                />
-              </div>
-
-              {/* Enviar para subdivisoes */}
-              <div className="flex items-center gap-3">
-                <GitBranch size={18} className="text-green-600" />
-                <Controller
-                  control={control}
-                  name="sendToSubdivisions"
-                  render={({ field }) => (
-                    <label className="flex items-center gap-2 cursor-pointer">
-                      <input
-                        type="checkbox"
-                        checked={field.value ?? false}
-                        onChange={(e) => field.onChange(e.target.checked)}
-                        className="w-4 h-4 rounded border-gray-300 text-green-600 focus:ring-green-500"
+                  <div className="rounded-lg border border-green-200/80 dark:border-slate-700 bg-green-50/50 dark:bg-slate-900/50 p-3">
+                    <div className="flex items-start gap-3">
+                      <GitBranch size={18} className="text-green-600 mt-0.5" />
+                      <Controller
+                        control={control}
+                        name="sendToSubdivisions"
+                        render={({ field }) => (
+                          <label className="flex items-start gap-2 cursor-pointer">
+                            <input
+                              type="checkbox"
+                              checked={field.value ?? false}
+                              onChange={(e) => field.onChange(e.target.checked)}
+                              className="w-4 h-4 rounded border-gray-300 text-green-600 focus:ring-green-500 mt-0.5"
+                            />
+                            <span className="text-sm">
+                              <span className="font-medium block">Enviar para subdivisões</span>
+                              <span className="text-muted-foreground">
+                                Inclui automaticamente os departamentos filhos dos setores
+                                selecionados.
+                              </span>
+                            </span>
+                          </label>
+                        )}
                       />
-                      <span className="text-sm font-medium">Enviar para subdivisoes</span>
-                    </label>
-                  )}
-                />
+                    </div>
+                  </div>
+                </div>
               </div>
             </div>
           </div>
@@ -1681,11 +1613,16 @@ export const MessageForm: React.FC<HomeFormProps> = ({ id }: HomeFormProps) => {
           </div>
 
           {/* Botao de Envio */}
-          <div className="flex justify-end gap-3 pt-4">
-            <Button type="button" onClick={openDialog} className="btn-primary min-w-32">
+          <div className="sticky bottom-0 z-10 flex justify-end gap-3 pt-4">
+            <div className="flex items-center gap-3 rounded-xl border border-border/60 bg-background/95 backdrop-blur px-4 py-3 shadow-sm">
+              <Button type="button" variant="outline" onClick={resetToEmptyForm}>
+                Limpar formulário
+              </Button>
+              <Button type="button" onClick={openDialog} className="btn-primary min-w-32">
               <MessageSquareText size={18} className="mr-2" />
               Enviar Mensagem
-            </Button>
+              </Button>
+            </div>
           </div>
         </form>
       )}

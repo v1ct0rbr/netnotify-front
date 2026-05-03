@@ -16,7 +16,7 @@ export const useNavigationStore = create<NavigationState>((set, get) => ({
 
   setRedirectUrl: (url: string | null) => {
     if (url) {
-      console.log('📍 [Navigation] Salvando URL de redirecionamento:', url);
+      // console.log('📍 [Navigation] Salvando URL de redirecionamento:', url);
     }
     set({ redirectUrl: url });
   },
@@ -24,13 +24,13 @@ export const useNavigationStore = create<NavigationState>((set, get) => ({
   getRedirectUrl: () => {
     const state = get();
     if (state.redirectUrl) {
-      console.log('📍 [Navigation] Recuperando URL de redirecionamento:', state.redirectUrl);
+      // console.log('📍 [Navigation] Recuperando URL de redirecionamento:', state.redirectUrl);
     }
     return state.redirectUrl;
   },
 
   clearRedirectUrl: () => {
-    console.log('🗑️ [Navigation] Limpando URL de redirecionamento');
+    // console.log('🗑️ [Navigation] Limpando URL de redirecionamento');
     set({ redirectUrl: null });
   },
 }));

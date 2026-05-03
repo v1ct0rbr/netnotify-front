@@ -21,22 +21,22 @@ export async function initializeAuth({
   setIsLoading,
   setTokens,
 }: InitAuthParams): Promise<void> {
-  console.log('🚀 Inicializando autenticação...');
-  console.log('📍 URL atual:', window.location.href);
-  console.log('📍 Search (query string):', window.location.search);
+  //console.log('🚀 Inicializando autenticação...');
+  // console.log('📍 URL atual:', window.location.href);
+  //console.log('📍 Search (query string):', window.location.search);
 
   // ✅ PRIMEIRO: Sincronizar localStorage com Zustand
   // Isso garante que o interceptador terá acesso ao token correto
   const accessToken = localStorage.getItem('access_token');
   const refreshToken = localStorage.getItem('refresh_token');
   const storedUser = localStorage.getItem('user');
-  
-  console.log('🔐 Estado do localStorage:', {
+
+  /* console.log('🔐 Estado do localStorage:', {
     hasAccessToken: !!accessToken,
     hasRefreshToken: !!refreshToken,
     hasStoredUser: !!storedUser,
-  });
-  
+  }); */
+
   if (accessToken && storedUser) {
     try {
       const userData = JSON.parse(storedUser);
@@ -67,20 +67,20 @@ export async function initializeAuth({
   const urlParams = new URLSearchParams(window.location.search);
   const code = urlParams.get('code');
 
-  console.log('� Estado de autenticação:', {
+ /*  console.log('� Estado de autenticação:', {
     token: accessToken ? '✓ Token found' : '✗ No token',
     code: code ? '✓ Code present' : '✗ No code',
-  });
+  }); */
 
   if (code) {
-    console.log('🔍 [CODE FOUND] Code detectado na URL:', code.substring(0, 30) + '...');
-    
+    //console.log('🔍 [CODE FOUND] Code detectado na URL:', code.substring(0, 30) + '...');
+
     // ✅ PRIMEIRO PASSO: Verificar se já existe token (user já logado!)
     // Se já tem token, então o código na URL é STALE (não processar!)
     if (accessToken && storedUser) {
-      console.log('✅ [ALREADY AUTHENTICATED] User já tem token válido, ignorando código stale na URL');
-      console.log('    Ação: Limpando URL e encerrando...');
-      
+      // console.log('✅ [ALREADY AUTHENTICATED] User já tem token válido, ignorando código stale na URL');
+      //console.log('    Ação: Limpando URL e encerrando...');
+
       // Limpar a query string para evitar confusão
       window.history.replaceState({}, document.title, '/');
       setIsLoading(false);
@@ -92,38 +92,38 @@ export async function initializeAuth({
     const attemptedCodesKey = 'auth_attempted_codes';
     const attemptedCodesJson = localStorage.getItem(attemptedCodesKey);
     const attemptedCodes = attemptedCodesJson ? JSON.parse(attemptedCodesJson) : [];
-    
-    console.log('📋 [DEDUP CHECK] Códigos já processados:', attemptedCodes.length > 0 ? attemptedCodes.map((c: string) => c.substring(0, 20) + '...') : 'nenhum');
-    console.log('📋 [DEDUP CHECK] Código atual:', code.substring(0, 20) + '...');
-    
+
+    /* console.log('📋 [DEDUP CHECK] Códigos já processados:', attemptedCodes.length > 0 ? attemptedCodes.map((c: string) => c.substring(0, 20) + '...') : 'nenhum');
+    console.log('📋 [DEDUP CHECK] Código atual:', code.substring(0, 20) + '...'); */
+
     if (attemptedCodes.includes(code)) {
-      console.log('⚠️ [DEDUP] Exchange deste code já foi tentado anteriormente!');
+     /*  console.log('⚠️ [DEDUP] Exchange deste code já foi tentado anteriormente!');
       console.log('    Code:', code.substring(0, 30) + '...');
       console.log('    Razão: Proteção contra retry infinito');
-      console.log('    Ação: Limpando URL e encerrando...');
-      
+      console.log('    Ação: Limpando URL e encerrando...'); */
+
       // Limpar a query string para evitar retry infinito
       window.history.replaceState({}, document.title, '/');
       setIsLoading(false);
       return;
     }
 
-    console.log('🔄 [NEW CODE] Novo código será processado agora');
+    //console.log('🔄 [NEW CODE] Novo código será processado agora');
     // Registrar que vamos tentar este código (em localStorage para persistir após recarregar)
     attemptedCodes.push(code);
     localStorage.setItem(attemptedCodesKey, JSON.stringify(attemptedCodes));
-    console.log('💾 [SAVED] Code registrado em localStorage para evitar retry');
+    // console.log('💾 [SAVED] Code registrado em localStorage para evitar retry');
 
     const redirectUri = window.location.origin + '/';
     // ⚠️ Verificar localStorage PRIMEIRO (persiste após recarregar)
     // Depois sessionStorage (caso esteja em sessão sem recarregar)
-    const codeVerifier = localStorage.getItem('__pkce_code_verifier__') 
-      || sessionStorage.getItem('__pkce_code_verifier__') 
+    const codeVerifier = localStorage.getItem('__pkce_code_verifier__')
+      || sessionStorage.getItem('__pkce_code_verifier__')
       || sessionStorage.getItem('pkce_code_verifier');
 
-    console.log('📝 Código de autorização recebido:', code.substring(0, 30) + '...');
-    console.log('🔑 Code verifier disponível:', !!codeVerifier);
-    console.log('📤 Enviando para backend em /auth/callback...');
+    //console.log('📝 Código de autorização recebido:', code.substring(0, 30) + '...');
+    //console.log('🔑 Code verifier disponível:', !!codeVerifier);
+    //console.log('📤 Enviando para backend em /auth/callback...');
 
     try {
       try {
@@ -144,20 +144,20 @@ export async function initializeAuth({
         ...(codeVerifier && { code_verifier: codeVerifier }), // Incluir apenas se existir
       };
 
-      console.log('📤 Enviando payload:', { 
-        code: code.substring(0, 30) + '...', 
+      /* console.log('📤 Enviando payload:', {
+        code: code.substring(0, 30) + '...',
         redirect_uri: redirectUri,
-        hasCodeVerifier: !!codeVerifier 
-      });
+        hasCodeVerifier: !!codeVerifier
+      }); */
 
-      console.log('🔐 Headers que serão enviados:');
-      console.log('   - Content-Type:', 'application/json');
-      console.log('   - Authorization:', localStorage.getItem('access_token') ? 'Bearer ...' : 'NÃO ENVIADO (não tem token)');
+      //console.log('🔐 Headers que serão enviados:');
+      //console.log('   - Content-Type:', 'application/json');
+      //console.log('   - Authorization:', localStorage.getItem('access_token') ? 'Bearer ...' : 'NÃO ENVIADO (não tem token)');
 
       const response = await api.post('/auth/callback', payload);
 
-      console.log('✅ Resposta do backend recebida - Status:', response.status);
-      console.log('✅ Dados da resposta:', response.data);
+      /* console.log('✅ Resposta do backend recebida - Status:', response.status);
+      console.log('✅ Dados da resposta:', response.data); */
 
       // Axios com camelCase keys converter: access_token → accessToken
       const token = response.data.accessToken || response.data.access_token;
@@ -166,34 +166,34 @@ export async function initializeAuth({
       }
 
       // ✨ Armazenar tokens e dados do usuário no store Zustand
-      console.log('📦 Salvando no Zustand store...');
+      //console.log('📦 Salvando no Zustand store...');
       setTokens(response.data);
 
       // ✅ NOVO: Redirecionar para a página onde o usuário estava
       // Verificar primeiro localStorage (persiste após reauth), depois store
       let redirectUrl = localStorage.getItem('redirect_url_after_reauth');
-      
+
       if (!redirectUrl) {
         // Fallback para o store Zustand
         const { getRedirectUrl } = useNavigationStore.getState();
         redirectUrl = getRedirectUrl();
       }
-      
+
       if (redirectUrl) {
-        console.log('📍 [Navigation] Redirecionando para URL salva:', redirectUrl);
+        //console.log('📍 [Navigation] Redirecionando para URL salva:', redirectUrl);
         localStorage.removeItem('redirect_url_after_reauth'); // Limpar após usar
         const { clearRedirectUrl } = useNavigationStore.getState();
         clearRedirectUrl();
         window.history.replaceState({}, document.title, redirectUrl);
       } else {
-        console.log('📍 [Navigation] Nenhuma URL salva, limpando query string');
+        // console.log('📍 [Navigation] Nenhuma URL salva, limpando query string');
         window.history.replaceState({}, document.title, '/');
       }
 
       sessionStorage.removeItem('pkce_code_verifier');
       sessionStorage.removeItem('attempted_code');
 
-      console.log('✅ Login completo! Tokens salvos e navegação processada');
+      //console.log('✅ Login completo! Tokens salvos e navegação processada');
       setIsLoading(false);
     } catch (error: any) {
       console.error('❌ Erro ao fazer exchange do código');
@@ -213,7 +213,7 @@ export async function initializeAuth({
     }
   } else if (!code) {
     // Sem token e sem code: redirecionar para login no Keycloak
-    console.log('❌ Sem token e sem code - redirecionando para Keycloak...');
+    // console.log('❌ Sem token e sem code - redirecionando para Keycloak...');
 
     const keycloakUrl = import.meta.env.VITE_KEYCLOAK_AUTH_SERVER_URL || 'https://testes.seukeycloak.com.br';
     const realm = import.meta.env.VITE_KEYCLOAK_REALM || 'testes';
@@ -227,7 +227,7 @@ export async function initializeAuth({
     // ⚠️ CRÍTICO: Guardar em localStorage (não sessionStorage!)
     // sessionStorage é zerado ao recarregar, então perdemos o code_verifier
     localStorage.setItem('__pkce_code_verifier__', codeVerifier);
-    console.log('✅ [PKCE] Code verifier salvo em localStorage para depois do redirect');
+    //console.log('✅ [PKCE] Code verifier salvo em localStorage para depois do redirect');
 
     const params = new URLSearchParams({
       client_id: clientId,

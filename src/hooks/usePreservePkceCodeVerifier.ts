@@ -15,7 +15,7 @@ const PKCE_STORAGE_KEY = '__pkce_code_verifier__';
  */
 export const usePreservePkceCodeVerifier = () => {
   useEffect(() => {
-    console.log('🔍 [PKCE Preservation] Preservando code_verifier...');
+    // console.log('🔍 [PKCE Preservation] Preservando code_verifier...');
 
     // Procura o code_verifier no localStorage (onde o Keycloak JS guarda)
     for (let i = 0; i < localStorage.length; i++) {
@@ -27,16 +27,16 @@ export const usePreservePkceCodeVerifier = () => {
         if (parsed.pkceCodeVerifier) {
           // Encontrou! Guarda em sessionStorage com chave conhecida
           sessionStorage.setItem(PKCE_STORAGE_KEY, parsed.pkceCodeVerifier);
-          console.log('✅ [PKCE Preservation] code_verifier preservado!');
-          console.log('    Valor:', parsed.pkceCodeVerifier.substring(0, 50) + '...');
+          // console.log('✅ [PKCE Preservation] code_verifier preservado!');
+          // console.log('    Valor:', parsed.pkceCodeVerifier.substring(0, 50) + '...');
           return;
         }
-      } catch (e) {
+      } catch {
         // Não é JSON, continua
       }
     }
 
-    console.log('ℹ️ [PKCE Preservation] Nenhum code_verifier encontrado para preservar');
+    // console.log('ℹ️ [PKCE Preservation] Nenhum code_verifier encontrado para preservar');
   }, []);
 };
 
@@ -47,7 +47,7 @@ export const usePreservePkceCodeVerifier = () => {
 export function getPreservedPkceCodeVerifier(): string | undefined {
   const v = sessionStorage.getItem(PKCE_STORAGE_KEY);
   if (v) {
-    console.log('✅ [PKCE] code_verifier recuperado de preservação!');
+    // console.log('✅ [PKCE] code_verifier recuperado de preservação!');
     return v;
   }
   return undefined;
@@ -58,5 +58,5 @@ export function getPreservedPkceCodeVerifier(): string | undefined {
  */
 export function clearPreservedPkceCodeVerifier(): void {
   sessionStorage.removeItem(PKCE_STORAGE_KEY);
-  console.log('🧹 [PKCE] code_verifier preservado foi limpo');
+  // console.log('🧹 [PKCE] code_verifier preservado foi limpo');
 }

@@ -14,7 +14,6 @@ export type CreateMessageDTO = {
     repeatIntervalMinutes?: number;
     expireAt?: string;
     publishedAt?: string;
-    agentScope?: 'INTERNAL' | 'EXTERNAL' | 'BOTH';
     scheduleDaysOfWeek?: string;
     scheduleTimes?: string;
     scheduleMonthDays?: string;
@@ -99,29 +98,24 @@ export const useMessagesApi = () => {
     }
 
     const createMessage = async (data: CreateMessageDTO): Promise<SimpleResponse<string>> => {
-        try {
-            const response = await api.post<{ res: Promise<SimpleResponse<string>> }>('/messages/create', {
-                title: data.title,
-                content: data.content,
-                level: data.level,
-                type: data.type,
-                departments: data.departments,
-                sendToSubdivisions: data.sendToSubdivisions,
-                repeatIntervalMinutes: data.repeatIntervalMinutes,
-                expireAt: data.expireAt,
-                publishedAt: data.publishedAt,
-                agentScope: data.agentScope,
-                scheduleDaysOfWeek: data.scheduleDaysOfWeek,
-                scheduleTimes: data.scheduleTimes,
-                scheduleMonthDays: data.scheduleMonthDays,
-                availabilityWindows: data.availabilityWindows,
-            });
-            toast.success('Mensagem criada com sucesso.');
+        const response = await api.post<{ res: Promise<SimpleResponse<string>> }>('/messages/create', {
+            title: data.title,
+            content: data.content,
+            level: data.level,
+            type: data.type,
+            departments: data.departments,
+            sendToSubdivisions: data.sendToSubdivisions,
+            repeatIntervalMinutes: data.repeatIntervalMinutes,
+            expireAt: data.expireAt,
+            publishedAt: data.publishedAt,
+            scheduleDaysOfWeek: data.scheduleDaysOfWeek,
+            scheduleTimes: data.scheduleTimes,
+            scheduleMonthDays: data.scheduleMonthDays,
+            availabilityWindows: data.availabilityWindows,
+        });
+        toast.success('Mensagem criada com sucesso.');
 
-            return response.data.res;
-        } catch (error) {
-            throw error;
-        }
+        return response.data.res;
     };
 
     const filterMessages = async (params: MessagesFilterParams): Promise<ApiPageResponse<MessageResponseDTO>> => {

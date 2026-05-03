@@ -19,11 +19,11 @@ export const SecuredContent: React.FC = () => {
   const { setTokens, isAuthenticated, user, token } = useAuthStore();
   const navigate = useNavigate();
 
-  console.log('🔍 SecuredContent render:', { isLoading, isAuthenticated, hasUser: !!user, hasToken: !!token });
+  //console.log('🔍 SecuredContent render:', { isLoading, isAuthenticated, hasUser: !!user, hasToken: !!token });
 
   // ✅ INICIALIZAR AUTENTICAÇÃO EXATAMENTE UMA VEZ no mount
   useEffect(() => {
-    console.log('📌 SecuredContent montado - iniciando autenticação...');
+   // console.log('📌 SecuredContent montado - iniciando autenticação...');
     
     initializeAuth({
       setIsLoading,
@@ -35,12 +35,12 @@ export const SecuredContent: React.FC = () => {
   useEffect(() => {
     // Só executar quando NÃO estamos carregando e há autenticação
     if (!isLoading && isAuthenticated && user && token) {
-      console.log('✅ [SecuredContent] Autenticação confirmada após reauth');
+    //  console.log('✅ [SecuredContent] Autenticação confirmada após reauth');
       
       // Verificar se há URL salva para redirecionamento
       const redirectUrl = localStorage.getItem('redirect_url_after_reauth');
       if (redirectUrl && redirectUrl !== '/' && redirectUrl !== window.location.pathname) {
-        console.log('📍 [SecuredContent] Redirecionando para URL salva:', redirectUrl);
+       // console.log('📍 [SecuredContent] Redirecionando para URL salva:', redirectUrl);
         localStorage.removeItem('redirect_url_after_reauth');
         
         // Usar navigate ao invés de window.location para evitar recarregar
@@ -60,13 +60,13 @@ export const SecuredContent: React.FC = () => {
 
   // ✅ Se está carregando, mostrar LoadingScreen
   if (isLoading) {
-    console.log('⏳ Mostrando LoadingScreen...');
+   // console.log('⏳ Mostrando LoadingScreen...');
     return <LoadingScreen />;
   }
 
   // ✅ Se carregou E tem autenticação, mostrar conteúdo
   if (isAuthenticated || hasPersistedAuth || hasTokenInStorage) {
-    console.log('✅ Usuário autenticado com sucesso');
+    // console.log('✅ Usuário autenticado com sucesso');
     return (
       <>
         <Outlet />
@@ -76,6 +76,6 @@ export const SecuredContent: React.FC = () => {
 
   // Se chegou aqui sem autenticação, mostrar loading
   // initializeAuth deveria ter redirecionado para Keycloak via window.location.href
-  console.log('⏳ Sem autenticação - mostrando loading (initializeAuth deve redirecionar para Keycloak)');
+  // console.log('⏳ Sem autenticação - mostrando loading (initializeAuth deve redirecionar para Keycloak)');
   return <LoadingScreen />;
 };

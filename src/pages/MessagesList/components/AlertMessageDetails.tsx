@@ -52,9 +52,9 @@ export function AlertMessageDetails({ id, open, onClose }: AlertMessageDetailsPr
                 const safe = unescapeServerHtml(data.content);
               
                 if (!cancelled) setSanitizedHtml(String(safe));
-            } catch (e) {
+            } catch {
                 // dompurify not available — fallback to raw content (risky)
-                console.log("dompurify not available — rendering raw HTML. Install 'dompurify' to sanitize content.", e);
+                // console.log("dompurify not available — rendering raw HTML. Install 'dompurify' to sanitize content.");
                 if (!cancelled) setSanitizedHtml(unescapeServerHtml(data.content));
             }
         })();
