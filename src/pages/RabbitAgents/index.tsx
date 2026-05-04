@@ -11,7 +11,7 @@ import {
     TableRow,
 } from "@/components/ui/table";
 import { authService } from "@/services/AuthService";
-import { useQuery, useMutation } from "@tanstack/react-query";
+import { useMutation, useQuery } from "@tanstack/react-query";
 import {
     Cpu,
     RefreshCw,
@@ -89,8 +89,14 @@ const RabbitAgentsPage: React.FC = () => {
         staleTime: 5 * 60 * 1000,
     });
 
-    const levelOptions = levelsData?.map((l) => l.name).filter(Boolean) ?? [];
-    const typeOptions = typesData?.map((t) => t.name).filter(Boolean) ?? [];
+    const levelOptions = React.useMemo(
+        () => levelsData?.map((l) => l.name).filter(Boolean) ?? [],
+        [levelsData]
+    );
+    const typeOptions = React.useMemo(
+        () => typesData?.map((t) => t.name).filter(Boolean) ?? [],
+        [typesData]
+    );
 
     useEffect(() => {
         if (selectedAgent && levelOptions.length > 0) {

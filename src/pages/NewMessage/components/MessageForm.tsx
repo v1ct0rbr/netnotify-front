@@ -10,6 +10,13 @@ import api from '@/config/axios';
 import type { ScheduleTimeGroup } from '@/store/useFormStore';
 import { unescapeServerHtml } from '@/utils/StringUtils';
 import { useFormStore } from '@/store/useFormStore';
+import {
+  buildOfficeHoursSummary,
+  DAY_NAMES,
+  DAYS_OF_WEEK,
+  normalizeAvailabilityWindows,
+  parseTimeToMinutes,
+} from '@/utils/availabilityWindows';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { useQuery } from '@tanstack/react-query';
 import React from 'react';
@@ -30,77 +37,28 @@ import {
   Trash2,
 } from 'lucide-react';
 
-const DAYS_OF_WEEK = [
-  { label: 'Seg', value: '1' },
-  { label: 'Ter', value: '2' },
-  { label: 'Qua', value: '3' },
-  { label: 'Qui', value: '4' },
-  { label: 'Sex', value: '5' },
-  { label: 'Sab', value: '6' },
-  { label: 'Dom', value: '7' },
-];
-
-const DAY_NAMES = Object.fromEntries(DAYS_OF_WEEK.map((day) => [day.value, day.label])) as Record<
-  string,
-  string
->;
-
 const MONTH_DAYS = Array.from({ length: 31 }, (_, i) => String(i + 1));
-const formatOfficeHoursWindows = (input: unknown): string => {
-  try {
-    let entries: { day: string; startTime: string; endTime: string }[];
-    if (typeof input === 'string') {
-      entries = JSON.parse(input) as { day: string; startTime: string; endTime: string }[];
-    } else if (Array.isArray(input)) {
-      entries = input as { day: string; startTime: string; endTime: string }[];
-    } else {
-      return '';
-    }
 
-    if (!entries.length) return '';
-
-    const sorted = [...entries].sort((a, b) => Number(a.day) - Number(b.day));
-
-    const ranges: { days: string[]; startTime: string; endTime: string }[] = [];
-    let currentRange: { days: string[]; startTime: string; endTime: string } | null = null;
-
-    for (const entry of sorted) {
-      if (
-        currentRange &&
-        currentRange.startTime === entry.startTime &&
-        currentRange.endTime === entry.endTime &&
-        Number(currentRange.days[currentRange.days.length - 1]) === Number(entry.day) - 1
-      ) {
-        currentRange.days.push(entry.day);
-      } else {
-        if (currentRange) ranges.push(currentRange);
-        currentRange = { days: [entry.day], startTime: entry.startTime, endTime: entry.endTime };
-      }
-    }
-    if (currentRange) ranges.push(currentRange);
-
-    return ranges
-      .map(({ days, startTime, endTime }) => {
-        const dayLabel =
-          days.length === 1
-            ? (DAY_NAMES[days[0]] ?? days[0])
-            : `${DAY_NAMES[days[0]] ?? days[0]}-${DAY_NAMES[days[days.length - 1]] ?? days[days.length - 1]}`;
-        return `${dayLabel} ${startTime}-${endTime}`;
-      })
-      .join(', ');
-  } catch {
-    return typeof input === 'string' ? input : '';
-  }
-};
-
-const parseTimeToMinutes = (value: string): number | null => {
-  const trimmed = value.trim();
-  const match = /^(\d{2}):(\d{2})$/.exec(trimmed);
-  if (!match) return null;
-  const hours = Number(match[1]);
-  const minutes = Number(match[2]);
-  if (hours < 0 || hours > 23 || minutes < 0 || minutes > 59) return null;
-  return hours * 60 + minutes;
+const SCHEDULE_TYPE_META: Record<
+  FormData['scheduleType'],
+  { label: string; description: string }
+> = {
+  NONE: {
+    label: 'Envio unico',
+    description: 'A mensagem sera enviada uma vez, respeitando as datas configuradas.',
+  },
+  INTERVAL: {
+    label: 'Repeticao por intervalo',
+    description: 'Repete automaticamente em ciclos de minutos enquanto a mensagem estiver ativa.',
+  },
+  WEEKLY: {
+    label: 'Programacao semanal',
+    description: 'Organize os disparos por dias da semana e horarios especificos.',
+  },
+  MONTHLY: {
+    label: 'Programacao mensal',
+    description: 'Defina dias do mes e horarios fixos para o disparo da mensagem.',
+  },
 };
 
 const sortScheduleDays = (days: string[], mode: 'weekly' | 'monthly'): string[] => {
@@ -479,6 +437,7 @@ export const MessageForm: React.FC<HomeFormProps> = ({ id }: HomeFormProps) => {
   });
 
   const scheduleTypeValue = watch('scheduleType');
+  const scheduleTypeMeta = SCHEDULE_TYPE_META[scheduleTypeValue ?? 'NONE'];
 
   const { createMessage, getCreateMessageDtoById, getDefaultOfficeHoursWindow } = useMessagesApi();
 
@@ -500,8 +459,16 @@ export const MessageForm: React.FC<HomeFormProps> = ({ id }: HomeFormProps) => {
         return null;
       }
     },
-    staleTime: 60 * 60 * 1000,
+    staleTime: 0,
+    refetchOnMount: 'always',
+    refetchOnWindowFocus: true,
+    refetchOnReconnect: true,
   });
+
+  const defaultOfficeHoursSummary = React.useMemo(
+    () => buildOfficeHoursSummary(defaultOfficeHoursWindow),
+    [defaultOfficeHoursWindow]
+  );
 
   const { data: levelsData, isLoading: levelsLoading } = useQuery({
     queryKey: ['levels'],
@@ -578,7 +545,7 @@ export const MessageForm: React.FC<HomeFormProps> = ({ id }: HomeFormProps) => {
               )
             : [],
         scheduleMonthDays: monthDays,
-        availabilityWindows: msg.availabilityWindows ? JSON.parse(msg.availabilityWindows) : [],
+        availabilityWindows: normalizeAvailabilityWindows(msg.availabilityWindows),
       });
     } catch (err) {
       console.error(err);
@@ -911,92 +878,31 @@ export const MessageForm: React.FC<HomeFormProps> = ({ id }: HomeFormProps) => {
 
           {/* Agendamento e Repeticao */}
           <div className="bg-gradient-to-r from-purple-50 to-violet-50 dark:from-slate-900 dark:to-slate-800 rounded-xl p-6 border border-purple-200 dark:border-slate-700">
-            <div className="flex items-center gap-2 mb-6">
-              <div className="w-1 h-6 bg-gradient-to-b from-purple-500 to-violet-500 rounded" />
-              <h3 className="text-lg font-semibold text-foreground">Agendamento e Repeticao</h3>
-            </div>
-
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-5 mb-5">
-              {/* Data de publicacao */}
+            <div className="flex flex-col gap-2 mb-6 lg:flex-row lg:items-start lg:justify-between">
               <div className="space-y-2">
                 <div className="flex items-center gap-2">
-                  <Calendar size={16} className="text-purple-500" />
-                  <label className="block text-sm font-medium">Data de publicacao</label>
+                  <div className="w-1 h-6 bg-gradient-to-b from-purple-500 to-violet-500 rounded" />
+                  <h3 className="text-lg font-semibold text-foreground">Agendamento e Repeticao</h3>
                 </div>
-                <Controller
-                  control={control}
-                  name="publishedAt"
-                  render={({ field }) => (
-                    <div>
-                      <div className="flex items-center gap-2">
-                        <input
-                          type="datetime-local"
-                          value={field.value ?? ''}
-                          onChange={(e) => field.onChange(e.target.value)}
-                          className="flex-1 border rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-purple-500 dark:bg-slate-950 dark:text-white dark:border-slate-700 border-gray-300"
-                        />
-                        {field.value && (
-                          <button
-                            type="button"
-                            onClick={() => field.onChange('')}
-                            className="text-gray-400 hover:text-gray-600 transition-colors"
-                          >
-                            <Trash2 size={16} />
-                          </button>
-                        )}
-                      </div>
-                      {errors.publishedAt && (
-                        <p className="text-xs text-red-500 mt-1">{errors.publishedAt.message}</p>
-                      )}
-                    </div>
-                  )}
-                />
+                <p className="text-sm text-muted-foreground max-w-2xl">
+                  Defina a vigencia da mensagem e escolha como ela deve ser repetida ao longo do tempo.
+                </p>
               </div>
-
-              {/* Data de expiracao */}
-              <div className="space-y-2">
-                <div className="flex items-center gap-2">
-                  <Clock size={16} className="text-purple-500" />
-                  <label className="block text-sm font-medium">Data de expiracao</label>
-                </div>
-                <Controller
-                  control={control}
-                  name="expireAt"
-                  render={({ field }) => (
-                    <div>
-                      <div className="flex items-center gap-2">
-                        <input
-                          type="datetime-local"
-                          value={field.value ?? ''}
-                          onChange={(e) => field.onChange(e.target.value)}
-                          className="flex-1 border rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-purple-500 dark:bg-slate-950 dark:text-white dark:border-slate-700 border-gray-300"
-                        />
-                        {field.value && (
-                          <button
-                            type="button"
-                            onClick={() => field.onChange('')}
-                            className="text-gray-400 hover:text-gray-600 transition-colors"
-                          >
-                            <Trash2 size={16} />
-                          </button>
-                        )}
-                      </div>
-                      {errors.expireAt && (
-                        <p className="text-xs text-red-500 mt-1">{errors.expireAt.message}</p>
-                      )}
-                    </div>
-                  )}
-                />
+              <div className="rounded-lg border border-purple-200/70 dark:border-slate-700 bg-white/60 dark:bg-slate-900/50 px-4 py-3 min-w-[240px]">
+                <p className="text-[11px] font-semibold uppercase tracking-wide text-purple-700 dark:text-purple-300">
+                  Modo atual
+                </p>
+                <p className="mt-1 text-sm font-semibold text-foreground">{scheduleTypeMeta.label}</p>
+                <p className="mt-1 text-xs text-muted-foreground">{scheduleTypeMeta.description}</p>
               </div>
             </div>
 
-            {/* Tipo de Recorrencia */}
-            <div className="space-y-4">
-              <div className="flex items-center gap-2">
-                <RefreshCw size={16} className="text-purple-500" />
-                <label className="block text-sm font-medium">Tipo de Recorrencia</label>
-              </div>
-              <div className="max-w-xl">
+            <div className="grid grid-cols-1 xl:grid-cols-[minmax(0,1.05fr)_minmax(320px,0.95fr)] gap-6">
+              <div className="rounded-xl border border-purple-200/80 dark:border-slate-700 bg-white/60 dark:bg-slate-900/50 p-4 space-y-4">
+                <div className="flex items-center gap-2">
+                  <RefreshCw size={16} className="text-purple-500" />
+                  <label className="block text-sm font-medium">Tipo de Recorrencia</label>
+                </div>
                 <Controller
                   control={control}
                   name="scheduleType"
@@ -1017,7 +923,102 @@ export const MessageForm: React.FC<HomeFormProps> = ({ id }: HomeFormProps) => {
                     />
                   )}
                 />
+                <div className="rounded-lg border border-dashed border-purple-200 dark:border-slate-700 bg-purple-50/70 dark:bg-slate-950/40 px-4 py-3">
+                  <p className="text-sm font-medium text-foreground">{scheduleTypeMeta.label}</p>
+                  <p className="mt-1 text-xs text-muted-foreground">{scheduleTypeMeta.description}</p>
+                </div>
               </div>
+
+              <div className="rounded-xl border border-purple-200/80 dark:border-slate-700 bg-white/60 dark:bg-slate-900/50 p-4 space-y-4">
+                <div className="flex items-center gap-2">
+                  <Calendar size={16} className="text-purple-500" />
+                  <h4 className="text-sm font-medium">Janela de vigencia</h4>
+                </div>
+
+                <div className="grid grid-cols-1 gap-4">
+                  {/* Data de publicacao */}
+                  <div className="space-y-2">
+                    <div className="flex items-center gap-2">
+                      <Calendar size={16} className="text-purple-500" />
+                      <label className="block text-sm font-medium">Data de publicacao</label>
+                    </div>
+                    <Controller
+                      control={control}
+                      name="publishedAt"
+                      render={({ field }) => (
+                        <div>
+                          <div className="flex items-center gap-2">
+                            <input
+                              type="datetime-local"
+                              value={field.value ?? ''}
+                              onChange={(e) => field.onChange(e.target.value)}
+                              className="flex-1 border rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-purple-500 dark:bg-slate-950 dark:text-white dark:border-slate-700 border-gray-300"
+                            />
+                            {field.value && (
+                              <button
+                                type="button"
+                                onClick={() => field.onChange('')}
+                                className="text-gray-400 hover:text-gray-600 transition-colors"
+                              >
+                                <Trash2 size={16} />
+                              </button>
+                            )}
+                          </div>
+                          <p className="mt-1 text-xs text-muted-foreground">
+                            Se vazio, a mensagem pode ser publicada assim que estiver pronta.
+                          </p>
+                          {errors.publishedAt && (
+                            <p className="text-xs text-red-500 mt-1">{errors.publishedAt.message}</p>
+                          )}
+                        </div>
+                      )}
+                    />
+                  </div>
+
+                  {/* Data de expiracao */}
+                  <div className="space-y-2">
+                    <div className="flex items-center gap-2">
+                      <Clock size={16} className="text-purple-500" />
+                      <label className="block text-sm font-medium">Data de expiracao</label>
+                    </div>
+                    <Controller
+                      control={control}
+                      name="expireAt"
+                      render={({ field }) => (
+                        <div>
+                          <div className="flex items-center gap-2">
+                            <input
+                              type="datetime-local"
+                              value={field.value ?? ''}
+                              onChange={(e) => field.onChange(e.target.value)}
+                              className="flex-1 border rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-purple-500 dark:bg-slate-950 dark:text-white dark:border-slate-700 border-gray-300"
+                            />
+                            {field.value && (
+                              <button
+                                type="button"
+                                onClick={() => field.onChange('')}
+                                className="text-gray-400 hover:text-gray-600 transition-colors"
+                              >
+                                <Trash2 size={16} />
+                              </button>
+                            )}
+                          </div>
+                          <p className="mt-1 text-xs text-muted-foreground">
+                            Depois desta data, o agendamento deixa de gerar novos disparos.
+                          </p>
+                          {errors.expireAt && (
+                            <p className="text-xs text-red-500 mt-1">{errors.expireAt.message}</p>
+                          )}
+                        </div>
+                      )}
+                    />
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            {/* Tipo de Recorrencia */}
+            <div className="space-y-4 mt-6">
 
               {/* INTERVAL */}
               {scheduleTypeValue === 'INTERVAL' && (
@@ -1487,11 +1488,44 @@ export const MessageForm: React.FC<HomeFormProps> = ({ id }: HomeFormProps) => {
                   <div className="space-y-4">
                     {normalizedWindows.length === 0 ? (
                       <div className="rounded-lg border border-amber-300/60 dark:border-amber-700/60 bg-amber-50/70 dark:bg-amber-950/20 p-3">
-                        <p className="text-xs text-amber-800 dark:text-amber-200">
-                          <span className="font-semibold">Expediente padrão ativo:</span>{' '}
-                          {defaultOfficeHoursLoading ? 'Carregando...' : (formatOfficeHoursWindows(defaultOfficeHoursWindow) || 'não configurado')}. Configure janelas abaixo para sobrescrever esse
-                          padrão nesta mensagem.
-                        </p>
+                        <div className="space-y-2">
+                          <p className="text-xs text-amber-800 dark:text-amber-200">
+                            <span className="font-semibold">Expediente padrão ativo</span>
+                          </p>
+
+                          {defaultOfficeHoursLoading ? (
+                            <p className="text-xs text-amber-800 dark:text-amber-200">Carregando...</p>
+                          ) : defaultOfficeHoursSummary.length > 0 ? (
+                            <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-2">
+                              {defaultOfficeHoursSummary.map((item) => (
+                                <div
+                                  key={item.day}
+                                  className="rounded-md border border-amber-300/50 dark:border-amber-700/40 bg-white/80 dark:bg-slate-900/60 px-2.5 py-2"
+                                >
+                                  <p className="text-[11px] font-semibold text-amber-900 dark:text-amber-100">
+                                    {item.day}
+                                  </p>
+                                  <div className="mt-1 flex flex-wrap gap-1">
+                                    {item.intervals.map((interval) => (
+                                      <span
+                                        key={`${item.day}-${interval}`}
+                                        className="inline-flex items-center rounded-full border border-amber-300/60 dark:border-amber-700/50 bg-amber-100/80 dark:bg-amber-950/30 px-2 py-0.5 text-[11px] font-medium text-amber-900 dark:text-amber-100"
+                                      >
+                                        {interval}
+                                      </span>
+                                    ))}
+                                  </div>
+                                </div>
+                              ))}
+                            </div>
+                          ) : (
+                            <p className="text-xs text-amber-800 dark:text-amber-200">Não configurado.</p>
+                          )}
+
+                          <p className="text-xs text-amber-800 dark:text-amber-200">
+                            Configure janelas abaixo para sobrescrever esse padrão nesta mensagem.
+                          </p>
+                        </div>
                       </div>
                     ) : (
                       <div className="rounded-lg border border-orange-300/60 dark:border-orange-700/60 bg-orange-50/70 dark:bg-orange-950/20 p-3">

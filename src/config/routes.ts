@@ -4,6 +4,7 @@ import React from "react";
 import { AuthLayout } from "@/layouts/AuthLayout";
 import MainPageLayout from "@/layouts/MainPageLayout";
 import { About } from "@/pages/About";
+import CacheAdminPage from "@/pages/CacheAdmin";
 import { NewMessage } from "@/pages/NewMessage";
 import LoginPage from "@/pages/Login";
 import MessagesList from "@/pages/MessagesList";
@@ -17,6 +18,7 @@ import { createBrowserRouter } from "react-router-dom";
 import Profile from "@/pages/Profile";
 import DepartmentsPage from "@/pages/Departments";
 import Dashboard from "@/pages/Dashboard";
+import OfficeHoursAdminPage from "@/pages/OfficeHoursAdmin";
 
 export const router = createBrowserRouter([
     {
@@ -54,6 +56,16 @@ export const router = createBrowserRouter([
                         path: "profile",
                         Component: Profile,
                         handle: { pageTitle: "Perfil" },
+                    },
+                    {
+                        path: "cache-admin",
+                        Component: CacheAdminPage,
+                        handle: { pageTitle: "Administração de Cache" },
+                    },
+                    {
+                        path: "office-hours-admin",
+                        Component: OfficeHoursAdminPage,
+                        handle: { pageTitle: "Expediente Padrão" },
                     },
                     {
                         path: "departments",

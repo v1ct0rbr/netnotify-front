@@ -1,5 +1,5 @@
 import { Button } from "@/components/ui/button";
-import { Building, Cpu, Home, Inbox, LogOut, Send, User } from "lucide-react";
+import { Building, CalendarClock, Cpu, Database, Home, Inbox, LogOut, Send, User } from "lucide-react";
 
 import {
   Sidebar,
@@ -27,9 +27,21 @@ const items = [
     adminOnly: false,
   },
   {
+    title: "Cache",
+    url: "/cache-admin",
+    icon: Database,
+    adminOnly: true,
+  },
+  {
     title: "Departamentos",
     url: "/departments",
     icon: Building,
+    adminOnly: true,
+  },
+  {
+    title: "Expediente",
+    url: "/office-hours-admin",
+    icon: CalendarClock,
     adminOnly: true,
   },
   {

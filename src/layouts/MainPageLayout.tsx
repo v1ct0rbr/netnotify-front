@@ -34,9 +34,7 @@ export default function MainPageLayout({ pageTitle }: MainPageLayoutProps): Reac
         try {
             const token = localStorage.getItem('access_token');
             if (token) {
-                const decoded = JSON.parse(atob(token.split('.')[1]));
-                const username = decoded.preferred_username || decoded.sub || null;
-                //console.log("Usuario autenticado:", username);
+                JSON.parse(atob(token.split('.')[1]));
             }
         } catch (error) {
             console.error("Erro ao extrair username do token:", error);
