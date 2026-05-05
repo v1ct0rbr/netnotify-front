@@ -39,6 +39,28 @@ const getDefaultOption = (options: string[], preferred: string): string => {
     return found ?? options[0] ?? preferred;
 };
 
+const getQueueTypeLabel = (queueType: RabbitAgentDTO["queueType"]): string => {
+    switch (queueType) {
+        case "agente":
+            return "Fila única";
+        case "legado-departamento":
+            return "Legado";
+        default:
+            return "Outro";
+    }
+};
+
+const formatRoutingKeyLabel = (routingKey: string): string => {
+    if (routingKey === "broadcast.general") return "broadcast.general";
+    if (routingKey.startsWith("department.")) {
+        return `departamento:${routingKey.slice("department.".length).replaceAll("_", " ")}`;
+    }
+    if (routingKey.startsWith("agent.")) {
+        return `agente:${routingKey.slice("agent.".length)}`;
+    }
+    return routingKey;
+};
+
 const RabbitAgentsPage: React.FC = () => {
     const { listAgents, sendDirectMessage } = useRabbitAgentsApi();
     const isAdmin = authService.isAdmin?.() ?? false;
@@ -256,6 +278,12 @@ const RabbitAgentsPage: React.FC = () => {
                                     Departamento
                                 </div>
                             </TableHead>
+                            <TableHead>
+                                <div className="flex items-center gap-2">
+                                    <Wifi size={14} className="text-emerald-500" />
+                                    Escopos
+                                </div>
+                            </TableHead>
                             <TableHead
                                 className="cursor-pointer select-none hover:bg-purple-50 dark:hover:bg-slate-700 transition-colors"
                                 onClick={() => handleSort("ip")}
@@ -266,6 +294,7 @@ const RabbitAgentsPage: React.FC = () => {
                                     <SortIcon column="ip" />
                                 </div>
                             </TableHead>
+                            <TableHead className="text-center">Pendências</TableHead>
 
                             <TableHead className="text-center">Ações</TableHead>
                         </TableRow>
@@ -295,14 +324,46 @@ const RabbitAgentsPage: React.FC = () => {
                             agents?.map((agent) => (
                                 <TableRow key={agent.queueName} className="hover:bg-purple-50/40 dark:hover:bg-slate-800/40 transition-colors">
                                     <TableCell className="font-mono text-xs text-gray-700 dark:text-gray-300">
-                                        {agent.queueName}
+                                        <div className="space-y-1">
+                                            <div>{agent.queueName}</div>
+                                            <span className="inline-flex rounded-full bg-purple-100 px-2 py-0.5 text-[10px] font-medium text-purple-700 dark:bg-purple-900/30 dark:text-purple-200">
+                                                {getQueueTypeLabel(agent.queueType)}
+                                            </span>
+                                        </div>
                                     </TableCell>
 
                                     <TableCell className="font-medium">{agent.agentHostname || "—"}</TableCell>
-                                    <TableCell>{agent.department ?? <span className="text-muted-foreground italic text-xs">geral</span>}</TableCell>
+                                    <TableCell>
+                                        {agent.department ?? (
+                                            <span className="text-muted-foreground italic text-xs">
+                                                sem departamento
+                                            </span>
+                                        )}
+                                    </TableCell>
+                                    <TableCell>
+                                        <div className="flex flex-wrap gap-1">
+                                            {agent.routingKeys?.length ? (
+                                                agent.routingKeys.map((routingKey) => (
+                                                    <span
+                                                        key={`${agent.queueName}-${routingKey}`}
+                                                        className="inline-flex rounded-full bg-slate-100 px-2 py-0.5 text-[10px] font-medium text-slate-700 dark:bg-slate-800 dark:text-slate-200"
+                                                    >
+                                                        {formatRoutingKeyLabel(routingKey)}
+                                                    </span>
+                                                ))
+                                            ) : (
+                                                <span className="text-muted-foreground italic text-xs">
+                                                    escopos indisponíveis
+                                                </span>
+                                            )}
+                                        </div>
+                                    </TableCell>
                                     <TableCell className="font-mono text-sm">
                                         {agent.peerAddress}
                                         {agent.peerPort ? `:${agent.peerPort}` : ""}
+                                    </TableCell>
+                                    <TableCell className="text-center font-medium">
+                                        {agent.messageCount}
                                     </TableCell>
 
                                     <TableCell className="text-center">

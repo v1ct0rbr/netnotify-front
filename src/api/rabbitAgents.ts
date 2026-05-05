@@ -3,7 +3,7 @@ import { toast } from "sonner";
 
 export type RabbitAgentDTO = {
     queueName: string;
-    queueType: "geral" | "departamento" | "outro";
+    queueType: "agente" | "legado-departamento" | "outro";
     agentHostname: string;
     department: string | null;
     peerHost: string;
@@ -11,6 +11,7 @@ export type RabbitAgentDTO = {
     peerAddress: string;
     messageCount: number;
     connectionName: string;
+    routingKeys: string[];
 };
 
 export type DirectNotifyRequest = {
