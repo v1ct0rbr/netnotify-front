@@ -20,6 +20,25 @@ export type OfficeHoursSummaryItem = {
   intervals: string[];
 };
 
+const isValidIntervalWindow = (window: AvailabilityWindow): boolean =>
+  !window.ignored && Boolean(window.startTime?.trim()) && Boolean(window.endTime?.trim());
+
+export const isIgnoredAvailabilityDay = (window: AvailabilityWindow): boolean => Boolean(window.ignored);
+
+export const sortAvailabilityWindows = <T extends AvailabilityWindow>(windows: T[]): T[] =>
+  [...windows].sort((left, right) => {
+    const dayComparison = Number(left.day) - Number(right.day);
+    if (dayComparison !== 0) {
+      return dayComparison;
+    }
+
+    if (Boolean(left.ignored) !== Boolean(right.ignored)) {
+      return left.ignored ? -1 : 1;
+    }
+
+    return (left.startTime ?? "").localeCompare(right.startTime ?? "");
+  });
+
 export const normalizeAvailabilityWindows = (input: unknown): AvailabilityWindow[] => {
   try {
     const parsed = typeof input === "string" ? JSON.parse(input) : input;
@@ -36,11 +55,19 @@ export const normalizeAvailabilityWindows = (input: unknown): AvailabilityWindow
         day?: unknown;
         startTime?: unknown;
         endTime?: unknown;
+        ignored?: unknown;
         intervals?: Array<{ startTime?: unknown; endTime?: unknown }>;
       };
       const day = candidate.day != null ? String(candidate.day).trim() : "";
       if (!day) {
         return [];
+      }
+
+      if (
+        candidate.ignored === true ||
+        (typeof candidate.ignored === "string" && candidate.ignored.trim().toLowerCase() === "true")
+      ) {
+        return [{ day, ignored: true }];
       }
 
       if (Array.isArray(candidate.intervals)) {
@@ -60,9 +87,37 @@ export const normalizeAvailabilityWindows = (input: unknown): AvailabilityWindow
   }
 };
 
+export const serializeAvailabilityWindows = (windows: AvailabilityWindow[]): string => {
+  const serialized: Array<{ day: string; ignored: true } | { day: string; startTime: string; endTime: string }> = [];
+
+  sortAvailabilityWindows(windows).forEach((window) => {
+    const day = String(window.day ?? "").trim();
+    if (!day) {
+      return;
+    }
+
+    if (window.ignored) {
+      serialized.push({ day, ignored: true });
+      return;
+    }
+
+    if (!isValidIntervalWindow(window)) {
+      return;
+    }
+
+    serialized.push({
+      day,
+      startTime: String(window.startTime).trim(),
+      endTime: String(window.endTime).trim(),
+    });
+  });
+
+  return JSON.stringify(serialized);
+};
+
 export const buildOfficeHoursSummary = (input: unknown): OfficeHoursSummaryItem[] => {
   try {
-    const entries = normalizeAvailabilityWindows(input);
+    const entries = normalizeAvailabilityWindows(input).filter(isValidIntervalWindow);
     if (!entries.length) {
       return [];
     }

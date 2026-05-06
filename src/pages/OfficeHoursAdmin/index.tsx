@@ -34,7 +34,7 @@ const sortWindows = <T extends AvailabilityWindow>(windows: T[]): T[] =>
     if (dayComparison !== 0) {
       return dayComparison;
     }
-    return left.startTime.localeCompare(right.startTime);
+    return (left.startTime ?? "").localeCompare(right.startTime ?? "");
   });
 
 const toEditableWindows = (windows: AvailabilityWindow[]): EditableAvailabilityWindow[] =>
@@ -52,8 +52,8 @@ const validateWindows = (windows: AvailabilityWindow[]): string | null => {
   const intervalsByDay = new Map<string, Array<{ start: number; end: number }>>();
 
   for (const window of windows) {
-    const startMinutes = parseTimeToMinutes(window.startTime);
-    const endMinutes = parseTimeToMinutes(window.endTime);
+    const startMinutes = parseTimeToMinutes(window.startTime ?? "");
+    const endMinutes = parseTimeToMinutes(window.endTime ?? "");
 
     if (startMinutes === null || endMinutes === null) {
       return "Todos os horários precisam estar no formato HH:mm.";

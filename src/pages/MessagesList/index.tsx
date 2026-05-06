@@ -19,7 +19,7 @@ import { useAuthStore } from "@/store/useAuthStore";
 import type { ApiPageResponse } from "@/utils/ApiPageResponse";
 import { formatRelativeDate } from "@/utils/DateUtils";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { Copy, Eraser, Eye, Search, Trash2, Filter, FileText, Zap, AlertCircle, Tag, Plus } from "lucide-react";
+import { Copy, Eraser, Eye, Search, Trash2, Filter, FileText, Zap, AlertCircle, Tag, Plus, Pause, Play } from "lucide-react";
 import React, { useEffect, useState } from "react";
 import { Link, useSearchParams } from "react-router";
 import { AlertMessageDetails } from "./components/AlertMessageDetails";
@@ -27,9 +27,14 @@ import { Tooltip, TooltipContent } from "@/components/ui/tooltip";
 import { TooltipTrigger } from "@radix-ui/react-tooltip";
 
 const PAGE_SIZE = 10;
+const isSchedulableMessage = (message: MessageResponseDTO) =>
+    message.repeatIntervalMinutes !== null
+    || Boolean(message.scheduleDaysOfWeek)
+    || Boolean(message.scheduleMonthDays)
+    || (Boolean(message.publishedAt) && !message.lastSentAt);
 
 const MessagesList: React.FC = () => {
-    const { filterMessages, deleteMessage } = useMessagesApi();
+    const { filterMessages, deleteMessage, setMessagePaused } = useMessagesApi();
     const { user } = useAuthStore();
     const isAdmin = checkIsAdmin(user?.roles);
 
@@ -156,9 +161,25 @@ const MessagesList: React.FC = () => {
         onError: () => setToast({ type: "error", message: "Erro ao apagar mensagem." }),
     });
 
+    const pauseMutation = useMutation({
+        mutationFn: ({ id, paused }: { id: string; paused: boolean }) => setMessagePaused(id, paused),
+        onSuccess: (_, variables) => {
+            queryClient.invalidateQueries({ queryKey: ["messages"] });
+            queryClient.invalidateQueries({ queryKey: ["message", variables.id] });
+        },
+        onError: (_, variables) => setToast({
+            type: "error",
+            message: variables.paused ? "Erro ao pausar mensagem." : "Erro ao reativar mensagem.",
+        }),
+    });
+
     const handleDelete = (id: string) => {
         if (!window.confirm("Tem certeza que deseja apagar esta mensagem?")) return;
         mutation.mutate(id);
+    };
+
+    const handleTogglePaused = (message: MessageResponseDTO) => {
+        pauseMutation.mutate({ id: message.id, paused: !message.paused });
     };
 
 
@@ -350,7 +371,14 @@ const MessagesList: React.FC = () => {
                             ))
                             : data?.data.map((msg) => (
                                 <TableRow key={msg.id}>
-                                    <TableCell className="max-w-[300px] overflow-hidden text-ellipsis whitespace-nowrap text-left">{msg.title}</TableCell>
+                                    <TableCell className="max-w-[300px] text-left">
+                                        <div className="overflow-hidden text-ellipsis whitespace-nowrap">{msg.title}</div>
+                                        {msg.paused && (
+                                            <span className="mt-2 inline-flex rounded-full bg-amber-100 px-2 py-0.5 text-xs font-medium text-amber-800 dark:bg-amber-900/30 dark:text-amber-200">
+                                                Agendamento pausado
+                                            </span>
+                                        )}
+                                    </TableCell>
                                     <TableCell className="text-left">
                                         {msg.departments.map((dept) => dept.name).join(", ")}
                                     </TableCell>
@@ -379,6 +407,34 @@ const MessagesList: React.FC = () => {
                                             >
                                                 <Trash2 size={18} />
                                             </button>
+                                        )}
+                                        {isAdmin && isSchedulableMessage(msg) && (
+                                            <Tooltip>
+                                                <TooltipTrigger asChild>
+                                                    <button
+                                                        aria-label={msg.paused ? "Reativar agendamento" : "Pausar agendamento"}
+                                                        style={{
+                                                            background: msg.paused ? "#16a34a" : "#d97706",
+                                                            border: "none",
+                                                            borderRadius: 4,
+                                                            padding: 6,
+                                                            cursor: pauseMutation.isPending ? "not-allowed" : "pointer",
+                                                            color: "#fff",
+                                                            display: "flex",
+                                                            alignItems: "center",
+                                                            marginLeft: 8,
+                                                            opacity: pauseMutation.isPending ? 0.6 : 1,
+                                                        }}
+                                                        onClick={() => handleTogglePaused(msg)}
+                                                        disabled={pauseMutation.isPending}
+                                                    >
+                                                        {msg.paused ? <Play size={18} /> : <Pause size={18} />}
+                                                    </button>
+                                                </TooltipTrigger>
+                                                <TooltipContent>
+                                                    <div className="tooltip-content">{msg.paused ? "Reativar agendamento" : "Pausar agendamento"}</div>
+                                                </TooltipContent>
+                                            </Tooltip>
                                         )}
 
                                         <Tooltip>

@@ -117,6 +117,10 @@ export function AlertMessageDetails({ id, open, onClose }: AlertMessageDetailsPr
                                     <div className="text-xs text-muted-foreground">Criado em</div>
                                     <div className="mt-1">{data.createdAt ? formatRelative(new Date(data.createdAt), new Date(), { locale: ptBR }) : "-"}</div>
                                 </div>
+                                <div>
+                                    <div className="text-xs text-muted-foreground">Agendamento</div>
+                                    <div className="mt-1">{data.paused ? 'Pausado' : 'Ativo'}</div>
+                                </div>
                             </div>
                         </div>
                     ) : (

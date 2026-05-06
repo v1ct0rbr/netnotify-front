@@ -39,6 +39,7 @@ export type MessageResponseDTO = {
     scheduleTimes: string | null;
     scheduleMonthDays: string | null;
     availabilityWindows: string | null;
+    paused: boolean;
 }
 
 interface MessagesFilterParams {
@@ -157,6 +158,23 @@ export const useMessagesApi = () => {
             throw error;
         }
     };
+
+    const setMessagePaused = async (id: string, paused: boolean): Promise<MessageResponseDTO> => {
+        try {
+            const response = await api.patch<SimpleResponse<MessageResponseDTO>>(`/messages/pause?id=${id}&paused=${paused}`);
+            const message = response.data;
+
+            if (message.status !== 'SUCCESS') {
+                throw new Error(message.message || 'Erro ao atualizar o agendamento da mensagem.');
+            }
+
+            toast.success(paused ? 'Mensagem pausada com sucesso.' : 'Mensagem reativada com sucesso.');
+            return message.object as MessageResponseDTO;
+        } catch (error) {
+            toast.error(error instanceof Error ? error.message : 'Erro ao atualizar o agendamento da mensagem.');
+            throw error;
+        }
+    };
     return {
         getDefaultOfficeHoursWindow,
         getCreateMessageDtoById,
@@ -164,5 +182,6 @@ export const useMessagesApi = () => {
         createMessage,
         filterMessages,
         deleteMessage,
+        setMessagePaused,
     };
 }

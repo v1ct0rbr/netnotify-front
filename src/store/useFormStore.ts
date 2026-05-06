@@ -2,9 +2,10 @@ import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
 
 export type AvailabilityWindow = {
-  day: string;       // ISO day of week: "1"=Seg, "7"=Dom
-  startTime: string; // "HH:mm"
-  endTime: string;   // "HH:mm"
+  day: string;            // ISO day of week: "1"=Seg, "7"=Dom
+  startTime?: string;     // "HH:mm"
+  endTime?: string;       // "HH:mm"
+  ignored?: boolean;      // quando true, a mensagem nao dispara neste dia
 };
 
 export type ScheduleTimeGroup = {

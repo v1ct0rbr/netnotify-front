@@ -4,6 +4,7 @@ import ConfirmationDialog from '@/components/ConfirmationDialog';
 import { MultiSelect } from '@/components/multi-select';
 import TinyMceEditor from '@/components/TinyMceEditor';
 import { Button } from '@/components/ui/button';
+import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
 import { Skeleton } from '@/components/ui/skeleton';
 import { StyledSelect } from '@/components/ui/styled-select';
 import api from '@/config/axios';
@@ -14,8 +15,11 @@ import {
   buildOfficeHoursSummary,
   DAY_NAMES,
   DAYS_OF_WEEK,
+  isIgnoredAvailabilityDay,
   normalizeAvailabilityWindows,
   parseTimeToMinutes,
+  serializeAvailabilityWindows,
+  sortAvailabilityWindows,
 } from '@/utils/availabilityWindows';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { useQuery } from '@tanstack/react-query';
@@ -30,7 +34,7 @@ import {
   Building2,
   GitBranch,
   Calendar,
-  Clock,
+  ChevronDown,
   RefreshCw,
   Plus,
   MessageSquareText,
@@ -217,8 +221,9 @@ const FormSchema = z
       .array(
         z.object({
           day: z.string(),
-          startTime: z.string(),
-          endTime: z.string(),
+          startTime: z.string().optional(),
+          endTime: z.string().optional(),
+          ignored: z.boolean().optional(),
         })
       )
       .optional(),
@@ -333,7 +338,7 @@ const FormSchema = z
     }
 
     if (data.availabilityWindows && data.availabilityWindows.length > 0) {
-      const byDay = new Map<string, Array<{ start: number; end: number }>>();
+      const byDay = new Map<string, { ignored: boolean; intervals: Array<{ start: number; end: number }> }>();
 
       data.availabilityWindows.forEach((window, index) => {
         const day = String(window.day ?? '').trim();
@@ -342,6 +347,29 @@ const FormSchema = z
           ctx.addIssue({
             code: 'custom',
             message: 'Dia da janela de disponibilidade invalido',
+            path: ['availabilityWindows', index, 'day'],
+          });
+          return;
+        }
+
+        const currentDay = byDay.get(day) ?? { ignored: false, intervals: [] };
+        if (window.ignored) {
+          if (currentDay.ignored || currentDay.intervals.length > 0) {
+            ctx.addIssue({
+              code: 'custom',
+              message: `Dia ${DAY_NAMES[day] ?? day} ja possui configuracao personalizada`,
+              path: ['availabilityWindows', index, 'day'],
+            });
+            return;
+          }
+          byDay.set(day, { ignored: true, intervals: [] });
+          return;
+        }
+
+        if (currentDay.ignored) {
+          ctx.addIssue({
+            code: 'custom',
+            message: `Dia ${DAY_NAMES[day] ?? day} esta marcado para nao disparar mensagens`,
             path: ['availabilityWindows', index, 'day'],
           });
           return;
@@ -373,14 +401,16 @@ const FormSchema = z
         }
 
         if (startMinutes !== null && endMinutes !== null && startMinutes < endMinutes) {
-          const list = byDay.get(day) ?? [];
-          list.push({ start: startMinutes, end: endMinutes });
-          byDay.set(day, list);
+          currentDay.intervals.push({ start: startMinutes, end: endMinutes });
+          byDay.set(day, currentDay);
         }
       });
 
-      for (const [day, intervals] of byDay.entries()) {
-        const sorted = [...intervals].sort((a, b) => a.start - b.start);
+      for (const [day, config] of byDay.entries()) {
+        if (config.ignored) {
+          continue;
+        }
+        const sorted = [...config.intervals].sort((a, b) => a.start - b.start);
         for (let i = 1; i < sorted.length; i += 1) {
           if (sorted[i].start < sorted[i - 1].end) {
             ctx.addIssue({
@@ -421,6 +451,7 @@ interface HomeFormProps {
 
 export const MessageForm: React.FC<HomeFormProps> = ({ id }: HomeFormProps) => {
   const [isDialogOpen, setIsDialogOpen] = React.useState(false);
+  const [isOfficeHoursCardOpen, setIsOfficeHoursCardOpen] = React.useState(false);
   const { getDepartments } = useDepartmentsApi();
   
   const { saveFormData, getFormData, clearFormData } = useFormStore();
@@ -647,7 +678,7 @@ export const MessageForm: React.FC<HomeFormProps> = ({ id }: HomeFormProps) => {
       payload.scheduleTimes = JSON.stringify(monthlyGroups);
     }
     if (data.availabilityWindows && data.availabilityWindows.length > 0) {
-      payload.availabilityWindows = JSON.stringify(data.availabilityWindows);
+      payload.availabilityWindows = serializeAvailabilityWindows(data.availabilityWindows);
     }
     createMessage(payload)
       .then(() => {
@@ -888,13 +919,7 @@ export const MessageForm: React.FC<HomeFormProps> = ({ id }: HomeFormProps) => {
                   Defina a vigencia da mensagem e escolha como ela deve ser repetida ao longo do tempo.
                 </p>
               </div>
-              <div className="rounded-lg border border-purple-200/70 dark:border-slate-700 bg-white/60 dark:bg-slate-900/50 px-4 py-3 min-w-[240px]">
-                <p className="text-[11px] font-semibold uppercase tracking-wide text-purple-700 dark:text-purple-300">
-                  Modo atual
-                </p>
-                <p className="mt-1 text-sm font-semibold text-foreground">{scheduleTypeMeta.label}</p>
-                <p className="mt-1 text-xs text-muted-foreground">{scheduleTypeMeta.description}</p>
-              </div>
+             
             </div>
 
             <div className="grid grid-cols-1 xl:grid-cols-[minmax(0,1.05fr)_minmax(320px,0.95fr)] gap-6">
@@ -923,23 +948,25 @@ export const MessageForm: React.FC<HomeFormProps> = ({ id }: HomeFormProps) => {
                     />
                   )}
                 />
-                <div className="rounded-lg border border-dashed border-purple-200 dark:border-slate-700 bg-purple-50/70 dark:bg-slate-950/40 px-4 py-3">
-                  <p className="text-sm font-medium text-foreground">{scheduleTypeMeta.label}</p>
-                  <p className="mt-1 text-xs text-muted-foreground">{scheduleTypeMeta.description}</p>
-                </div>
+                 <div className="rounded-lg border border-dashed border-purple-200/70 dark:border-slate-700 bg-white/60 dark:bg-slate-900/50 px-4 py-3 min-w-[240px]">
+                <p className="text-[11px] font-semibold uppercase tracking-wide text-purple-700 dark:text-purple-300">
+                  Modo atual
+                </p>
+                <p className="mt-1 text-sm font-semibold text-foreground">{scheduleTypeMeta.label}</p>
+                <p className="mt-1 text-xs text-muted-foreground">{scheduleTypeMeta.description}</p>
+              </div>
               </div>
 
               <div className="rounded-xl border border-purple-200/80 dark:border-slate-700 bg-white/60 dark:bg-slate-900/50 p-4 space-y-4">
                 <div className="flex items-center gap-2">
                   <Calendar size={16} className="text-purple-500" />
-                  <h4 className="text-sm font-medium">Janela de vigencia</h4>
+                  <h4 className="text-md font-medium">Janela de vigencia</h4>
                 </div>
 
                 <div className="grid grid-cols-1 gap-4">
                   {/* Data de publicacao */}
                   <div className="space-y-2">
-                    <div className="flex items-center gap-2">
-                      <Calendar size={16} className="text-purple-500" />
+                    <div className="flex items-center gap-2">                      
                       <label className="block text-sm font-medium">Data de publicacao</label>
                     </div>
                     <Controller
@@ -978,7 +1005,7 @@ export const MessageForm: React.FC<HomeFormProps> = ({ id }: HomeFormProps) => {
                   {/* Data de expiracao */}
                   <div className="space-y-2">
                     <div className="flex items-center gap-2">
-                      <Clock size={16} className="text-purple-500" />
+                      
                       <label className="block text-sm font-medium">Data de expiracao</label>
                     </div>
                     <Controller
@@ -1440,39 +1467,64 @@ export const MessageForm: React.FC<HomeFormProps> = ({ id }: HomeFormProps) => {
               control={control}
               name="availabilityWindows"
               render={({ field }) => {
-                const windows = field.value ?? [];
-                const normalizedWindows = windows.map((window) => ({
-                  day: String(window.day),
-                  startTime: window.startTime,
-                  endTime: window.endTime,
-                }));
+                const normalizedWindows = sortAvailabilityWindows(
+                  (field.value ?? []).map((window) => ({
+                    day: String(window.day ?? ''),
+                    startTime: window.startTime,
+                    endTime: window.endTime,
+                    ignored: window.ignored ?? false,
+                  }))
+                );
                 const selectedDays = new Set(normalizedWindows.map((window) => window.day));
                 const groupedWindows = DAYS_OF_WEEK.map((day) => ({
                   ...day,
+                  ignored: normalizedWindows.some(
+                    (window) => window.day === day.value && isIgnoredAvailabilityDay(window)
+                  ),
                   windows: normalizedWindows
                     .map((window, index) => ({ ...window, index }))
-                    .filter((window) => window.day === day.value),
-                })).filter((day) => day.windows.length > 0);
+                    .filter((window) => window.day === day.value && !isIgnoredAvailabilityDay(window)),
+                })).filter((day) => day.ignored || day.windows.length > 0);
+
+                const removeDayOverrides = (day: string) => {
+                  field.onChange(normalizedWindows.filter((window) => window.day !== day));
+                };
 
                 const toggleDay = (day: string) => {
                   if (selectedDays.has(day)) {
-                    field.onChange(normalizedWindows.filter((window) => window.day !== day));
+                    removeDayOverrides(day);
                     return;
                   }
 
-                  field.onChange([
+                  field.onChange(sortAvailabilityWindows([
                     ...normalizedWindows,
                     { day, startTime: '08:00', endTime: '17:00' },
-                  ]);
+                  ]));
+                };
+                const setDayMode = (day: string, ignored: boolean) => {
+                  const nextWindows = normalizedWindows.filter((window) => window.day !== day);
+                  if (ignored) {
+                    field.onChange(sortAvailabilityWindows([...nextWindows, { day, ignored: true }]));
+                    return;
+                  }
+
+                  field.onChange(
+                    sortAvailabilityWindows([
+                      ...nextWindows,
+                      { day, startTime: '08:00', endTime: '17:00' },
+                    ])
+                  );
                 };
                 const addWindowForDay = (day: string) => {
-                  field.onChange([
-                    ...normalizedWindows,
-                    { day, startTime: '08:00', endTime: '17:00' },
-                  ]);
+                  field.onChange(
+                    sortAvailabilityWindows([
+                      ...normalizedWindows.filter((window) => window.day !== day || !window.ignored),
+                      { day, startTime: '08:00', endTime: '17:00' },
+                    ])
+                  );
                 };
                 const removeWindow = (idx: number) => {
-                  field.onChange(normalizedWindows.filter((_, i) => i !== idx));
+                  field.onChange(sortAvailabilityWindows(normalizedWindows.filter((_, i) => i !== idx)));
                 };
                 const updateWindow = (
                   idx: number,
@@ -1482,62 +1534,85 @@ export const MessageForm: React.FC<HomeFormProps> = ({ id }: HomeFormProps) => {
                   const updated = normalizedWindows.map((w, i) =>
                     i === idx ? { ...w, [key]: value } : w
                   );
-                  field.onChange(updated);
+                  field.onChange(sortAvailabilityWindows(updated));
                 };
                 return (
                   <div className="space-y-4">
                     {normalizedWindows.length === 0 ? (
                       <div className="rounded-lg border border-amber-300/60 dark:border-amber-700/60 bg-amber-50/70 dark:bg-amber-950/20 p-3">
-                        <div className="space-y-2">
-                          <p className="text-xs text-amber-800 dark:text-amber-200">
-                            <span className="font-semibold">Expediente padrão ativo</span>
-                          </p>
-
-                          {defaultOfficeHoursLoading ? (
-                            <p className="text-xs text-amber-800 dark:text-amber-200">Carregando...</p>
-                          ) : defaultOfficeHoursSummary.length > 0 ? (
-                            <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-2">
-                              {defaultOfficeHoursSummary.map((item) => (
-                                <div
-                                  key={item.day}
-                                  className="rounded-md border border-amber-300/50 dark:border-amber-700/40 bg-white/80 dark:bg-slate-900/60 px-2.5 py-2"
-                                >
-                                  <p className="text-[11px] font-semibold text-amber-900 dark:text-amber-100">
-                                    {item.day}
-                                  </p>
-                                  <div className="mt-1 flex flex-wrap gap-1">
-                                    {item.intervals.map((interval) => (
-                                      <span
-                                        key={`${item.day}-${interval}`}
-                                        className="inline-flex items-center rounded-full border border-amber-300/60 dark:border-amber-700/50 bg-amber-100/80 dark:bg-amber-950/30 px-2 py-0.5 text-[11px] font-medium text-amber-900 dark:text-amber-100"
-                                      >
-                                        {interval}
-                                      </span>
-                                    ))}
-                                  </div>
+                        <Collapsible open={isOfficeHoursCardOpen} onOpenChange={setIsOfficeHoursCardOpen}>
+                          <div className="space-y-2">
+                            <CollapsibleTrigger asChild>
+                              <button
+                                type="button"
+                                className="flex w-full items-center justify-between gap-3 rounded-md text-left text-xs text-amber-800 dark:text-amber-200"
+                              >
+                                <div>
+                                  <span className="font-semibold">Expediente padrão ativo</span>
+                                  <span className="ml-2 text-[11px] opacity-80">
+                                    {defaultOfficeHoursLoading
+                                      ? 'Carregando...'
+                                      : defaultOfficeHoursSummary.length > 0
+                                      ? `${defaultOfficeHoursSummary.length} dia(s) configurado(s)`
+                                      : 'Não configurado'}
+                                  </span>
                                 </div>
-                              ))}
-                            </div>
-                          ) : (
-                            <p className="text-xs text-amber-800 dark:text-amber-200">Não configurado.</p>
-                          )}
+                                <ChevronDown
+                                  size={16}
+                                  className={`shrink-0 transition-transform ${isOfficeHoursCardOpen ? 'rotate-180' : ''}`}
+                                />
+                              </button>
+                            </CollapsibleTrigger>
 
-                          <p className="text-xs text-amber-800 dark:text-amber-200">
-                            Configure janelas abaixo para sobrescrever esse padrão nesta mensagem.
-                          </p>
-                        </div>
+                            <CollapsibleContent className="space-y-2">
+                              {defaultOfficeHoursLoading ? (
+                                <p className="text-xs text-amber-800 dark:text-amber-200">Carregando...</p>
+                              ) : defaultOfficeHoursSummary.length > 0 ? (
+                                <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-2">
+                                  {defaultOfficeHoursSummary.map((item) => (
+                                    <div
+                                      key={item.day}
+                                      className="rounded-md border border-amber-300/50 dark:border-amber-700/40 bg-white/80 dark:bg-slate-900/60 px-2.5 py-2"
+                                    >
+                                      <p className="text-[11px] font-semibold text-amber-900 dark:text-amber-100">
+                                        {item.day}
+                                      </p>
+                                      <div className="mt-1 flex flex-wrap gap-1">
+                                        {item.intervals.map((interval) => (
+                                          <span
+                                            key={`${item.day}-${interval}`}
+                                            className="inline-flex items-center rounded-full border border-amber-300/60 dark:border-amber-700/50 bg-amber-100/80 dark:bg-amber-950/30 px-2 py-0.5 text-[11px] font-medium text-amber-900 dark:text-amber-100"
+                                          >
+                                            {interval}
+                                          </span>
+                                        ))}
+                                      </div>
+                                    </div>
+                                  ))}
+                                </div>
+                              ) : (
+                                <p className="text-xs text-amber-800 dark:text-amber-200">Não configurado.</p>
+                              )}
+
+                              <p className="text-xs text-amber-800 dark:text-amber-200">
+                                Configure apenas os dias que precisam sobrescrever esse padrão nesta mensagem.
+                              </p>
+                            </CollapsibleContent>
+                          </div>
+                        </Collapsible>
                       </div>
                     ) : (
                       <div className="rounded-lg border border-orange-300/60 dark:border-orange-700/60 bg-orange-50/70 dark:bg-orange-950/20 p-3">
                         <p className="text-xs text-orange-800 dark:text-orange-200">
-                          <span className="font-semibold">Expediente personalizado da mensagem:</span>{' '}
-                          as janelas abaixo substituem o expediente padrão global.
+                          <span className="font-semibold">Dias personalizados da mensagem:</span>{' '}
+                          os dias configurados abaixo sobrescrevem o expediente padrão global. Os demais
+                          continuam seguindo o expediente cadastrado.
                         </p>
                       </div>
                     )}
 
                     <div className="space-y-2">
-                      <label className="block text-sm font-medium">Dias com restricao</label>
+                      <label className="block text-sm font-medium">Dias personalizados</label>
                       <div className="flex flex-wrap gap-2">
                         {DAYS_OF_WEEK.map((day) => {
                           const isSelected = selectedDays.has(day.value);
@@ -1559,7 +1634,8 @@ export const MessageForm: React.FC<HomeFormProps> = ({ id }: HomeFormProps) => {
                         })}
                       </div>
                       <p className="text-xs text-muted-foreground">
-                        Clique no dia para ativar ou remover todos os intervalos dele.
+                        Clique no dia para criar uma sobrescrita. Clique novamente para remover a
+                        sobrescrita e voltar ao expediente padrão global.
                       </p>
                     </div>
 
@@ -1574,51 +1650,71 @@ export const MessageForm: React.FC<HomeFormProps> = ({ id }: HomeFormProps) => {
                               <div>
                                 <h4 className="font-semibold text-foreground">{dayGroup.label}</h4>
                                 <p className="text-xs text-muted-foreground">
-                                  {dayGroup.windows.length} intervalo{dayGroup.windows.length > 1 ? 's' : ''}
+                                  {dayGroup.ignored
+                                    ? 'Nenhum disparo permitido neste dia'
+                                    : `${dayGroup.windows.length} intervalo${dayGroup.windows.length > 1 ? 's' : ''}`}
                                 </p>
                               </div>
-                              <button
-                                type="button"
-                                onClick={() => addWindowForDay(dayGroup.value)}
-                                className="flex items-center gap-1 text-xs text-orange-600 hover:text-orange-800 font-medium border border-orange-300 hover:border-orange-500 rounded px-2 py-1"
-                              >
-                                <Plus size={12} /> Adicionar intervalo
-                              </button>
-                            </div>
-
-                            <div className="space-y-2">
-                              {dayGroup.windows.map((window) => (
-                                <div
-                                  key={window.index}
-                                  className="grid grid-cols-[minmax(0,1fr)_minmax(0,1fr)_auto] gap-2 items-center"
+                              <div className="flex flex-wrap items-center gap-2">
+                                <button
+                                  type="button"
+                                  onClick={() => setDayMode(dayGroup.value, !dayGroup.ignored)}
+                                  className="flex items-center gap-1 text-xs text-orange-600 hover:text-orange-800 font-medium border border-orange-300 hover:border-orange-500 rounded px-2 py-1"
                                 >
-                                  <input
-                                    type="time"
-                                    value={window.startTime}
-                                    onChange={(e) =>
-                                      updateWindow(window.index, 'startTime', e.target.value)
-                                    }
-                                    className="w-full border rounded-lg px-3 py-2 text-sm dark:bg-slate-950 dark:border-slate-700"
-                                  />
-                                  <input
-                                    type="time"
-                                    value={window.endTime}
-                                    onChange={(e) =>
-                                      updateWindow(window.index, 'endTime', e.target.value)
-                                    }
-                                    className="w-full border rounded-lg px-3 py-2 text-sm dark:bg-slate-950 dark:border-slate-700"
-                                  />
+                                  {dayGroup.ignored ? 'Usar horarios personalizados' : 'Desconsiderar dia'}
+                                </button>
+                                {!dayGroup.ignored && (
                                   <button
                                     type="button"
-                                    onClick={() => removeWindow(window.index)}
-                                    className="text-red-500 hover:text-red-700 transition-colors p-1"
-                                    aria-label={`Remover intervalo de ${DAY_NAMES[dayGroup.value]}`}
+                                    onClick={() => addWindowForDay(dayGroup.value)}
+                                    className="flex items-center gap-1 text-xs text-orange-600 hover:text-orange-800 font-medium border border-orange-300 hover:border-orange-500 rounded px-2 py-1"
                                   >
-                                    <Trash2 size={16} />
+                                    <Plus size={12} /> Adicionar intervalo
                                   </button>
-                                </div>
-                              ))}
+                                )}
+                              </div>
                             </div>
+
+                            {dayGroup.ignored ? (
+                              <div className="rounded-lg border border-dashed border-orange-300/70 dark:border-orange-700/60 bg-orange-100/60 dark:bg-orange-950/20 px-3 py-2 text-xs text-orange-900 dark:text-orange-100">
+                                Neste dia a mensagem nao sera disparada, mesmo que o expediente padrao
+                                global permita envio.
+                              </div>
+                            ) : (
+                              <div className="space-y-2">
+                                {dayGroup.windows.map((window) => (
+                                  <div
+                                    key={window.index}
+                                    className="grid grid-cols-[minmax(0,1fr)_minmax(0,1fr)_auto] gap-2 items-center"
+                                  >
+                                    <input
+                                      type="time"
+                                      value={window.startTime ?? ''}
+                                      onChange={(e) =>
+                                        updateWindow(window.index, 'startTime', e.target.value)
+                                      }
+                                      className="w-full border rounded-lg px-3 py-2 text-sm dark:bg-slate-950 dark:border-slate-700"
+                                    />
+                                    <input
+                                      type="time"
+                                      value={window.endTime ?? ''}
+                                      onChange={(e) =>
+                                        updateWindow(window.index, 'endTime', e.target.value)
+                                      }
+                                      className="w-full border rounded-lg px-3 py-2 text-sm dark:bg-slate-950 dark:border-slate-700"
+                                    />
+                                    <button
+                                      type="button"
+                                      onClick={() => removeWindow(window.index)}
+                                      className="text-red-500 hover:text-red-700 transition-colors p-1"
+                                      aria-label={`Remover intervalo de ${DAY_NAMES[dayGroup.value]}`}
+                                    >
+                                      <Trash2 size={16} />
+                                    </button>
+                                  </div>
+                                ))}
+                              </div>
+                            )}
                           </div>
                         ))}
                       </div>
@@ -1626,7 +1722,7 @@ export const MessageForm: React.FC<HomeFormProps> = ({ id }: HomeFormProps) => {
 
                     {normalizedWindows.length === 0 && (
                       <p className="text-xs text-muted-foreground italic">
-                        Nenhuma janela configurada — sem restricao de horario
+                        Nenhum dia personalizado — a mensagem seguira apenas o expediente padrão global
                       </p>
                     )}
                     {errors.availabilityWindows && (
