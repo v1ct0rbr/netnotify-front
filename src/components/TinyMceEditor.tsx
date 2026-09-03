@@ -3,6 +3,7 @@ import { Editor } from '@tinymce/tinymce-react';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
 import { useTheme } from './theme-provider';
+import { uploadImage } from '@/api/upload';
 
 interface TinyMceEditorProps {
     value: string;
@@ -219,8 +220,27 @@ function TinyMceEditor({ value, onChange }: TinyMceEditorProps) {
                     skin: theme === 'dark' ? 'oxide-dark' : 'oxide',
                     content_css: theme === 'dark' ? 'dark' : 'default',
                     extended_valid_elements: 'iframe[src|frameborder|style|allowfullscreen|allow|width|height]',
+                    // Preserva HTML arbitrário digitado/passado no modo código em vez de
+                    // remover tags/atributos desconhecidos ao salvar.
+                    valid_elements: '*[*]',
+                    valid_children: '+body[style],+*[style],+*[*]',
+                    // Mantém <style> (e outros blocos de documento) dentro do conteúdo,
+                    // preservando o CSS de comunicados estilizados.
+                    custom_elements: 'style,link,meta,title',
+                    allow_html_in_named_anchor: true,
+                    // Preserva caracteres acentuados como UTF-8 em vez de convertê-los
+                    // em entidades (&agrave; -> à).
+                    entity_encoding: 'raw',
                     object_resizing: true,
                     media_live_embeds: true,
+                    images_upload_handler: async (blobInfo: { blob: () => Blob; filename: () => string }) => {
+                        try {
+                            const result = await uploadImage(blobInfo.blob(), blobInfo.filename());
+                            return { location: result.url };
+                        } catch (e: any) {
+                            throw new Error(e?.response?.data?.message || e?.message || 'Falha ao enviar a imagem.');
+                        }
+                    },
                 }}
             />
 
