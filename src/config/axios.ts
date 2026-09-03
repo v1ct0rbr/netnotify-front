@@ -2,6 +2,7 @@ import axios from 'axios';
 import camelcaseKeys from 'camelcase-keys';
 import { useAuthStore } from '@/store/useAuthStore';
 import { useNavigationStore } from '@/store/useNavigationStore';
+import { getAccessToken, getRefreshToken, setTokens, getExpiresIn } from '@/lib/tokenStorage';
 
 /*
 ERR_FR_TOO_MANY_REDIRECTS: Indicates that the request was redirected too many times.
@@ -58,10 +59,10 @@ async function refreshAccessToken(): Promise<string | null> {
 
   // Criar a promise de refresh
   refreshTokenPromise = (async () => {
-    const refreshToken = localStorage.getItem('refresh_token');
+    const refreshToken = getRefreshToken();
     
     if (!refreshToken) {
-      console.warn('⚠️ [REFRESH] Sem refresh_token no localStorage');
+      console.warn('⚠️ [REFRESH] Sem refresh_token em memória');
       return null;
     }
 
@@ -97,15 +98,12 @@ async function refreshAccessToken(): Promise<string | null> {
       const newRefreshToken = response.data.refreshToken || response.data.refresh_token;
 
       if (newAccessToken) {
-        localStorage.setItem('access_token', newAccessToken);
-
-        if (newExpiresIn) {
-          localStorage.setItem('expires_in', String(newExpiresIn));
-        }
-
-        if (newRefreshToken) {
-          localStorage.setItem('refresh_token', newRefreshToken);
-        }
+        setTokens(
+          newAccessToken,
+          newRefreshToken || getRefreshToken() || '',
+          newExpiresIn ? Number(newExpiresIn) : undefined,
+          'Bearer',
+        );
 
         // Sincronizar o store Zustand imediatamente
         try {
@@ -113,8 +111,8 @@ async function refreshAccessToken(): Promise<string | null> {
           if (authStore.user) {
             authStore.setTokens({
               accessToken: newAccessToken,
-              refreshToken: newRefreshToken || localStorage.getItem('refresh_token') || '',
-              expiresIn: newExpiresIn || parseInt(localStorage.getItem('expires_in') || '3600'),
+              refreshToken: newRefreshToken || getRefreshToken() || '',
+              expiresIn: newExpiresIn || getExpiresIn() || 3600,
               tokenType: 'Bearer',
               user: authStore.user,
             });
@@ -148,7 +146,7 @@ api.interceptors.request.use(config => {
     if (isHandlingAuthError) {
         return Promise.reject(new Error('Authentication error loop protection'));
     }
-    const token = localStorage.getItem('access_token');
+    const token = getAccessToken();
     
     //console.log(`🌐 [INTERCEPTOR] ${config.method?.toUpperCase()} ${config.url}`);
     //console.log(`   Payload enviado:`, config.data);
@@ -158,8 +156,7 @@ api.interceptors.request.use(config => {
         //console.log('✅ [INTERCEPTOR] Authorization header adicionado');
         //console.log('   Token (primeiros 50 chars):', token.substring(0, 50) + '...');
     } else {
-        console.warn('⚠️ [INTERCEPTOR] ⚠️ NENHUM TOKEN ENCONTRADO EM localStorage!');
-        console.warn('   localStorage keys:', Object.keys(localStorage));
+        console.warn('⚠️ [INTERCEPTOR] ⚠️ NENHUM TOKEN ENCONTRADO EM MEMÓRIA!');
     }
     
     // ✅ NÃO converter request para camelCase

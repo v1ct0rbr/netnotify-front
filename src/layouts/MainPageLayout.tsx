@@ -9,6 +9,7 @@ import {
 } from '@/components/ui/sidebar';
 import { useAuthStore } from "@/store/useAuthStore";
 import Cookies from 'js-cookie';
+import { getAccessToken } from "@/lib/tokenStorage";
 
 import React, { useEffect } from "react";
 import { Outlet, useMatches, useNavigate } from "react-router-dom";
@@ -32,7 +33,7 @@ export default function MainPageLayout({ pageTitle }: MainPageLayoutProps): Reac
     // Extrair username do token JWT armazenado (para debug)
     useEffect(() => {
         try {
-            const token = localStorage.getItem('access_token');
+            const token = getAccessToken();
             if (token) {
                 JSON.parse(atob(token.split('.')[1]));
             }

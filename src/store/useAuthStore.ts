@@ -3,6 +3,16 @@ import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
 import { authService } from '@/services/AuthService';
 import { toast } from 'sonner';
+import {
+  getAccessToken,
+  getRefreshToken,
+  setTokens as persistTokens,
+  clearTokens,
+  hasTokens,
+  hydrateTokensFromSession,
+} from '@/lib/tokenStorage';
+
+hydrateTokensFromSession();
 
 /**
  * Roles específicas da aplicação (enum do backend)
@@ -148,7 +158,7 @@ export const useAuthStore = create<AuthState>()(
   isAuthenticated: false,
 
   setUser: (user) => {
-    const token = localStorage.getItem('access_token');
+    const token = getAccessToken();
     const normalizedUser = normalizeUserInfo(user, token);
 
     if (normalizedUser) {
@@ -162,10 +172,12 @@ export const useAuthStore = create<AuthState>()(
   setToken: (token) => set({ token }),
 
   setTokens: (response: KeycloakTokenResponse) => {
-    localStorage.setItem('access_token', response.accessToken);
-    if (response.refreshToken) {
-      localStorage.setItem('refresh_token', response.refreshToken);
-    }
+    persistTokens(
+      response.accessToken,
+      response.refreshToken || null,
+      response.expiresIn,
+      response.tokenType,
+    );
     const userWithRoles = normalizeUserInfo(
       response.user as UserInfoLike,
       response.accessToken,
@@ -181,7 +193,7 @@ export const useAuthStore = create<AuthState>()(
       token: response.accessToken,
       refreshToken: response.refreshToken || null,
       user: userWithRoles,
-      isAuthenticated: !!userWithRoles,
+      isAuthenticated: !!userWithRoles && hasTokens(),
     });
   },
 
@@ -206,11 +218,9 @@ export const useAuthStore = create<AuthState>()(
     try {
       await authService.logout();
 
-      localStorage.removeItem('access_token');
-      localStorage.removeItem('refresh_token');
+      clearTokens();
       localStorage.removeItem('user');
-      localStorage.removeItem('expires_in');
-      localStorage.removeItem('token_type');
+      localStorage.removeItem('auth-storage');
       localStorage.removeItem('auth_attempted_codes');
       localStorage.removeItem('__pkce_code_verifier__');
 
@@ -219,11 +229,9 @@ export const useAuthStore = create<AuthState>()(
       _doKeycloakRedirect();
     } catch (error) {
       console.error('❌ [auth] Erro durante logout:', error);
-      localStorage.removeItem('access_token');
-      localStorage.removeItem('refresh_token');
+      clearTokens();
       localStorage.removeItem('user');
-      localStorage.removeItem('expires_in');
-      localStorage.removeItem('token_type');
+      localStorage.removeItem('auth-storage');
       localStorage.removeItem('auth_attempted_codes');
       localStorage.removeItem('__pkce_code_verifier__');
       set({ user: null, token: null, refreshToken: null, isAuthenticated: false });
@@ -235,14 +243,14 @@ export const useAuthStore = create<AuthState>()(
   checkAuth: async () => {
     set({ isChecking: true });
     try {
-      const token = localStorage.getItem('access_token');
+      const token = getAccessToken();
       if (!token) {
         set({ isChecking: false });
         return false;
       }
 
       const res = await api.get('/profile/me');
-      const currentToken = localStorage.getItem('access_token') || token;
+      const currentToken = getAccessToken() || token;
       const candidate = (res as any)?.data?.user ?? (res as any)?.data;
       const hasUsername = candidate && typeof candidate === 'object' && typeof candidate.username === 'string';
 
@@ -262,13 +270,13 @@ export const useAuthStore = create<AuthState>()(
       const status = (err as any)?.response?.status;
 
       if (status === 403) {
-        const fallbackUser = readNormalizedStoredUser(localStorage.getItem('access_token'));
-        const currentToken = localStorage.getItem('access_token');
+        const fallbackUser = readNormalizedStoredUser(getAccessToken());
+        const currentToken = getAccessToken();
         set({ user: fallbackUser, token: currentToken || null, isAuthenticated: !!fallbackUser, isChecking: false });
         return !!fallbackUser;
       }
 
-      localStorage.removeItem('access_token');
+      clearTokens();
       set({ user: null, token: null, isAuthenticated: false, isChecking: false });
       return false;
     }
@@ -278,7 +286,7 @@ export const useAuthStore = create<AuthState>()(
     set({ isChecking: true });
     try {
       const res = await api.get('/profile/me');
-      const token = localStorage.getItem('access_token');
+      const token = getAccessToken();
       const candidate = (res as any)?.data?.user ?? (res as any)?.data;
       const hasUsername = candidate && typeof candidate === 'object' && typeof candidate.username === 'string';
       const isAuthenticated = !!(token && hasUsername);
@@ -299,7 +307,7 @@ export const useAuthStore = create<AuthState>()(
 
       if (status === 403) {
         set({ isChecking: false });
-        const fallbackUser = readNormalizedStoredUser(localStorage.getItem('access_token'));
+        const fallbackUser = readNormalizedStoredUser(getAccessToken());
         return { user: fallbackUser, isAuthenticated: !!fallbackUser };
       }
 
@@ -313,7 +321,7 @@ export const useAuthStore = create<AuthState>()(
       name: 'auth-storage',
       merge: (persistedState, currentState) => {
         const typedState = persistedState as Partial<AuthState> | undefined;
-        const persistedToken = typedState?.token ?? currentState.token ?? localStorage.getItem('access_token');
+        const persistedToken = typedState?.token ?? currentState.token ?? getAccessToken();
         const normalizedUser = normalizeUserInfo(typedState?.user as UserInfoLike | null | undefined, persistedToken)
           ?? currentState.user;
 
@@ -325,13 +333,13 @@ export const useAuthStore = create<AuthState>()(
           ...currentState,
           ...typedState,
           user: normalizedUser,
-          isAuthenticated: typedState?.isAuthenticated ?? currentState.isAuthenticated,
+          token: getAccessToken(),
+          refreshToken: getRefreshToken(),
+          isAuthenticated: hasTokens() && (typedState?.isAuthenticated ?? currentState.isAuthenticated),
         };
       },
       partialize: (state) => ({
         user: state.user,
-        token: state.token,
-        refreshToken: state.refreshToken,
         isAuthenticated: state.isAuthenticated,
       }),
     }

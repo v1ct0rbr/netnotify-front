@@ -10,6 +10,10 @@
 
 import type { UserInfo } from '@/store/useAuthStore';
 import api from '../config/axios';
+import { hydrateTokensFromSession, setTokens, getRefreshToken, getAccessToken, clearTokens, hasTokens } from '@/lib/tokenStorage';
+
+// Hidrata a memória a partir do sessionStorage (sobrevive a reload da aba)
+hydrateTokensFromSession();
 
 class AuthService {
 
@@ -66,10 +70,13 @@ class AuthService {
       const refreshTokenVal = response.data.refreshToken || response.data.refresh_token;
       const expiresIn = response.data.expiresIn || response.data.expires_in;
 
-      localStorage.setItem('access_token', accessToken);
-      localStorage.setItem('refresh_token', refreshTokenVal);
-      localStorage.setItem('expires_in', String(expiresIn || '3600'));
-      localStorage.setItem('token_type', response.data.tokenType || response.data.token_type || 'Bearer');
+      // Armazenar tokens de forma SEGURA (memória + sessionStorage), nunca em localStorage
+      setTokens(
+        accessToken,
+        refreshTokenVal || null,
+        typeof expiresIn === 'number' ? expiresIn : undefined,
+        response.data.tokenType || response.data.token_type || 'Bearer',
+      );
       // O usuário é persistido pelo store após normalizar aliases legados de roles.
 
       return response.data;
@@ -114,7 +121,7 @@ class AuthService {
    */
   async logout(): Promise<void> {
     try {
-      const refreshToken = localStorage.getItem('refresh_token');
+      const refreshToken = getRefreshToken();
       // console.log('🚪 [auth] Iniciando logout...');
       // console.log('📦 [DEBUG] localStorage state:');
       // console.log('   - access_token:', localStorage.getItem('access_token') ? `${localStorage.getItem('access_token')!.substring(0, 50)}...` : 'NÃO ENCONTRADO');
@@ -147,12 +154,8 @@ class AuthService {
       }
 
       // 2. Remover dados locais
-      localStorage.removeItem('access_token');
-      localStorage.removeItem('refresh_token');
-      localStorage.removeItem('token');
+      clearTokens();
       localStorage.removeItem('user');
-      localStorage.removeItem('expires_in');
-      localStorage.removeItem('token_type');
       localStorage.removeItem('auth-storage'); // Zustand store
       
       // ✅ NÃO adicionar/remover header manualmente - o interceptador cuida disso!
@@ -177,11 +180,11 @@ class AuthService {
    * Retorna token atual
    */
   getAccessToken(): string | null {
-    return localStorage.getItem('access_token');
+    return getAccessToken();
   }
 
   isAuthenticated(): boolean {
-    return !!localStorage.getItem('access_token');
+    return hasTokens();
   }
 
   isAdmin(): boolean {

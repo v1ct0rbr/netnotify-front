@@ -11,6 +11,7 @@ import api from '@/config/axios';
 import { generateCodeChallenge, generateCodeVerifier, generateRandomString } from './pkce';
 import { useNavigationStore } from '@/store/useNavigationStore';
 import { useAuthStore } from '@/store/useAuthStore';
+import { getAccessToken, getRefreshToken, getExpiresIn, getTokenType } from '@/lib/tokenStorage';
 
 interface InitAuthParams {
   setIsLoading: (loading: boolean) => void;
@@ -25,10 +26,10 @@ export async function initializeAuth({
   // console.log('📍 URL atual:', window.location.href);
   //console.log('📍 Search (query string):', window.location.search);
 
-  // ✅ PRIMEIRO: Sincronizar localStorage com Zustand
+  // ✅ PRIMEIRO: Sincronizar tokens (memória + sessionStorage) com Zustand
   // Isso garante que o interceptador terá acesso ao token correto
-  const accessToken = localStorage.getItem('access_token');
-  const refreshToken = localStorage.getItem('refresh_token');
+  const accessToken = getAccessToken();
+  const refreshToken = getRefreshToken();
   const storedUser = localStorage.getItem('user');
 
   /* console.log('🔐 Estado do localStorage:', {
@@ -50,8 +51,8 @@ export async function initializeAuth({
       setTokens({
         accessToken,
         refreshToken: refreshToken || '',
-        expiresIn: parseInt(localStorage.getItem('expires_in') || '3600'),
-        tokenType: localStorage.getItem('token_type') || 'Bearer',
+        expiresIn: getExpiresIn() ?? 3600,
+        tokenType: getTokenType() ?? 'Bearer',
         user: userData,
       });
 

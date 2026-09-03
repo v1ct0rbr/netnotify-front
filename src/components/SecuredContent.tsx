@@ -3,6 +3,7 @@ import { useEffect, useState } from 'react';
 import { useAuthStore } from '@/store/useAuthStore';
 import { LoadingScreen } from './LoadingScreen';
 import { initializeAuth } from '@/utils/auth-init';
+import { hasTokens } from '@/lib/tokenStorage';
 
 /**
  * SecuredContent
@@ -56,7 +57,7 @@ export const SecuredContent: React.FC = () => {
 
   // Se usuário e token estão no store (persistência), está autenticado
   const hasPersistedAuth = !!user && !!token;
-  const hasTokenInStorage = !!localStorage.getItem('token') || !!localStorage.getItem('access_token');
+  const hasTokenInStorage = hasTokens();
 
   // ✅ Se está carregando, mostrar LoadingScreen
   if (isLoading) {

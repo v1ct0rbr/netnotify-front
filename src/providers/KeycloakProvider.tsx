@@ -5,6 +5,7 @@ import keycloak from '@/config/keycloak';
 import { useAuthStore } from '@/store/useAuthStore';
 import api from '@/config/axios';
 import { toast } from 'sonner';
+import { setTokens } from '@/lib/tokenStorage';
 
 type Props = {
   children: React.ReactNode;
@@ -19,7 +20,7 @@ export const KeycloakProvider: React.FC<Props> = ({ children }) => {
     try {
       // set token no header
       api.defaults.headers.common['Authorization'] = `Bearer ${tokens.token}`;
-      localStorage.setItem('token', tokens.token);
+      setTokens(tokens.token, tokens.refreshToken || null, tokens.tokenParsed?.exp ? undefined : undefined, 'Bearer');
 
       // valida token no backend e fetch user profile
       const res = await api.get('/profile/me');
